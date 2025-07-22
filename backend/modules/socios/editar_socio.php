@@ -52,7 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         foreach ($campos as $campo) {
             $valor = $data[$campo] ?? null;
 
-            // Convertir a mayúsculas si es texto (excepto campos numéricos o fechas)
+            // Convertir campos vacíos a null
+            if ($valor === '') {
+                $valor = null;
+            }
+
+            // Convertir a mayúsculas si es texto (excepto fechas y numéricos)
             if (in_array($campo, ['nombre', 'domicilio', 'numero', 'telefono_movil', 'telefono_fijo', 'comentario', 'domicilio_cobro', 'deuda_2024'])) {
                 $valor = aMayus($valor);
             }

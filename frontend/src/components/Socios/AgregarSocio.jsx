@@ -18,9 +18,10 @@ const AgregarSocio = () => {
     nacimiento: '',
     id_estado: '',
     domicilio_cobro: '',
-    dni: '',
+    dni: ''
   });
   const [errores, setErrores] = useState({});
+  const [mostrarErrores, setMostrarErrores] = useState(false);
 
   useEffect(() => {
     const fetchListas = async () => {
@@ -30,42 +31,64 @@ const AgregarSocio = () => {
         if (json.exito) setListas(json.listas);
         else alert('❌ Error al cargar listas: ' + json.mensaje);
       } catch (err) {
-        console.error(err);
         alert('❌ Error al conectar con el servidor para obtener listas');
       }
     };
     fetchListas();
   }, []);
 
-  const soloNumeros = (valor) => /^[0-9]*$/.test(valor);
-  const permitirTexto = (valor) => /^[A-ZÑa-zñáéíóúÁÉÍÓÚ\s.,-]*$/.test(valor);
+  const validarCampo = (name, value) => {
+    const soloNumeros = /^[0-9]+$/;
+    const textoValido = /^[A-ZÑa-zñáéíóúÁÉÍÓÚ0-9\s.,-]*$/;
+
+    switch (name) {
+      case 'dni':
+      case 'numero':
+      case 'telefono_movil':
+      case 'telefono_fijo':
+        if (value && !soloNumeros.test(value)) return '❌ Solo se permiten números';
+        if (value.length > 20) return '❌ Máximo 20 caracteres';
+        break;
+      case 'nombre':
+      case 'domicilio':
+        if (value && !textoValido.test(value)) {
+          return '❌ Solo se permiten letras, números, espacios, puntos, comas, guiones y Ñ';
+        }
+        if (value.length > 100) return '❌ Máximo 100 caracteres';
+        break;
+      case 'comentario':
+      case 'domicilio_cobro':
+        if (value && !textoValido.test(value)) {
+          return '❌ Solo se permiten letras, números, espacios, puntos, comas, guiones y Ñ';
+        }
+        if (value.length > 100) return '❌ Máximo 100 caracteres';
+        break;
+      default:
+        return null;
+    }
+    return null;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    let valor = value.toUpperCase(); // 🟩 convertir a mayúsculas
-
-    if (['dni', 'telefono_movil', 'telefono_fijo', 'numero'].includes(name) && !soloNumeros(valor)) return;
-    if (
-      ['nombre', 'domicilio', 'comentario', 'domicilio_cobro'].includes(name) &&
-      !permitirTexto(valor)
-    ) return;
-
+    const valor = value.toUpperCase();
     setFormData((prev) => ({ ...prev, [name]: valor }));
-    // Limpiar error cuando el usuario corrige
-    if (errores[name]) {
-      setErrores(prev => {
-        const newErrores = { ...prev };
-        delete newErrores[name];
-        return newErrores;
-      });
-    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMostrarErrores(true);
+    const nuevosErrores = {};
 
-    if (!formData.nombre.trim()) {
-      setErrores({ nombre: '⚠️ El nombre es obligatorio' });
+    if (!formData.nombre.trim()) nuevosErrores.nombre = '⚠️ El nombre es obligatorio';
+
+    Object.entries(formData).forEach(([key, value]) => {
+      const error = validarCampo(key, value);
+      if (error) nuevosErrores[key] = error;
+    });
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErrores(nuevosErrores);
       return;
     }
 
@@ -81,15 +104,10 @@ const AgregarSocio = () => {
         alert('✅ Socio agregado correctamente');
         navigate('/socios');
       } else {
-        // Mostrar todos los errores que vienen del backend
-        if (data.errores) {
-          setErrores(data.errores);
-        } else {
-          alert('❌ Error: ' + data.mensaje);
-        }
+        if (data.errores) setErrores(data.errores);
+        else alert('❌ Error: ' + data.mensaje);
       }
     } catch (error) {
-      console.error('Error:', error);
       alert('❌ Error al conectar con el servidor');
     }
   };
@@ -98,11 +116,24 @@ const AgregarSocio = () => {
     <div className="formulario-container">
       <h2>Agregar Nuevo Socio</h2>
       <form className="formulario-socio" onSubmit={handleSubmit}>
-        <div className="campo-formulario">
-          <input name="nombre" placeholder="Nombre completo *" onChange={handleChange} required />
-          {errores.nombre && <span className="error-message">{errores.nombre}</span>}
-        </div>
-        
+        {[
+          { name: 'nombre', placeholder: 'Nombre completo *' },
+          { name: 'domicilio', placeholder: 'Domicilio' },
+          { name: 'numero', placeholder: 'Número' },
+          { name: 'telefono_movil', placeholder: 'Teléfono Móvil' },
+          { name: 'telefono_fijo', placeholder: 'Teléfono Fijo' },
+          { name: 'comentario', placeholder: 'Comentario' },
+          { name: 'domicilio_cobro', placeholder: 'Domicilio de Cobro' },
+          { name: 'dni', placeholder: 'DNI' },
+        ].map(({ name, placeholder }) => (
+          <div className="campo-formulario" key={name}>
+            <input name={name} placeholder={placeholder} onChange={handleChange} />
+            {mostrarErrores && errores[name] && (
+              <span className="error-message">{errores[name]}</span>
+            )}
+          </div>
+        ))}
+
         <div className="campo-formulario">
           <select name="id_cobrador" onChange={handleChange}>
             <option value="">Seleccione Cobrador</option>
@@ -111,7 +142,7 @@ const AgregarSocio = () => {
             ))}
           </select>
         </div>
-        
+
         <div className="campo-formulario">
           <select name="id_categoria" onChange={handleChange}>
             <option value="">Seleccione Categoría</option>
@@ -120,39 +151,14 @@ const AgregarSocio = () => {
             ))}
           </select>
         </div>
-        
-        <div className="campo-formulario">
-          <input name="domicilio" placeholder="Domicilio" onChange={handleChange} />
-          {errores.domicilio && <span className="error-message">{errores.domicilio}</span>}
-        </div>
-        
-        <div className="campo-formulario">
-          <input name="numero" placeholder="Número" onChange={handleChange} />
-          {errores.numero && <span className="error-message">{errores.numero}</span>}
-        </div>
-        
-        <div className="campo-formulario">
-          <input name="telefono_movil" placeholder="Teléfono Móvil" onChange={handleChange} />
-          {errores.telefono_movil && <span className="error-message">{errores.telefono_movil}</span>}
-        </div>
-        
-        <div className="campo-formulario">
-          <input name="telefono_fijo" placeholder="Teléfono Fijo" onChange={handleChange} />
-          {errores.telefono_fijo && <span className="error-message">{errores.telefono_fijo}</span>}
-        </div>
-        
-        <div className="campo-formulario">
-          <input name="comentario" placeholder="Comentario" onChange={handleChange} />
-          {errores.comentario && <span className="error-message">{errores.comentario}</span>}
-        </div>
-        
+
         <div className="campo-formulario">
           <label className="label-fecha">
             Fecha de nacimiento
             <input name="nacimiento" type="date" onChange={handleChange} />
           </label>
         </div>
-        
+
         <div className="campo-formulario">
           <select name="id_estado" onChange={handleChange}>
             <option value="">Seleccione Estado</option>
@@ -161,17 +167,7 @@ const AgregarSocio = () => {
             ))}
           </select>
         </div>
-        
-        <div className="campo-formulario">
-          <input name="domicilio_cobro" placeholder="Domicilio de Cobro" onChange={handleChange} />
-          {errores.domicilio_cobro && <span className="error-message">{errores.domicilio_cobro}</span>}
-        </div>
-        
-        <div className="campo-formulario">
-          <input name="dni" placeholder="DNI" onChange={handleChange} />
-          {errores.dni && <span className="error-message">{errores.dni}</span>}
-        </div>
-        
+
         <div className="botones-formulario">
           <button type="submit">Guardar</button>
           <button type="button" onClick={() => navigate('/socios')}>Cancelar</button>

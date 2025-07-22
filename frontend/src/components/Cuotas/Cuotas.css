@@ -1,0 +1,48 @@
+.cuotas-container {
+  padding: 20px;
+}
+
+.cuotas-controles {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.cuotas-controles input,
+.cuotas-controles select,
+.cuotas-controles button {
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+.cuotas-controles button.activo {
+  background-color: #4caf50;
+  color: white;
+}
+
+.cuotas-tabla-container {
+  overflow-x: auto;
+}
+
+.cuotas-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cuotas-tabla th, .cuotas-tabla td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+.icono-accion {
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.cuotas-botones {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
