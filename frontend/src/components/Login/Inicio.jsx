@@ -17,7 +17,7 @@ const Inicio = () => {
     setError('');
 
     if (!nombre || !contrasena) {
-      setError('Por favor, completá todos los campos.');
+      setError('Por favor complete todos los campos');
       setLoading(false);
       return;
     }
@@ -40,7 +40,7 @@ const Inicio = () => {
       }
     } catch (err) {
       console.error('Error al iniciar sesión:', err);
-      setError('Error del servidor. Intentalo más tarde.');
+      setError('Error del servidor. Intente más tarde.');
     } finally {
       setLoading(false);
     }
@@ -48,104 +48,79 @@ const Inicio = () => {
 
   return (
     <main className="ini_contenedor">
-      <form className="ini_formulario" onSubmit={manejarEnvio} aria-label="Formulario de inicio de sesión">
+      {/* Mensaje de error posicionado fuera del contenedor */}
+      {error && (
+        <div className="ini_error-container">
+          <div className="ini_error">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      <form className="ini_formulario" onSubmit={manejarEnvio}>
         <div className="ini_logo-container">
           <img 
             src={logoCirculo} 
             alt="Logo de la empresa" 
             className="ini_logo" 
-            width="150"
-            height="150"
+            width="120"
+            height="120"
             loading="lazy"
           />
-          <h1>Bienvenido</h1>
-          <p className="ini_subtitle">Inicia sesión para continuar</p>
+          <h1 className="ini_title">Bienvenido</h1>
+          <p className="ini_subtitle">Inicie sesión para continuar</p>
         </div>
-        
-        {error && (
-          <div className="ini_error" role="alert">
-            <span className="ini_error-icon" aria-hidden="true">⚠️</span>
-            {error}
-          </div>
-        )}
-        
+
+        {/* Campo de usuario con ícono azul */}
         <div className="ini_input-group">
-          <label htmlFor="nombre-usuario" className="ini_sr-only">Usuario</label>
-          <input 
-            id="nombre-usuario"
-            type="text" 
-            placeholder="Usuario" 
+          <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M12 4a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4z"/>
+          </svg>
+          <input
+            id="usuario"
+            type="text"
             className="ini_input-field"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
+            placeholder=" "
             disabled={loading}
-            aria-required="true"
           />
-          <span className="ini_input-icon" aria-hidden="true">👤</span>
+          <label htmlFor="usuario" className="ini_input-label">Usuario</label>
         </div>
-        
+
+        {/* Campo de contraseña con ícono azul */}
         <div className="ini_input-group">
-          <label htmlFor="contrasena" className="ini_sr-only">Contraseña</label>
-          <input 
+          <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M12 17a2 2 0 01-2-2c0-1.11.89-2 2-2a2 2 0 012 2 2 2 0 01-2 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z"/>
+          </svg>
+          <input
             id="contrasena"
-            type="password" 
-            placeholder="Contraseña" 
+            type="password"
             className="ini_input-field"
             value={contrasena}
             onChange={(e) => setContrasena(e.target.value)}
+            placeholder=" "
             disabled={loading}
-            aria-required="true"
           />
-          <span className="ini_input-icon" aria-hidden="true">🔒</span>
+          <label htmlFor="contrasena" className="ini_input-label">Contraseña</label>
         </div>
-        
+
         <button 
           type="submit" 
           className="ini_button"
           disabled={loading}
-          aria-busy={loading}
         >
           {loading ? (
-            <span className="ini_button-loading" aria-hidden="true"></span>
-          ) : (
             <>
-              <span className="ini_button-text">Iniciar Sesión</span>
-              <span className="ini_button-icon" aria-hidden="true">→</span>
+              <span className="loading-spinner"></span>
+              <span>Procesando...</span>
             </>
+          ) : (
+            'Iniciar Sesión'
           )}
-          <span className="ini_sr-only">{loading ? 'Cargando...' : 'Iniciar sesión'}</span>
         </button>
-        
-        <div className="ini_footer">
-          <p className="ini_register-text">
-            ¿No tienes cuenta? 
-            <button 
-              type="button"
-              className="ini_register-link"
-              onClick={() => navigate('/registro')}
-              aria-label="Ir al registro"
-            >
-              Regístrate
-            </button>
-          </p>
-          
-          <button
-            type="button"
-            className="ini_forgot-link"
-            onClick={() => navigate('/olvide-contrasena')}
-            aria-label="Recuperar contraseña"
-          >
-            <span className="ini_icon" aria-hidden="true">🔑</span>
-            ¿Olvidaste tu contraseña?
-          </button>
-        </div>
       </form>
-      
-      <div className="ini_floating-shapes" aria-hidden="true">
-        <div className="ini_shape ini_circle"></div>
-        <div className="ini_shape ini_triangle"></div>
-        <div className="ini_shape ini_square"></div>
-      </div>
     </main>
   );
 };
