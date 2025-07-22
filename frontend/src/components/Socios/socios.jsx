@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FixedSizeList as List } from 'react-window';
 import BASE_URL from '../../config/config';
-import { FaInfoCircle, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
+import { FaInfoCircle, FaEdit, FaTrash, FaUserMinus } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
 import ModalInfoSocio from './modales/ModalInfoSocio';
+import ModalDarBajaSocio from './modales/ModalDarBajaSocio';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const Socios = () => {
   const [socios, setSocios] = useState([]);
-  const [sociosFiltrados, setSociosFiltrados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [letraSeleccionada, setLetraSeleccionada] = useState('');
@@ -18,30 +21,73 @@ const Socios = () => {
   const [mostrarModalInfo, setMostrarModalInfo] = useState(false);
   const [socioInfo, setSocioInfo] = useState(null);
   const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState('');
+  const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
+  const [socioDarBaja, setSocioDarBaja] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const obtenerSocios = async () => {
-      try {
-        const response = await fetch(`${BASE_URL}/api.php?action=socios`);
-        const data = await response.json();
-        if (data.exito) {
-          setSocios(data.socios);
-          setSociosFiltrados([]);
-        } else {
-          console.error('Error al obtener socios:', data.mensaje);
-        }
-      } catch (error) {
-        console.error('Error de red:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const mostrarMensaje = (texto, tipo = 'exito') => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
+    setTimeout(() => {
+      setMensaje('');
+      setTipoMensaje('');
+    }, 3000);
+  };
 
-    obtenerSocios();
+  const obtenerSocios = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api.php?action=socios`);
+      const data = await response.json();
+      if (data.exito) {
+        setSocios(data.socios);
+      } else {
+        mostrarMensaje(`Error al obtener socios: ${data.mensaje}`, 'error');
+      }
+    } catch (error) {
+      mostrarMensaje('Error de red al obtener socios', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const filtrosGuardados = JSON.parse(localStorage.getItem('filtros_socios'));
+
+    if (filtrosGuardados) {
+      setBusqueda(filtrosGuardados.busqueda || '');
+      setLetraSeleccionada(filtrosGuardados.letraSeleccionada || '');
+      sessionStorage.setItem('recargar_socios', '1');
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
+    const debeRecargar = sessionStorage.getItem('recargar_socios');
+    if (debeRecargar) {
+      sessionStorage.removeItem('recargar_socios');
+      obtenerSocios();
+    }
+  }, [busqueda, letraSeleccionada]);
+
+  useEffect(() => {
+    const edited = sessionStorage.getItem('socio_editado');
+    if (edited) {
+      sessionStorage.removeItem('socio_editado');
+      obtenerSocios();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (busqueda || letraSeleccionada) {
+      localStorage.setItem('filtros_socios', JSON.stringify({
+        busqueda,
+        letraSeleccionada
+      }));
+    }
+  }, [busqueda, letraSeleccionada]);
+
+  const sociosFiltrados = useMemo(() => {
     let resultados = socios;
 
     if (busqueda) {
@@ -50,18 +96,17 @@ const Socios = () => {
       );
     }
 
-    if (letraSeleccionada && letraSeleccionada !== 'TODOS') {
+    if (letraSeleccionada) {
+      if (letraSeleccionada === 'TODOS') {
+        return resultados;
+      }
       resultados = resultados.filter((s) =>
         s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
       );
     }
 
-    if (!busqueda && !letraSeleccionada) {
-      setSociosFiltrados([]);
-    } else {
-      setSociosFiltrados(resultados);
-    }
-  }, [busqueda, letraSeleccionada, socios]);
+    return resultados;
+  }, [socios, busqueda, letraSeleccionada]);
 
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -85,29 +130,38 @@ const Socios = () => {
       if (data.exito) {
         const nuevosSocios = socios.filter((s) => s.id_socio !== id);
         setSocios(nuevosSocios);
-
-        let resultados = nuevosSocios;
-        if (busqueda) {
-          resultados = resultados.filter((s) =>
-            s.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-          );
-        }
-        if (letraSeleccionada && letraSeleccionada !== 'TODOS') {
-          resultados = resultados.filter((s) =>
-            s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
-          );
-        }
-        setSociosFiltrados(resultados);
-
-        setMostrarModalEliminar(false);
-        setSocioAEliminar(null);
-        setMensaje('✅ Socio eliminado correctamente');
-        setTimeout(() => setMensaje(''), 3000);
+        mostrarMensaje('✅ Socio eliminado correctamente');
       } else {
-        alert('Error al eliminar: ' + data.mensaje);
+        mostrarMensaje(`Error al eliminar: ${data.mensaje}`, 'error');
       }
     } catch (error) {
-      alert('Error de red: ' + error);
+      mostrarMensaje('Error de red al intentar eliminar', 'error');
+    } finally {
+      setMostrarModalEliminar(false);
+      setSocioAEliminar(null);
+    }
+  };
+
+  const darDeBajaSocio = async (id) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_socio: id }),
+      });
+      const data = await response.json();
+      if (data.exito) {
+        const actualizados = socios.filter((s) => s.id_socio !== id);
+        setSocios(actualizados);
+        mostrarMensaje('✅ Socio dado de baja correctamente');
+      } else {
+        mostrarMensaje(`Error: ${data.mensaje}`, 'error');
+      }
+    } catch (error) {
+      mostrarMensaje('Error de red al intentar dar de baja', 'error');
+    } finally {
+      setMostrarModalDarBaja(false);
+      setSocioDarBaja(null);
     }
   };
 
@@ -119,25 +173,127 @@ const Socios = () => {
     return `${calle} ${num}`.trim();
   };
 
+  const exportarExcel = () => {
+    if (sociosFiltrados.length === 0) {
+      mostrarMensaje('⚠️ No hay socios para exportar. Seleccioná un filtro o realizá una búsqueda primero.', 'error');
+      return;
+    }
+
+    const datos = sociosFiltrados.map((s) => ({
+      ID: s.id_socio,
+      Nombre: s.nombre,
+      DNI: s.dni,
+      Domicilio: construirDomicilio(s.domicilio, s.numero),
+      Teléfono_móvil: s.telefono_movil,
+      Teléfono_fijo: s.telefono_fijo,
+      Categoría: s.id_categoria,
+      Cobrador: s.id_cobrador,
+      Estado: s.id_estado,
+      Comentario: s.comentario,
+      Fecha_Nacimiento: s.nacimiento,
+      Ingreso: s.ingreso,
+      Periodo_Adeudado: s.id_periodo_adeudado,
+      Deuda_2024: s.deuda_2024
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Socios");
+
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, 'Socios.xlsx');
+  };
+
+  const Row = ({ index, style, data }) => {
+    const socio = data[index];
+    return (
+      <div
+        style={style}
+        onClick={() => manejarSeleccion(socio)}
+        className={`soc_tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc_fila-seleccionada' : ''}`}
+      >
+        <div className="soc_col-id">{socio.id_socio}</div>
+        <div className="soc_col-nombre">{socio.nombre}</div>
+        <div className="soc_col-domicilio">{construirDomicilio(socio.domicilio, socio.numero)}</div>
+        <div className="soc_col-comentario">{socio.comentario}</div>
+        <div className="soc_col-acciones">
+          {socioSeleccionado?.id_socio === socio.id_socio && (
+            <div className="soc_iconos-acciones">
+              <FaInfoCircle
+                title="Ver información"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioInfo(socio);
+                  setMostrarModalInfo(true);
+                }}
+                className="soc_icono"
+              />
+              <FaEdit
+                title="Editar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sessionStorage.setItem('socio_editado', '1');
+                  navigate(`/socios/editar/${socio.id_socio}`);
+                }}
+                className="soc_icono"
+              />
+              <FaTrash
+                title="Eliminar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioAEliminar(socio);
+                  setMostrarModalEliminar(true);
+                }}
+                className="soc_icono"
+              />
+              <FaUserMinus
+                title="Dar de baja"
+                className="soc_icono"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioDarBaja(socio);
+                  setMostrarModalDarBaja(true);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="soc_container">
       <h2 className="soc_titulo">Gestión de Socios</h2>
 
-      {mensaje && <div className="soc_mensaje-exito">{mensaje}</div>}
+      {mensaje && (
+        <div className={`soc_mensaje ${tipoMensaje === 'error' ? 'soc_mensaje-error' : 'soc_mensaje-exito'}`}>
+          {mensaje}
+        </div>
+      )}
 
       <div className="soc_barra-superior">
         <input
           type="text"
           placeholder="Buscar por nombre..."
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            obtenerSocios();
+          }}
           className="soc_buscador"
+          disabled={loading}
         />
 
         <select 
           value={letraSeleccionada} 
-          onChange={(e) => setLetraSeleccionada(e.target.value)}
+          onChange={(e) => {
+            setLetraSeleccionada(e.target.value);
+            obtenerSocios();
+          }}
           className="soc_selector-letras"
+          disabled={loading}
         >
           <option value="">Seleccioná una letra...</option>
           <option value="TODOS">Todos</option>
@@ -148,89 +304,78 @@ const Socios = () => {
           ))}
         </select>
 
-        <button className="soc_boton" onClick={() => navigate('/panel')}>Volver</button>
-        <button className="soc_boton" onClick={() => navigate('/socios/agregar')}>Agregar Socio</button>
+        <button
+          className="soc_boton"
+          onClick={() => {
+            localStorage.removeItem('filtros_socios');
+            navigate('/panel');
+          }}
+          disabled={loading}
+        >
+          Volver
+        </button>
+        <button
+          className="soc_boton"
+          onClick={() => {
+            sessionStorage.removeItem('socio_editado');
+            navigate('/socios/agregar');
+          }}
+          disabled={loading}
+        >
+          Agregar Socio
+        </button>
+        <button 
+          className="soc_boton" 
+          onClick={exportarExcel} 
+          disabled={loading || (!busqueda && !letraSeleccionada)}
+        >
+          Exportar a Excel
+        </button>
+        <button className="soc_boton" onClick={() => navigate('/socios/baja')} disabled={loading}>
+          Dados de Baja
+        </button>
       </div>
 
-      <p className="soc_contador">Total de socios: <strong>{sociosFiltrados.length}</strong></p>
+      {busqueda || letraSeleccionada ? (
+        <p className="soc_contador">Total de socios: <strong>{sociosFiltrados.length}</strong></p>
+      ) : null}
 
       {loading ? (
         <p className="soc_cargando">Cargando socios...</p>
       ) : (
-        <div className="soc_tabla-scroll">
-          <table className="soc_tabla">
-            <thead>
-              <tr>
-                <th className="soc_col-id">ID</th>
-                <th className="soc_col-nombre">Nombre</th>
-                <th className="soc_col-domicilio">Domicilio</th>
-                <th className="soc_col-comentario">Comentario</th>
-                <th className="soc_col-acciones">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sociosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="soc_sin-resultados">
-                    {busqueda || letraSeleccionada ? 'No se encontraron resultados.' : 'Usá el buscador o filtro para comenzar.'}
-                  </td>
-                </tr>
-              ) : (
-                sociosFiltrados.map((socio) => (
-                  <tr
-                    key={socio.id_socio}
-                    onClick={() => manejarSeleccion(socio)}
-                    className={`soc_fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc_fila-seleccionada' : ''}`}
-                  >
-                    <td className="soc_col-id">{socio.id_socio}</td>
-                    <td className="soc_col-nombre">{socio.nombre}</td>
-                    <td className="soc_col-domicilio">{construirDomicilio(socio.domicilio, socio.numero)}</td>
-                    <td className="soc_col-comentario">{socio.comentario}</td>
-                    <td className="soc_col-acciones">
-                      {socioSeleccionado?.id_socio === socio.id_socio && (
-                        <div className="soc_iconos-acciones">
-                          <FaInfoCircle
-                            title="Ver información"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSocioInfo(socio);
-                              setMostrarModalInfo(true);
-                            }}
-                            className="soc_icono"
-                          />
-                          <FaEdit
-                            title="Editar"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/socios/editar/${socio.id_socio}`);
-                            }}
-                            className="soc_icono"
-                          />
-                          <FaTrash
-                            title="Eliminar"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSocioAEliminar(socio);
-                              setMostrarModalEliminar(true);
-                            }}
-                            className="soc_icono"
-                          />
-                          <FaUser 
-                            title="Ver perfil" 
-                            className="soc_icono"
-                          />
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="soc_tabla-container">
+          <div className="soc_tabla-header">
+            <div className="soc_col-id">ID</div>
+            <div className="soc_col-nombre">Nombre</div>
+            <div className="soc_col-domicilio">Domicilio</div>
+            <div className="soc_col-comentario">Comentario</div>
+            <div className="soc_col-acciones">Acciones</div>
+          </div>
+          
+          {!busqueda && !letraSeleccionada ? (
+            <div className="soc_sin-resultados">
+              Usá el buscador o seleccioná una letra para filtrar los socios
+            </div>
+          ) : sociosFiltrados.length === 0 ? (
+            <div className="soc_sin-resultados">
+              No se encontraron resultados con los filtros actuales
+            </div>
+          ) : (
+            <List
+              height={600}
+              itemCount={sociosFiltrados.length}
+              itemSize={60}
+              width="100%"
+              itemData={sociosFiltrados}
+            >
+              {Row}
+            </List>
+          )}
         </div>
       )}
 
       <ModalEliminarSocio
+        mostrar={mostrarModalEliminar}
         socio={socioAEliminar}
         onClose={() => {
           setMostrarModalEliminar(false);
@@ -240,11 +385,22 @@ const Socios = () => {
       />
 
       <ModalInfoSocio
+        mostrar={mostrarModalInfo}
         socio={socioInfo}
         onClose={() => {
           setMostrarModalInfo(false);
           setSocioInfo(null);
         }}
+      />
+
+      <ModalDarBajaSocio
+        mostrar={mostrarModalDarBaja}
+        socio={socioDarBaja}
+        onClose={() => {
+          setMostrarModalDarBaja(false);
+          setSocioDarBaja(null);
+        }}
+        onDarBaja={darDeBajaSocio}
       />
     </div>
   );

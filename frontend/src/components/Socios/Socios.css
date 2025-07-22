@@ -1,47 +1,67 @@
 .soc_container {
   padding: 2rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .soc_titulo {
   margin-bottom: 1.5rem;
   color: #333;
+  font-size: 1.8rem;
+}
+
+.soc_mensaje {
+  padding: 10px;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
 }
 
 .soc_mensaje-exito {
   background-color: #d4edda;
   color: #155724;
-  padding: 10px;
-  margin-bottom: 1rem;
-  border-radius: 4px;
-  text-align: center;
+}
+
+.soc_mensaje-error {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 .soc_barra-superior {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: center;
 }
 
 .soc_buscador,
-.soc_selector-letras,
-.soc_boton {
-  padding: 8px;
-  min-width: 120px;
+.soc_selector-letras {
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 180px;
 }
 
 .soc_boton {
+  padding: 8px 16px;
   background-color: #007bff;
   color: white;
   border: none;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9rem;
   transition: background-color 0.3s;
 }
 
 .soc_boton:hover {
   background-color: #0056b3;
+}
+
+.soc_boton:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 .soc_contador {
@@ -54,85 +74,93 @@
   text-align: center;
   color: #666;
   font-style: italic;
+  padding: 2rem;
 }
 
-.soc_tabla-scroll {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
+.soc_tabla-container {
+  border: 1px solid #ddd;
   border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.soc_tabla {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+.soc_tabla-header {
+  display: flex;
+  background-color: #f8f9fa;
+  font-weight: bold;
+  padding: 12px 5px;
+  border-bottom: 1px solid #ddd;
 }
 
-.soc_tabla th,
-.soc_tabla td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  word-wrap: break-word;
+.soc_tabla-fila {
+  display: flex;
+  padding: 10px 5px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+  cursor: pointer;
 }
 
-.soc_tabla thead {
-  background-color: #f0f0f0;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.soc_tabla-fila:hover {
+  background-color: #f5f5f5;
 }
 
-/* Columnas personalizadas */
+.soc_fila-seleccionada {
+  background-color: #e6f7ff !important;
+}
+
 .soc_col-id {
-  width: 60px;
+  width: 50px;
+  flex-shrink: 0;
   text-align: center;
 }
 
 .soc_col-nombre {
-  width: 250px;
+  flex: 1;
+  min-width: 150px;
+  padding: 0 5px;
 }
 
 .soc_col-domicilio {
-  width: 300px;
+  flex: 1;
+  min-width: 150px;
+  padding: 0 5px;
 }
 
 .soc_col-comentario {
-  width: 150px;
+  flex: 1;
+  min-width: 100px;
+  padding: 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .soc_col-acciones {
-  width: 130px;
-  text-align: center;
-}
-
-.soc_fila {
-  cursor: pointer;
-}
-
-.soc_fila-seleccionada {
-  background-color: #e6f7ff;
-}
-
-.soc_sin-resultados {
-  text-align: center;
-  color: #999;
-  padding: 20px !important;
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .soc_iconos-acciones {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  font-size: 1.1rem;
+  gap: 12px;
 }
 
 .soc_icono {
   cursor: pointer;
   color: #555;
   transition: color 0.2s;
+  font-size: 1.1rem;
 }
 
 .soc_icono:hover {
   color: #007bff;
+}
+
+.soc_sin-resultados {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+  font-style: italic;
 }

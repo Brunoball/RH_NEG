@@ -33,12 +33,20 @@ switch ($action) {
         require_once(__DIR__ . '/../modules/socios/eliminar_socio.php');
         break;
 
+    case 'editar_socio':
+        require_once(__DIR__ . '/../modules/socios/editar_socio.php');
+        break;
+
     case 'listas':
         require_once(__DIR__ . '/../modules/global/obtener_listas.php');
         break;
 
-    case 'editar_socio':
-        require_once(__DIR__ . '/../modules/socios/editar_socio.php');
+    case 'dar_baja_socio':
+        require_once(__DIR__ . '/../modules/socios/dar_baja_socio.php');
+        break;
+
+    case 'dar_alta_socio': 
+        require_once(__DIR__ . '/../modules/socios/dar_alta_socio.php');
         break;
 
     default:

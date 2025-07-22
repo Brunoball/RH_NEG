@@ -7,6 +7,7 @@ import Registro from './components/Login/Registro';
 import Socios from './components/Socios/socios';
 import AgregarSocio from './components/Socios/AgregarSocio';
 import EditarSocio from './components/Socios/EditarSocio';
+import SociosBaja from './components/Socios/SociosBaja'; // ✅ nueva importación
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/socios" element={<RutaProtegida componente={<Socios />} />} />
         <Route path="/socios/agregar" element={<RutaProtegida componente={<AgregarSocio />} />} />
         <Route path="/socios/editar/:id" element={<RutaProtegida componente={<EditarSocio />} />} />
+        <Route path="/socios/baja" element={<RutaProtegida componente={<SociosBaja />} />} /> {/* ✅ nueva ruta */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
