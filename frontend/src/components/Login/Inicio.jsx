@@ -47,81 +47,81 @@ const Inicio = () => {
   };
 
   return (
-    <main className="ini_contenedor">
-      {/* Mensaje de error posicionado fuera del contenedor */}
-      {error && (
-        <div className="ini_error-container">
-          <div className="ini_error">
-            <span>⚠️</span>
-            <span>{error}</span>
+    <div className="ini_wrapper">
+      <main className="ini_contenedor">
+        {/* Mensaje de error */}
+        {error && (
+          <div className="ini_error-container">
+            <div className="ini_error">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <form className="ini_formulario" onSubmit={manejarEnvio}>
-        <div className="ini_logo-container">
-          <img 
-            src={logoCirculo} 
-            alt="Logo de la empresa" 
-            className="ini_logo" 
-            width="120"
-            height="120"
-            loading="lazy"
-          />
-          <h1 className="ini_title">Bienvenido</h1>
-          <p className="ini_subtitle">Inicie sesión para continuar</p>
-        </div>
+        <form className="ini_formulario" onSubmit={manejarEnvio}>
+          <div className="ini_logo-container">
+            <img 
+              src={logoCirculo} 
+              alt="Logo de la empresa" 
+              className="ini_logo" 
+              loading="lazy"
+            />
+            <h1 className="ini_title">Bienvenido</h1>
+            <p className="ini_subtitle">Inicie sesión para continuar</p>
+          </div>
 
-        {/* Campo de usuario con ícono azul */}
-        <div className="ini_input-group">
-          <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M12 4a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4z"/>
-          </svg>
-          <input
-            id="usuario"
-            type="text"
-            className="ini_input-field"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder=" "
+          <div className='ini_input-grup-container'>
+            <div className="ini_input-group">
+              <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M12 4a4 4 0 014 4 4 4 0 01-4 4 4 4 0 01-4-4 4 4 0 014-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4z"/>
+              </svg>
+              <input
+                id="usuario"
+                type="text"
+                className="ini_input-field"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder=" "
+                disabled={loading}
+              />
+              <label htmlFor="usuario" className="ini_input-label">Usuario</label>
+            </div>
+
+            <div className="ini_input-group ini_input-group2">
+              <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M12 17a2 2 0 01-2-2c0-1.11.89-2 2-2a2 2 0 012 2 2 2 0 01-2 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z"/>
+              </svg>
+              <input
+                id="contrasena"
+                type="password"
+                className="ini_input-field"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                placeholder=" "
+                disabled={loading}
+              />
+              <label htmlFor="contrasena" className="ini_input-label">Contraseña</label>
+            </div>
+          </div>
+          
+          <button 
+            type="submit" 
+            className="ini_button"
             disabled={loading}
-          />
-          <label htmlFor="usuario" className="ini_input-label">Usuario</label>
-        </div>
-
-        {/* Campo de contraseña con ícono azul */}
-        <div className="ini_input-group">
-          <svg className="ini_input-icon" viewBox="0 0 24 24" width="20" height="20">
-            <path fill="currentColor" d="M12 17a2 2 0 01-2-2c0-1.11.89-2 2-2a2 2 0 012 2 2 2 0 01-2 2m6-9a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h1V6a5 5 0 015-5 5 5 0 015 5v2h1m-6-5a3 3 0 00-3 3v2h6V6a3 3 0 00-3-3z"/>
-          </svg>
-          <input
-            id="contrasena"
-            type="password"
-            className="ini_input-field"
-            value={contrasena}
-            onChange={(e) => setContrasena(e.target.value)}
-            placeholder=" "
-            disabled={loading}
-          />
-          <label htmlFor="contrasena" className="ini_input-label">Contraseña</label>
-        </div>
-
-        <button 
-          type="submit" 
-          className="ini_button"
-          disabled={loading}
-        >
-          {loading ? (
-            <>
-              <span className="loading-spinner"></span>
-              <span>Procesando...</span>
-            </>
-          ) : (
-            'Iniciar Sesión'
-          )}
-        </button>
-      </form>
-    </main>
+          >
+            {loading ? (
+              <>
+                <span className="loading-spinner"></span>
+                <span>Procesando...</span>
+              </>
+            ) : (
+              'Iniciar Sesión'
+            )}
+          </button>
+        </form>
+      </main>
+    </div>
   );
 };
 

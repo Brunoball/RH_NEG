@@ -21,32 +21,33 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-}
-
-body {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 30px;
-  background: 
-    radial-gradient(circle at 15% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 25%),
-    radial-gradient(circle at 85% 70%, rgba(244, 114, 182, 0.15) 0%, transparent 25%),
-    linear-gradient(to bottom right, #F8FAFC, #F1F5F9);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  overflow: hidden;
 }
 
-/* Contenedor principal - TAMAÑO FIJO Y MÁS GRANDE */
+html, body {
+  height: 100%;
+}
+
+/* Contenedor principal - Ahora es completamente flexible */
+.ini_wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f7fa;
+}
+
+/* Contenedor del formulario - Tamaño adaptable */
 .ini_contenedor {
-    width: 420px;
-  min-height: 500px; /* Altura mínima */
-  padding: 2.5rem;
+  width: 100%;
+  max-width: 500px;
+  min-height: 500px;
+  padding: 2rem;
   background: white;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-md);
   position: relative;
-  overflow: visible; /* Permite que los errores se muestren fuera */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -75,19 +76,19 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   text-align: center;
   flex-shrink: 0;
 }
 
 .ini_logo {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  margin-bottom: 1.8rem;
-  border: 5px solid white;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  margin-bottom: 1.5rem;
+  border: 4px solid white;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   transition: transform 0.3s ease;
 }
 
@@ -96,9 +97,9 @@ body {
 }
 
 .ini_title {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.5rem;
   background: var(--text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
@@ -107,9 +108,9 @@ body {
 }
 
 .ini_subtitle {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--gray);
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 /* Formulario - contenido desplazable si es necesario */
@@ -117,13 +118,11 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.8rem;
-  overflow-y: auto; /* Scroll interno si el contenido es muy largo */
+  gap: 0.5rem;
   flex-grow: 1;
   padding-bottom: 1rem;
 }
 
-/* Mensaje de error - estilo mejorado */
 /* Mensaje de error */
 .ini_error {
   width: calc(100% - 40px);
@@ -139,10 +138,9 @@ body {
   gap: 8px;
 }
 
-/* Contenedor del mensaje de error - Versión corregida */
 .ini_error-container {
   position: fixed;
-  top: 30px;
+  top: 20px;
   left: 0;
   right: 0;
   display: flex;
@@ -155,33 +153,35 @@ body {
 /* Campos con íconos */
 .ini_input-group {
   position: relative;
-  margin-bottom: 2.2rem;
+  margin-bottom: 1.5rem;
+}
+.ini_input-group2{
+  margin-bottom: 0;
 }
 
-/* Estilos para los íconos - Versión corregida */
 .ini_input-icon {
   position: absolute;
-  left: 18px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--primary); /* Color azul principal (#5B67D8) */
+  color: var(--primary);
   z-index: 2;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   transition: var(--transition);
 }
-/* Efecto hover para los íconos */
+
 .ini_input-group:hover .ini_input-icon {
-  color: var(--primary-dark); /* Azul más oscuro al pasar el mouse */
+  color: var(--primary-dark);
 }
 
-/* Efecto focus para los íconos */
 .ini_input-group:focus-within .ini_input-icon {
-  color: var(--primary-light); /* Azul más claro al enfocar */
+  color: var(--primary-light);
 }
+
 .ini_input-field {
   width: 100%;
-  padding: 18px 18px 18px 55px;
-  font-size: 1.05rem;
+  padding: 16px 16px 16px 50px;
+  font-size: 1rem;
   border: 2px solid var(--gray-light);
   border-radius: 12px;
   transition: var(--transition);
@@ -195,24 +195,24 @@ body {
   box-shadow: 0 0 0 4px rgba(91, 103, 216, 0.2);
 }
 
-/* Labels flotantes - MEJORADO */
+/* Labels flotantes */
 .ini_input-label {
   position: absolute;
-  left: 55px;
-  top: 18px;
+  left: 50px;
+  top: 16px;
   color: var(--gray);
   transition: var(--transition);
   pointer-events: none;
   background: white;
-  padding: 0 8px;
-  font-size: 1.05rem;
+  padding: 0 6px;
+  font-size: 1rem;
 }
 
 .ini_input-field:focus + .ini_input-label,
 .ini_input-field:not(:placeholder-shown) + .ini_input-label {
-  top: -12px;
-  left: 40px;
-  font-size: 0.85rem;
+  top: -10px;
+  left: 35px;
+  font-size: 0.8rem;
   color: var(--primary);
   background: white;
   z-index: 2;
@@ -222,16 +222,16 @@ body {
 /* Botón */
 .ini_button {
   width: 100%;
-  padding: 1.2rem;
+  padding: 1rem;
   background: var(--text-gradient);
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
@@ -262,6 +262,7 @@ body {
 .ini_button:hover::after {
   left: 120%;
 }
+
 /* Spinner de carga */
 .loading-spinner {
   display: inline-block;
@@ -273,9 +274,11 @@ body {
   animation: spin 1s ease-in-out infinite;
   margin-right: 8px;
 }
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
 /* Animaciones */
 @keyframes fadeInDown {
   from {
@@ -287,37 +290,134 @@ body {
     transform: translateY(0);
   }
 }
-/* Responsive */
-@media (max-width: 520px) {
+
+/* Media Queries para diferentes tamaños de pantalla */
+
+/* Pantallas muy pequeñas (móviles pequeños) */
+@media (max-width: 400px) {
   .ini_contenedor {
-    width: 95%;
-    height: auto;
-    min-height: 500px;
-    max-height: 90vh;
-    padding: 2rem;
+    padding: 1.5rem;
+    min-height: 450px;
   }
   
-  .ini_error {
-    width: 90%;
-    top: 20px;
+  .ini_logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1rem;
+  }
+  
+  .ini_title {
+    font-size: 1.5rem;
+  }
+  
+  .ini_subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
   }
   
   .ini_input-field {
-    padding: 16px 16px 16px 50px;
+    padding: 14px 14px 14px 45px;
+    font-size: 0.95rem;
   }
   
   .ini_input-icon {
-    left: 16px;
-    font-size: 1.1rem;
+    left: 14px;
+    font-size: 1rem;
   }
   
   .ini_input-label {
-    left: 50px;
-    top: 16px;
+    left: 45px;
+    top: 14px;
+    font-size: 0.95rem;
   }
   
   .ini_input-field:focus + .ini_input-label,
   .ini_input-field:not(:placeholder-shown) + .ini_input-label {
-    left: 35px;
+    left: 30px;
+    font-size: 0.75rem;
+    top: -8px;
+  }
+  
+  .ini_button {
+    padding: 0.9rem;
+    font-size: 1rem;
+  }
+}
+
+/* Pantallas medianas (tablets) */
+@media (min-width: 768px) {
+  .ini_contenedor {
+    max-width: 450px;
+    padding: 2.5rem 2.5rem .5rem;
+  }
+  
+  .ini_logo {
+    width: 110px;
+    height: 110px;
+  }
+  
+  .ini_title {
+    font-size: 2rem;
+  }
+  
+  .ini_subtitle {
+    font-size: 1.1rem;
+  }
+}
+
+/* Pantallas grandes (monitores) */
+@media (min-width: 1200px) {
+  .ini_contenedor {
+    max-width: 500px;
+  }
+  
+  .ini_logo {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .ini_input-field {
+    padding: 18px 18px 18px 55px;
+    font-size: 1.05rem;
+  }
+  
+  .ini_input-icon {
+    left: 18px;
+    font-size: 1.2rem;
+  }
+  
+  .ini_input-label {
+    left: 55px;
+    top: 18px;
+    font-size: 1.05rem;
+  }
+  
+  .ini_input-field:focus + .ini_input-label,
+  .ini_input-field:not(:placeholder-shown) + .ini_input-label {
+    left: 40px;
+    font-size: 0.85rem;
+    top: -12px;
+  }
+  
+  .ini_button {
+    padding: 1.1rem;
+    font-size: 1.15rem;
+  }
+}
+
+/* Pantallas muy grandes (monitores HD+) */
+@media (min-width: 1600px) {
+  .ini_contenedor {
+    max-width: 550px;
+    padding: 3rem;
+  }
+  
+  .ini_logo {
+    width: 130px;
+    height: 130px;
+  }
+  
+  .ini_title {
+    font-size: 2.2rem;
   }
 }
