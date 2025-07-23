@@ -10,14 +10,23 @@ const Registro = () => {
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
 
   const manejarRegistro = async (e) => {
     e.preventDefault();
 
     if (cargando) return;
 
-    // Validaciones
     if (!nombre || !contrasena || !confirmarContrasena) {
       setMensaje('Por favor, completá todos los campos.');
       return;
@@ -86,29 +95,38 @@ const Registro = () => {
         </div>
 
         <div className="reg_campo reg_campo-password">
-          <input 
-            type="password" 
-            placeholder="Contraseña" 
-            value={contrasena} 
-            onChange={(e) => setContrasena(e.target.value)} 
-            required
+          <input
+            type={showPassword ? "text" : "password"}
             className="reg_input"
+            placeholder="Contraseña"
+            value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)}
+            required
           />
           <button 
             type="button" 
-            className="reg_toggle-password"
-            aria-label="Mostrar contraseña"
+            className="reg_toggle-password" 
+            onClick={togglePasswordVisibility}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
+              {showPassword ? (
+                <>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </>
+              ) : (
+                <>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </>
+              )}
             </svg>
           </button>
         </div>
 
         <div className="reg_campo reg_campo-password">
           <input 
-            type="password" 
+            type={showConfirmPassword ? "text" : "password"} 
             placeholder="Confirmar Contraseña" 
             value={confirmarContrasena} 
             onChange={(e) => setConfirmarContrasena(e.target.value)} 
@@ -118,11 +136,20 @@ const Registro = () => {
           <button 
             type="button" 
             className="reg_toggle-password"
-            aria-label="Mostrar contraseña"
+            onClick={toggleConfirmPasswordVisibility}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
+              {showConfirmPassword ? (
+                <>
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </>
+              ) : (
+                <>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </>
+              )}
             </svg>
           </button>
         </div>
@@ -131,7 +158,11 @@ const Registro = () => {
           <button type="submit" className="reg_boton" disabled={cargando}>
             {cargando ? 'Registrando...' : 'Registrarse'}
           </button>
-          <button type="button" onClick={() => navigate('/panel')} className="reg_boton reg_boton-secundario">
+          <button 
+            type="button" 
+            onClick={() => navigate('/panel')} 
+            className="reg_boton reg_boton-secundario"
+          >
             Volver atrás
           </button>
         </div>

@@ -2,9 +2,9 @@
 // backend/config/db.php
 
 $host = 'localhost';
-$dbname = 'rh_neg';
+$dbname = 'circulorh';
 $user = 'root'; // Cambialo si usás otro usuario
-$pass = 'brunoball516'; // Cambialo si tenés contraseña
+$pass = 'joamula15243'; // Cambialo si tenés contraseña
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);

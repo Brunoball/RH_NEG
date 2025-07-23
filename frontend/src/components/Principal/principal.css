@@ -13,7 +13,8 @@
   --princ-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --princ-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --princ-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
-  --princ-glass: rgba(255, 255, 255, 0.85);
+  --princ-glass: rgba(255, 255, 255, 0.88);
+  --princ-glass-border: rgba(255, 255, 255, 0.5);
 }
 
 /* Estilos base */
@@ -27,9 +28,9 @@
   border-radius: var(--princ-border-radius);
   box-shadow: 
     var(--princ-shadow-md),
-    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
-  backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+    0 0 0 1px var(--princ-glass-border) inset;
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--princ-glass-border);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -52,6 +53,7 @@
     var(--princ-accent) 100%);
   background-size: 200% 100%;
   animation: princ-gradientBorder 3s ease infinite alternate;
+  border-radius: var(--princ-border-radius) var(--princ-border-radius) 0 0;
 }
 
 @keyframes princ-gradientBorder {
@@ -99,24 +101,27 @@
 
 .princ-logo:hover {
   transform: scale(1.05) rotate(-2deg);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.2);
 }
 
 .princ-encabezado h1 {
   font-size: 2.2rem;
   margin-bottom: 12px;
-  font-weight: 700;
+  font-weight: 800;
   background: linear-gradient(90deg, var(--princ-primary), var(--princ-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   line-height: 1.2;
+  letter-spacing: -0.5px;
 }
 
 .princ-encabezado p {
-  font-size: 1rem;
+  font-size: 1.05rem;
   color: var(--princ-gray);
   margin: 0 auto 20px;
   line-height: 1.6;
+  max-width: 600px;
 }
 
 .princ-encabezado h2 {
@@ -129,36 +134,111 @@
 /* Grid de opciones */
 .princ-grid-opciones {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 25px;
   width: 100%;
   padding: 0 20px;
   margin: 20px 0;
 }
 
 .princ-opcion {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.95) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 245, 245, 0.98) 100%);
   color: var(--princ-primary-dark);
   border: none;
-  padding: 25px 15px;
+  padding: 25px 20px;
   border-radius: var(--princ-border-radius);
   font-weight: 600;
   font-size: 1rem;
   cursor: pointer;
   transition: var(--princ-transition);
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
-  box-shadow: var(--princ-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.9);
-  min-height: 120px;
+  box-shadow: var(--princ-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.95);
+  min-height: 140px;
   word-break: break-word;
+  position: relative;
+  overflow: hidden;
+}
+.princ-opcion-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  gap: 12px;
+}
+/* Texto más pegado al icono */
+.princ-opcion-texto {
+  font-size: 1rem;
+  margin-top: -5px; /* Sube el texto */
+  padding: 0 10px;
+}
+.princ-opcion::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.03) 0%, rgba(124, 58, 237, 0.03) 100%);
+  opacity: 0;
+  transition: var(--princ-transition);
 }
 
 .princ-opcion:hover {
   transform: translateY(-5px);
   box-shadow: var(--princ-shadow-lg);
   color: var(--princ-primary-dark);
+}
+
+.princ-opcion:hover::before {
+  opacity: 1;
+}
+
+/* Iconos más grandes y elevados */
+.princ-opcion-icono {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px; /* Reducido para acercar texto */
+  transform: translateY(-8px); /* Eleva el icono */
+}
+
+
+/* Efecto hover para los iconos */
+.princ-opcion:hover .princ-opcion-icono {
+  transform: scale(1.15);
+  color: var(--princ-secondary);
+}
+
+/* Efecto de onda al hacer clic */
+.princ-opcion:active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(79, 70, 229, 0.3);
+  opacity: 0.6;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  animation: princ-onda 0.6s ease-out;
+}
+
+@keyframes princ-onda {
+  0% {
+    transform: scale(1, 1) translate(-50%, -50%);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(30, 30) translate(-50%, -50%);
+    opacity: 0;
+  }
 }
 
 /* Footer */
@@ -181,6 +261,9 @@
   cursor: pointer;
   transition: var(--princ-transition);
   box-shadow: 0 4px 16px rgba(236, 72, 153, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .princ-boton-salir:hover {
@@ -188,11 +271,42 @@
   box-shadow: 0 8px 24px rgba(236, 72, 153, 0.35);
 }
 
-/* Media queries */
+.princ-boton-salir-icono {
+  font-size: 1.2rem;
+  transition: var(--princ-transition);
+}
+
+.princ-boton-salir:hover .princ-boton-salir-icono {
+  transform: translateX(3px);
+}
+/* Ajustes para pantallas pequeñas */
 @media (max-width: 768px) {
+  .princ-opcion-icono {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .princ-opcion-texto {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .princ-opcion-icono {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .princ-opcion-texto {
+    font-size: 0.85rem;
+  }
+}
+/* Media queries */
+@media (max-width: 992px) {
   .princ-contenedor {
-    padding: 20px 15px;
     min-height: auto;
+    padding: 25px 15px;
+    gap: 25px;
   }
   
   .princ-encabezado h1 {
@@ -201,28 +315,105 @@
   
   .princ-grid-opciones {
     grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .princ-grid-opciones {
-    grid-template-columns: 1fr;
+    gap: 15px;
   }
   
   .princ-opcion {
-    min-height: 100px;
-    padding: 20px 10px;
+    min-height: 120px;
+    padding: 20px 15px;
   }
-  
+}
+
+/* Encabezado */
+@media (max-width: 768px) {
   .princ-encabezado h1 {
-    font-size: 1.5rem;
+    font-size: 1.8rem;
   }
   
   .princ-encabezado p {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
   }
   
   .princ-encabezado h2 {
     font-size: 1.1rem;
+  }
+  
+  .princ-logo {
+    width: 85px;
+    height: 85px;
+  }
+}
+
+/* Grid de opciones - Tablet */
+@media (max-width: 768px) {
+  .princ-grid-opciones {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  
+  .princ-opcion {
+    min-height: 120px;
+    padding: 20px 15px;
+  }
+  
+  .princ-opcion-icono {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .princ-opcion-texto {
+    font-size: 0.9rem;
+  }
+}
+/* Grid de opciones - Móvil */
+@media (max-width: 576px) {
+  .princ-contenedor {
+    width: 98%;
+    margin: 10px auto;
+    padding: 20px 10px;
+  }
+  
+  .princ-grid-opciones {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .princ-opcion {
+    min-height: 100px;
+    padding: 18px 12px;
+  }
+  
+  .princ-encabezado h1 {
+    font-size: 1.6rem;
+  }
+  
+  .princ-logo {
+    width: 75px;
+    height: 75px;
+  }
+  
+  .princ-opcion-icono {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .princ-opcion-texto {
+    font-size: 0.85rem;
+  }
+  
+  .princ-boton-salir {
+    padding: 10px 25px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Ajuste para pantallas muy pequeñas */
+@media (max-width: 400px) {
+  .princ-encabezado h1 {
+    font-size: 1.4rem;
+  }
+  
+  .princ-opcion {
+    min-height: 90px;
   }
 }
