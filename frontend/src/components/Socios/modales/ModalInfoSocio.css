@@ -1,0 +1,194 @@
+:root {
+  --soc-primary: #5B67D8;
+  --soc-primary-light: #818CF8;
+  --soc-primary-dark: #4C56C0;
+  --soc-secondary: #8B5CF6;
+  --soc-accent: #F472B6;
+  --soc-success: #10b981;
+  --soc-warning: #f59e0b;
+  --soc-danger: #ef4444;
+  --soc-light: #f9fafb;
+  --soc-dark: #111827;
+  --soc-gray: #6b7280;
+  --soc-border-radius: 12px;
+  --soc-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --soc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --soc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --soc-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --soc-glass: rgba(255, 255, 255, 0.9);
+  --soc-glass-dark: rgba(15, 23, 42, 0.9);
+}
+/* Fondo para el body */
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background-attachment: fixed;
+  background-size: cover;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Opcional: Efecto de partículas sutiles (puedes usar una imagen SVG) */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.1) 0%, transparent 20%),
+    radial-gradient(circle at 90% 80%, rgba(255,255,255,0.1) 0%, transparent 20%);
+  z-index: -1;
+}
+
+
+
+
+
+/* Estilos para el ModalInfoSocio */
+.ModalInfo-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: ModalInfo-fadeIn 0.3s ease-out;
+}
+
+.ModalInfo-container {
+  background-color: var(--soc-glass);
+  border-radius: var(--soc-border-radius);
+  width: 90%;
+  max-height: 90vh;
+  box-shadow: var(--soc-shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: ModalInfo-slideUp 0.3s ease-out;
+}
+
+.ModalInfo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: var(--soc-primary);
+  color: white;
+  border-top-left-radius: var(--soc-border-radius);
+  border-top-right-radius: var(--soc-border-radius);
+}
+
+.ModalInfo-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.ModalInfo-closeButton {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+  transition: var(--soc-transition);
+}
+
+.ModalInfo-closeButton:hover {
+  transform: scale(1.2);
+  opacity: 0.8;
+}
+
+.ModalInfo-content {
+  padding: 1.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.ModalInfo-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.ModalInfo-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ModalInfo-sectionTitle {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--soc-primary-dark);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.ModalInfo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.ModalInfo-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.ModalInfo-label {
+  font-weight: 600;
+  color: var(--soc-gray);
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.ModalInfo-value {
+  color: var(--soc-dark);
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  word-break: break-word;
+}
+
+.ModalInfo-comment {
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+/* Animaciones */
+@keyframes ModalInfo-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ModalInfo-slideUp {
+  from { 
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .ModalInfo-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .ModalInfo-container {
+    width: 95%;
+  }
+}

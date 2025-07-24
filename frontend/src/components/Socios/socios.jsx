@@ -1,8 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import BASE_URL from '../../config/config';
-import { FaInfoCircle, FaEdit, FaTrash, FaUserMinus } from 'react-icons/fa';
+import { 
+  FaInfoCircle, 
+  FaEdit, 
+  FaTrash, 
+  FaUserMinus,
+  FaArrowLeft,
+  FaUserPlus,
+  FaFileExcel,
+  FaUserSlash,
+  FaSearch,
+  FaTimes
+} from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
 import ModalInfoSocio from './modales/ModalInfoSocio';
@@ -24,7 +36,40 @@ const Socios = () => {
   const [tipoMensaje, setTipoMensaje] = useState('');
   const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
   const [socioDarBaja, setSocioDarBaja] = useState(null);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [mostrarEfectoCascada, setMostrarEfectoCascada] = useState(false);
+  const [ultimosFiltros, setUltimosFiltros] = useState({ busqueda: '', letraSeleccionada: '' });
+  const filtrosRef = useRef(null);
   const navigate = useNavigate();
+
+  // Efecto para cerrar el menú de filtros al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
+        setMostrarFiltros(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Comprobar si los filtros han cambiado
+    if (busqueda !== ultimosFiltros.busqueda || letraSeleccionada !== ultimosFiltros.letraSeleccionada) {
+      setMostrarEfectoCascada(true);
+      setUltimosFiltros({ busqueda, letraSeleccionada });
+      
+      // Desactivar el efecto después de la animación
+      const timer = setTimeout(() => {
+        setMostrarEfectoCascada(false);
+      }, 500); // Tiempo suficiente para la animación
+      
+      return () => clearTimeout(timer);
+    }
+  }, [busqueda, letraSeleccionada]);
 
   const mostrarMensaje = (texto, tipo = 'exito') => {
     setMensaje(texto);
@@ -207,9 +252,18 @@ const Socios = () => {
 
   const Row = ({ index, style, data }) => {
     const socio = data[index];
+    const delay = mostrarEfectoCascada ? index * 50 : 0;
+    
     return (
       <div
-        style={style}
+        style={{
+          ...style,
+          opacity: mostrarEfectoCascada ? 0 : 1,
+          transform: mostrarEfectoCascada ? 'translateY(20px)' : 'translateY(0)',
+          animation: mostrarEfectoCascada 
+            ? `soc-fadeInUp 0.3s ease-out ${delay}ms forwards`
+            : 'none'
+        }}
         onClick={() => manejarSeleccion(socio)}
         className={`soc-tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc-fila-seleccionada' : ''}`}
       >
@@ -273,37 +327,70 @@ const Socios = () => {
         </div>
       )}
 
-      {/* Controles superiores (buscador y filtros) */}
       <div className="soc-barra-superior">
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={busqueda}
-          onChange={(e) => {
-            setBusqueda(e.target.value);
-            obtenerSocios();
-          }}
-          className="soc-buscador"
-          disabled={loading}
-        />
+        <div className="soc-buscador-container">
+          <input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              obtenerSocios();
+            }}
+            className="soc-buscador"
+            disabled={loading}
+          />
+          <div className="soc-buscador-iconos">
+            {busqueda ? (
+              <FaTimes 
+                className="soc-buscador-icono" 
+                onClick={() => setBusqueda('')}
+              />
+            ) : (
+              <FaSearch className="soc-buscador-icono" />
+            )}
+          </div>
+        </div>
 
-        <select 
-          value={letraSeleccionada} 
-          onChange={(e) => {
-            setLetraSeleccionada(e.target.value);
-            obtenerSocios();
-          }}
-          className="soc-selector-letras"
-          disabled={loading}
-        >
-          <option value="">Seleccioná una letra...</option>
-          <option value="TODOS">Todos</option>
-          {letras.map((letra) => (
-            <option key={letra} value={letra}>
-              {letra}
-            </option>
-          ))}
-        </select>
+        <div className="soc-filtros-container" ref={filtrosRef}>
+          <button 
+            className="soc-boton-filtros"
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            disabled={loading}
+          >
+            Filtros {mostrarFiltros ? '▲' : '▼'}
+          </button>
+          
+          {mostrarFiltros && (
+            <div className="soc-menu-filtros">
+              <div className="soc-letras-filtro">
+                {letras.map((letra) => (
+                  <button
+                    key={letra}
+                    className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
+                    onClick={() => {
+                      setLetraSeleccionada(letra);
+                      setMostrarFiltros(false);
+                      obtenerSocios();
+                    }}
+                  >
+                    {letra}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="soc-boton-todos"
+                onClick={() => {
+                  setLetraSeleccionada('TODOS');
+                  setMostrarFiltros(false);
+                  obtenerSocios();
+                }}
+              >
+                Mostrar Todos
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {busqueda || letraSeleccionada ? (
@@ -338,76 +425,92 @@ const Socios = () => {
                 itemSize={60}
                 width="100%"
                 itemData={sociosFiltrados}
+                key={`${busqueda}-${letraSeleccionada}`}
               >
                 {Row}
               </List>
             )}
           </div>
 
-          {/* Barra de botones inferiores */}
           <div className="soc-barra-inferior">
             <button
-              className="soc-boton"
+              className="soc-boton soc-boton-volver"
               onClick={() => {
                 localStorage.removeItem('filtros_socios');
                 navigate('/panel');
               }}
               disabled={loading}
             >
-              Volver
+              <FaArrowLeft className="soc-boton-icono" /> Volver
             </button>
-            <button
-              className="soc-boton"
-              onClick={() => {
-                sessionStorage.removeItem('socio_editado');
-                navigate('/socios/agregar');
-              }}
-              disabled={loading}
-            >
-              Agregar Socio
-            </button>
-            <button 
-              className="soc-boton" 
-              onClick={exportarExcel} 
-              disabled={loading || (!busqueda && !letraSeleccionada)}
-            >
-              Exportar a Excel
-            </button>
-            <button className="soc-boton" onClick={() => navigate('/socios/baja')} disabled={loading}>
-              Dados de Baja
-            </button>
+            
+            <div className="soc-botones-derecha">
+              <button
+                className="soc-boton soc-boton-agregar"
+                onClick={() => {
+                  sessionStorage.removeItem('socio_editado');
+                  navigate('/socios/agregar');
+                }}
+                disabled={loading}
+              >
+                <FaUserPlus className="soc-boton-icono" /> Agregar Socio
+              </button>
+              <button 
+                className="soc-boton soc-boton-exportar" 
+                onClick={exportarExcel} 
+                disabled={loading || (!busqueda && !letraSeleccionada)}
+              >
+                <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
+              </button>
+              <button 
+                className="soc-boton soc-boton-baja" 
+                onClick={() => navigate('/socios/baja')} 
+                disabled={loading}
+              >
+                <FaUserSlash className="soc-boton-icono" /> Dados de Baja
+              </button>
+            </div>
           </div>
         </>
       )}
 
-      <ModalEliminarSocio
-        mostrar={mostrarModalEliminar}
-        socio={socioAEliminar}
-        onClose={() => {
-          setMostrarModalEliminar(false);
-          setSocioAEliminar(null);
-        }}
-        onEliminar={eliminarSocio}
-      />
+      {ReactDOM.createPortal(
+        <ModalEliminarSocio
+          mostrar={mostrarModalEliminar}
+          socio={socioAEliminar}
+          onClose={() => {
+            setMostrarModalEliminar(false);
+            setSocioAEliminar(null);
+          }}
+          onEliminar={eliminarSocio}
+        />,
+        document.body
+      )}
 
-      <ModalInfoSocio
-        mostrar={mostrarModalInfo}
-        socio={socioInfo}
-        onClose={() => {
-          setMostrarModalInfo(false);
-          setSocioInfo(null);
-        }}
-      />
+      {ReactDOM.createPortal(
+        <ModalInfoSocio
+          mostrar={mostrarModalInfo}
+          socio={socioInfo}
+          onClose={() => {
+            setMostrarModalInfo(false);
+            setSocioInfo(null);
+          }}
+        />,
+        document.body
+      )}
 
-      <ModalDarBajaSocio
-        mostrar={mostrarModalDarBaja}
-        socio={socioDarBaja}
-        onClose={() => {
-          setMostrarModalDarBaja(false);
-          setSocioDarBaja(null);
-        }}
-        onDarBaja={darDeBajaSocio}
-      />
+      {ReactDOM.createPortal(
+        <ModalDarBajaSocio
+          mostrar={mostrarModalDarBaja}
+          socio={socioDarBaja}
+          onClose={() => {
+            setMostrarModalDarBaja(false);
+            setSocioDarBaja(null);
+          }}
+          onDarBaja={darDeBajaSocio}
+        />,
+        document.body
+      )}
     </div>
   );
 };
