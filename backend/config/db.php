@@ -1,10 +1,15 @@
 <?php
 // backend/config/db.php
+// Configuración de la base de datos
+//brunoball516
+//Gastex2233
+//php -S localhost:3001 -c "C:\PHP\php1\php.ini"
 
 $host = 'localhost';
 $dbname = 'circulorh';
 $user = 'root'; // Cambialo si usás otro usuario
-$pass = 'joamula15243'; // Cambialo si tenés contraseña
+$pass = 'Gastex2233'; // Cambialo si tenés contraseña
+
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
