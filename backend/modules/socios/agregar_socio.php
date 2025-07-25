@@ -56,7 +56,7 @@ try {
     $dni = trim($data['dni'] ?? '');
     $ingreso = date("Y-m-d");
     $deuda_2024 = null;
-    $id_periodo_adeudado = null;
+    $id_periodo = null; // Cambiado aquí
 
     // ✅ Validar si tienen valor
     if (!empty($domicilio) && (!preg_match("/^[a-zA-Z0-9ñÑ\s.]+$/u", $domicilio) || mb_strlen($domicilio, 'UTF-8') > 100)) {
@@ -97,11 +97,11 @@ try {
         INSERT INTO socios (
             nombre, id_cobrador, id_categoria, domicilio, numero,
             telefono_movil, telefono_fijo, comentario, nacimiento,
-            id_estado, domicilio_cobro, dni, ingreso, deuda_2024, id_periodo_adeudado, activo
+            id_estado, domicilio_cobro, dni, ingreso, deuda_2024, id_periodo, activo
         ) VALUES (
             :nombre, :id_cobrador, :id_categoria, :domicilio, :numero,
             :telefono_movil, :telefono_fijo, :comentario, :nacimiento,
-            :id_estado, :domicilio_cobro, :dni, :ingreso, :deuda_2024, :id_periodo_adeudado, 1
+            :id_estado, :domicilio_cobro, :dni, :ingreso, :deuda_2024, :id_periodo, 1
         )
     ");
 
@@ -120,7 +120,7 @@ try {
         ':dni' => $dni,
         ':ingreso' => $ingreso,
         ':deuda_2024' => $deuda_2024,
-        ':id_periodo_adeudado' => $id_periodo_adeudado
+        ':id_periodo' => $id_periodo
     ]);
 
     echo json_encode(['exito' => true, 'mensaje' => '✅ Socio registrado correctamente.']);

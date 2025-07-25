@@ -1,48 +1,96 @@
-.cuotas-container {
-  padding: 20px;
-}
-
-.cuotas-controles {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.cuotas-controles input,
-.cuotas-controles select,
-.cuotas-controles button {
-  padding: 6px 10px;
-  font-size: 14px;
-}
-
-.cuotas-controles button.activo {
-  background-color: #4caf50;
-  color: white;
-}
-
-.cuotas-tabla-container {
-  overflow-x: auto;
+.cuotas-tabla-scroll {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 10px;
 }
 
 .cuotas-tabla {
   width: 100%;
   border-collapse: collapse;
+  min-width: 800px;
+}
+
+.cuotas-tabla thead {
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .cuotas-tabla th, .cuotas-tabla td {
-  border: 1px solid #ccc;
-  padding: 8px;
-  text-align: left;
+  padding: 10px;
+  text-align: center;
 }
 
-.icono-accion {
-  cursor: pointer;
-  margin-right: 8px;
+.cuotas-tabla tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
 }
 
-.cuotas-botones {
-  margin-top: 20px;
+.cuotas-tabla .pagado {
+  color: green;
+  font-weight: bold;
+}
+
+.cuotas-tabla .deudor {
+  color: red;
+  font-weight: bold;
+}
+
+.cuotas-controles {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.estado-toggle button {
+  margin-right: 5px;
+  padding: 5px 10px;
+  border: none;
+  background-color: #eee;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.estado-toggle .activo {
+  background-color: #007bff;
+  color: white;
+}
+
+.contador-cuotas {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.soc_pestana {
+  padding: 8px 12px;
+  border: 1px solid var(--borde, #ccc);
+  background-color: var(--verde-suave, #e0f3e0); /* fondo por defecto para las NO seleccionadas */
+  color: black;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.soc_pestana.pestana-activa {
+  background-color: white; /* la seleccionada va en blanco */
+  color: black;
+  border-color: var(--verde, #28a745);
+}
+
+
+.spinner {
+  animation: spin 1s linear infinite;
+  font-size: 16px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

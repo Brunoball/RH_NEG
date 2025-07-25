@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 
-
 try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
@@ -12,6 +11,7 @@ try {
         'periodos' => []
     ];
 
+    // Categorías
     $stmt = $pdo->query("SELECT id_categoria, descripcion FROM rh_neg.categoria ORDER BY descripcion");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $listas['categorias'][] = [
@@ -20,6 +20,7 @@ try {
         ];
     }
 
+    // Cobradores
     $stmt = $pdo->query("SELECT id_cobrador, nombre FROM rh_neg.cobrador ORDER BY nombre");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $listas['cobradores'][] = [
@@ -28,6 +29,7 @@ try {
         ];
     }
 
+    // Estados
     $stmt = $pdo->query("SELECT id_estado, descripcion FROM rh_neg.estado ORDER BY descripcion");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $listas['estados'][] = [
@@ -36,11 +38,12 @@ try {
         ];
     }
 
-    $stmt = $pdo->query("SELECT id_periodo_adeudado, descripcion FROM rh_neg.periodo ORDER BY id_periodo_adeudado DESC");
+    // Periodos (actualizado)
+    $stmt = $pdo->query("SELECT id_periodo, nombre FROM rh_neg.periodo ORDER BY id_periodo ASC");
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $listas['periodos'][] = [
-            'id' => $row['id_periodo_adeudado'],
-            'descripcion' => $row['descripcion']
+            'id' => $row['id_periodo'],
+            'nombre' => $row['nombre']
         ];
     }
 

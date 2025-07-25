@@ -1,8 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import BASE_URL from '../../config/config';
-import { FaInfoCircle, FaEdit, FaTrash, FaUserMinus } from 'react-icons/fa';
+import { 
+  FaInfoCircle, 
+  FaEdit, 
+  FaTrash, 
+  FaUserMinus,
+  FaArrowLeft,
+  FaUserPlus,
+  FaFileExcel,
+  FaUserSlash,
+  FaSearch,
+  FaTimes
+} from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
 import ModalInfoSocio from './modales/ModalInfoSocio';
@@ -24,7 +36,40 @@ const Socios = () => {
   const [tipoMensaje, setTipoMensaje] = useState('');
   const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
   const [socioDarBaja, setSocioDarBaja] = useState(null);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [mostrarEfectoCascada, setMostrarEfectoCascada] = useState(false);
+  const [ultimosFiltros, setUltimosFiltros] = useState({ busqueda: '', letraSeleccionada: '' });
+  const filtrosRef = useRef(null);
   const navigate = useNavigate();
+
+  // Efecto para cerrar el menú de filtros al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
+        setMostrarFiltros(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Comprobar si los filtros han cambiado
+    if (busqueda !== ultimosFiltros.busqueda || letraSeleccionada !== ultimosFiltros.letraSeleccionada) {
+      setMostrarEfectoCascada(true);
+      setUltimosFiltros({ busqueda, letraSeleccionada });
+      
+      // Desactivar el efecto después de la animación
+      const timer = setTimeout(() => {
+        setMostrarEfectoCascada(false);
+      }, 500); // Tiempo suficiente para la animación
+      
+      return () => clearTimeout(timer);
+    }
+  }, [busqueda, letraSeleccionada]);
 
   const mostrarMensaje = (texto, tipo = 'exito') => {
     setMensaje(texto);
@@ -207,19 +252,28 @@ const Socios = () => {
 
   const Row = ({ index, style, data }) => {
     const socio = data[index];
+    const delay = mostrarEfectoCascada ? index * 50 : 0;
+    
     return (
       <div
-        style={style}
+        style={{
+          ...style,
+          opacity: mostrarEfectoCascada ? 0 : 1,
+          transform: mostrarEfectoCascada ? 'translateY(20px)' : 'translateY(0)',
+          animation: mostrarEfectoCascada 
+            ? `soc-fadeInUp 0.3s ease-out ${delay}ms forwards`
+            : 'none'
+        }}
         onClick={() => manejarSeleccion(socio)}
-        className={`soc_tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc_fila-seleccionada' : ''}`}
+        className={`soc-tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc-fila-seleccionada' : ''}`}
       >
-        <div className="soc_col-id">{socio.id_socio}</div>
-        <div className="soc_col-nombre">{socio.nombre}</div>
-        <div className="soc_col-domicilio">{construirDomicilio(socio.domicilio, socio.numero)}</div>
-        <div className="soc_col-comentario">{socio.comentario}</div>
-        <div className="soc_col-acciones">
+        <div className="soc-col-id">{socio.id_socio}</div>
+        <div className="soc-col-nombre">{socio.nombre}</div>
+        <div className="soc-col-domicilio">{construirDomicilio(socio.domicilio, socio.numero)}</div>
+        <div className="soc-col-comentario">{socio.comentario}</div>
+        <div className="soc-col-acciones">
           {socioSeleccionado?.id_socio === socio.id_socio && (
-            <div className="soc_iconos-acciones">
+            <div className="soc-iconos-acciones">
               <FaInfoCircle
                 title="Ver información"
                 onClick={(e) => {
@@ -227,7 +281,7 @@ const Socios = () => {
                   setSocioInfo(socio);
                   setMostrarModalInfo(true);
                 }}
-                className="soc_icono"
+                className="soc-icono"
               />
               <FaEdit
                 title="Editar"
@@ -236,7 +290,7 @@ const Socios = () => {
                   sessionStorage.setItem('socio_editado', '1');
                   navigate(`/socios/editar/${socio.id_socio}`);
                 }}
-                className="soc_icono"
+                className="soc-icono"
               />
               <FaTrash
                 title="Eliminar"
@@ -245,11 +299,11 @@ const Socios = () => {
                   setSocioAEliminar(socio);
                   setMostrarModalEliminar(true);
                 }}
-                className="soc_icono"
+                className="soc-icono"
               />
               <FaUserMinus
                 title="Dar de baja"
-                className="soc_icono"
+                className="soc-icono"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSocioDarBaja(socio);
@@ -264,144 +318,199 @@ const Socios = () => {
   };
 
   return (
-    <div className="soc_container">
-      <h2 className="soc_titulo">Gestión de Socios</h2>
+    <div className="soc-container">
+      <h2 className="soc-titulo">Gestión de Socios</h2>
 
       {mensaje && (
-        <div className={`soc_mensaje ${tipoMensaje === 'error' ? 'soc_mensaje-error' : 'soc_mensaje-exito'}`}>
+        <div className={`soc-mensaje ${tipoMensaje === 'error' ? 'soc-mensaje-error' : 'soc-mensaje-exito'}`}>
           {mensaje}
         </div>
       )}
 
-      <div className="soc_barra-superior">
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={busqueda}
-          onChange={(e) => {
-            setBusqueda(e.target.value);
-            obtenerSocios();
-          }}
-          className="soc_buscador"
-          disabled={loading}
-        />
+      <div className="soc-barra-superior">
+        <div className="soc-buscador-container">
+          <input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              obtenerSocios();
+            }}
+            className="soc-buscador"
+            disabled={loading}
+          />
+          <div className="soc-buscador-iconos">
+            {busqueda ? (
+              <FaTimes 
+                className="soc-buscador-icono" 
+                onClick={() => setBusqueda('')}
+              />
+            ) : (
+              <FaSearch className="soc-buscador-icono" />
+            )}
+          </div>
+        </div>
 
-        <select 
-          value={letraSeleccionada} 
-          onChange={(e) => {
-            setLetraSeleccionada(e.target.value);
-            obtenerSocios();
-          }}
-          className="soc_selector-letras"
-          disabled={loading}
-        >
-          <option value="">Seleccioná una letra...</option>
-          <option value="TODOS">Todos</option>
-          {letras.map((letra) => (
-            <option key={letra} value={letra}>
-              {letra}
-            </option>
-          ))}
-        </select>
-
-        <button
-          className="soc_boton"
-          onClick={() => {
-            localStorage.removeItem('filtros_socios');
-            navigate('/panel');
-          }}
-          disabled={loading}
-        >
-          Volver
-        </button>
-        <button
-          className="soc_boton"
-          onClick={() => {
-            sessionStorage.removeItem('socio_editado');
-            navigate('/socios/agregar');
-          }}
-          disabled={loading}
-        >
-          Agregar Socio
-        </button>
-        <button 
-          className="soc_boton" 
-          onClick={exportarExcel} 
-          disabled={loading || (!busqueda && !letraSeleccionada)}
-        >
-          Exportar a Excel
-        </button>
-        <button className="soc_boton" onClick={() => navigate('/socios/baja')} disabled={loading}>
-          Dados de Baja
-        </button>
+        <div className="soc-filtros-container" ref={filtrosRef}>
+          <button 
+            className="soc-boton-filtros"
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            disabled={loading}
+          >
+            Filtros {mostrarFiltros ? '▲' : '▼'}
+          </button>
+          
+          {mostrarFiltros && (
+            <div className="soc-menu-filtros">
+              <div className="soc-letras-filtro">
+                {letras.map((letra) => (
+                  <button
+                    key={letra}
+                    className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
+                    onClick={() => {
+                      setLetraSeleccionada(letra);
+                      setMostrarFiltros(false);
+                      obtenerSocios();
+                    }}
+                  >
+                    {letra}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="soc-boton-todos"
+                onClick={() => {
+                  setLetraSeleccionada('TODOS');
+                  setMostrarFiltros(false);
+                  obtenerSocios();
+                }}
+              >
+                Mostrar Todos
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {busqueda || letraSeleccionada ? (
-        <p className="soc_contador">Total de socios: <strong>{sociosFiltrados.length}</strong></p>
+        <p className="soc-contador">Total de socios: <strong>{sociosFiltrados.length}</strong></p>
       ) : null}
 
       {loading ? (
-        <p className="soc_cargando">Cargando socios...</p>
+        <p className="soc-cargando">Cargando socios...</p>
       ) : (
-        <div className="soc_tabla-container">
-          <div className="soc_tabla-header">
-            <div className="soc_col-id">ID</div>
-            <div className="soc_col-nombre">Nombre</div>
-            <div className="soc_col-domicilio">Domicilio</div>
-            <div className="soc_col-comentario">Comentario</div>
-            <div className="soc_col-acciones">Acciones</div>
+        <>
+          <div className="soc-tabla-container">
+            <div className="soc-tabla-header">
+              <div className="soc-col-id">ID</div>
+              <div className="soc-col-nombre">Nombre</div>
+              <div className="soc-col-domicilio">Domicilio</div>
+              <div className="soc-col-comentario">Comentario</div>
+              <div className="soc-col-acciones">Acciones</div>
+            </div>
+            
+            {!busqueda && !letraSeleccionada ? (
+              <div className="soc-sin-resultados">
+                Usá el buscador o seleccioná una letra para filtrar los socios
+              </div>
+            ) : sociosFiltrados.length === 0 ? (
+              <div className="soc-sin-resultados">
+                No se encontraron resultados con los filtros actuales
+              </div>
+            ) : (
+              <List
+                height={400}
+                itemCount={sociosFiltrados.length}
+                itemSize={60}
+                width="100%"
+                itemData={sociosFiltrados}
+                key={`${busqueda}-${letraSeleccionada}`}
+              >
+                {Row}
+              </List>
+            )}
           </div>
-          
-          {!busqueda && !letraSeleccionada ? (
-            <div className="soc_sin-resultados">
-              Usá el buscador o seleccioná una letra para filtrar los socios
-            </div>
-          ) : sociosFiltrados.length === 0 ? (
-            <div className="soc_sin-resultados">
-              No se encontraron resultados con los filtros actuales
-            </div>
-          ) : (
-            <List
-              height={600}
-              itemCount={sociosFiltrados.length}
-              itemSize={60}
-              width="100%"
-              itemData={sociosFiltrados}
+
+          <div className="soc-barra-inferior">
+            <button
+              className="soc-boton soc-boton-volver"
+              onClick={() => {
+                localStorage.removeItem('filtros_socios');
+                navigate('/panel');
+              }}
+              disabled={loading}
             >
-              {Row}
-            </List>
-          )}
-        </div>
+              <FaArrowLeft className="soc-boton-icono" /> Volver
+            </button>
+            
+            <div className="soc-botones-derecha">
+              <button
+                className="soc-boton soc-boton-agregar"
+                onClick={() => {
+                  sessionStorage.removeItem('socio_editado');
+                  navigate('/socios/agregar');
+                }}
+                disabled={loading}
+              >
+                <FaUserPlus className="soc-boton-icono" /> Agregar Socio
+              </button>
+              <button 
+                className="soc-boton soc-boton-exportar" 
+                onClick={exportarExcel} 
+                disabled={loading || (!busqueda && !letraSeleccionada)}
+              >
+                <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
+              </button>
+              <button 
+                className="soc-boton soc-boton-baja" 
+                onClick={() => navigate('/socios/baja')} 
+                disabled={loading}
+              >
+                <FaUserSlash className="soc-boton-icono" /> Dados de Baja
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
-      <ModalEliminarSocio
-        mostrar={mostrarModalEliminar}
-        socio={socioAEliminar}
-        onClose={() => {
-          setMostrarModalEliminar(false);
-          setSocioAEliminar(null);
-        }}
-        onEliminar={eliminarSocio}
-      />
+      {ReactDOM.createPortal(
+        <ModalEliminarSocio
+          mostrar={mostrarModalEliminar}
+          socio={socioAEliminar}
+          onClose={() => {
+            setMostrarModalEliminar(false);
+            setSocioAEliminar(null);
+          }}
+          onEliminar={eliminarSocio}
+        />,
+        document.body
+      )}
 
-      <ModalInfoSocio
-        mostrar={mostrarModalInfo}
-        socio={socioInfo}
-        onClose={() => {
-          setMostrarModalInfo(false);
-          setSocioInfo(null);
-        }}
-      />
+      {ReactDOM.createPortal(
+        <ModalInfoSocio
+          mostrar={mostrarModalInfo}
+          socio={socioInfo}
+          onClose={() => {
+            setMostrarModalInfo(false);
+            setSocioInfo(null);
+          }}
+        />,
+        document.body
+      )}
 
-      <ModalDarBajaSocio
-        mostrar={mostrarModalDarBaja}
-        socio={socioDarBaja}
-        onClose={() => {
-          setMostrarModalDarBaja(false);
-          setSocioDarBaja(null);
-        }}
-        onDarBaja={darDeBajaSocio}
-      />
+      {ReactDOM.createPortal(
+        <ModalDarBajaSocio
+          mostrar={mostrarModalDarBaja}
+          socio={socioDarBaja}
+          onClose={() => {
+            setMostrarModalDarBaja(false);
+            setSocioDarBaja(null);
+          }}
+          onDarBaja={darDeBajaSocio}
+        />,
+        document.body
+      )}
     </div>
   );
 };

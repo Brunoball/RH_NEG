@@ -1,4 +1,5 @@
 import React from 'react';
+import './ModalEliminarSocio.css';
 
 const ModalEliminarSocio = ({ socio, onClose, onEliminar }) => {
   if (!socio) return null;
