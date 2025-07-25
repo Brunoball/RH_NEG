@@ -45,8 +45,28 @@ switch ($action) {
         require_once(__DIR__ . '/../modules/socios/dar_baja_socio.php');
         break;
 
-    case 'dar_alta_socio': 
+    case 'dar_alta_socio':
         require_once(__DIR__ . '/../modules/socios/dar_alta_socio.php');
+        break;
+
+    case 'cuotas':
+        require_once(__DIR__ . '/../modules/cuotas/cuotas.php');
+        break;
+
+    case 'registrar_pago':
+        require_once(__DIR__ . '/../modules/cuotas/registrar_pago.php');
+        break;
+
+    case 'periodos_pagados':
+        require_once(__DIR__ . '/../modules/cuotas/obtener_periodos_pagados.php');
+        break;
+
+    case 'socio_comprobante':
+        require_once(__DIR__ . '/../modules/cuotas/obtener_socio_comprobante.php');
+        break;
+
+    case 'buscar_socio_codigo':
+        require_once(__DIR__ . '/../modules/cuotas/buscar_socio_codigo.php');
         break;
 
     default:
