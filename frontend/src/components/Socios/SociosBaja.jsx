@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
 import { FaUserCheck } from 'react-icons/fa';
-import './Socios.css';
+import './SociosBaja.css';
 
 const SociosBaja = () => {
   const [socios, setSocios] = useState([]);

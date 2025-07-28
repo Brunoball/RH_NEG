@@ -1,4 +1,5 @@
 import React from 'react';
+import './ModalDarBajaSocio.css';
 
 const ModalDarBajaSocio = ({ socio, onClose, onDarBaja }) => {
   if (!socio) return null;

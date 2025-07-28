@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import './Socios.css';
+import './AgregarSocio.css';
 
 const AgregarSocio = () => {
   const navigate = useNavigate();

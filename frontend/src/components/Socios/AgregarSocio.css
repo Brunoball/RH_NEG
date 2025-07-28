@@ -1,0 +1,165 @@
+
+
+/* AgregarSocio.css */
+
+.formulario-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: var(--soc-glass);
+  border-radius: var(--soc-border-radius);
+  box-shadow: var(--soc-shadow-lg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: var(--soc-transition);
+}
+
+.formulario-container:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.formulario-container h2 {
+  color: var(--soc-dark);
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  font-weight: 600;
+  background: var(--soc-gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.formulario-socio {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.campo-formulario {
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.campo-formulario input,
+.campo-formulario select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--soc-border-radius);
+  background-color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  transition: var(--soc-transition);
+  color: var(--soc-dark);
+}
+
+.campo-formulario input:focus,
+.campo-formulario select:focus {
+  outline: none;
+  border-color: var(--soc-primary-light);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+  background-color: white;
+}
+
+.campo-formulario input::placeholder {
+  color: var(--soc-gray);
+  opacity: 0.7;
+}
+
+.campo-formulario label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--soc-dark);
+  font-weight: 500;
+}
+
+.label-fecha {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.error-message {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--soc-danger);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.botones-formulario {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.botones-formulario button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--soc-border-radius);
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--soc-transition);
+  font-size: 0.95rem;
+}
+
+.botones-formulario button:first-child {
+  background: var(--soc-gradient-primary);
+  color: white;
+}
+
+.botones-formulario button:first-child:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--soc-shadow-md);
+}
+
+.botones-formulario button:last-child {
+  background: white;
+  color: var(--soc-dark);
+  border: 1px solid var(--soc-gray);
+}
+
+.botones-formulario button:last-child:hover {
+  background: var(--soc-light);
+  transform: translateY(-2px);
+  box-shadow: var(--soc-shadow-sm);
+}
+
+/* Efectos especiales para campos obligatorios */
+input[name="nombre"] {
+  border-left: 3px solid var(--soc-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .formulario-socio {
+    grid-template-columns: 1fr;
+  }
+  
+  .formulario-container {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+}
+
+/* Animación de carga para selects */
+.campo-formulario select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+}
+
+/* Efecto hover para selects */
+.campo-formulario select:hover {
+  border-color: var(--soc-primary-light);
+}
