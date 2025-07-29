@@ -116,6 +116,11 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
           width: 90px;
           height: 28px;
         }
+        .barcode-text {
+          font-size: 7pt;
+          text-align: center;
+          margin-top: 1px;
+        }
       </style>
     </head>
     <body>
@@ -156,10 +161,11 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
                   </div>
                   <div class="${conCodigo ? 'barcode-container' : 'importe-bloque'}">
                     ${conCodigo 
-                      ? `<p class="importe-centrado">Importe: ${importe}</p><svg id="barcode-${i}${suffix}" class="barcode"></svg>` 
+                      ? `<p class="importe-centrado">Importe: ${importe}</p>
+                         <svg id="barcode-${i}${suffix}" class="barcode"></svg>
+                         <div class="barcode-text">${codigoBarra}</div>` 
                       : `<p class="importe">Importe: ${importe}</p>
-                         ${mostrarFirma ? `<p class="firma">Francisco José Meré - Tesorero</p>` : ''}`
-                    }
+                         ${mostrarFirma ? `<p class="firma">Francisco José Meré - Tesorero</p>` : ''}`}
                   </div>
                 </div>
               </div>`;
