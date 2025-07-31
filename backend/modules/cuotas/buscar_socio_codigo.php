@@ -19,7 +19,12 @@ try {
             s.id_socio,
             s.nombre,
             s.domicilio,
-            s.telefono_movil AS telefono,
+            s.numero,
+            s.telefono_movil,
+            s.telefono_fijo,
+            s.domicilio_cobro,
+            s.dni,
+            s.id_categoria,
             cat.descripcion AS categoria
         FROM socios s
         JOIN categoria cat ON s.id_categoria = cat.id_categoria
@@ -32,7 +37,15 @@ try {
     $socio = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($socio) {
-        $socio['monto'] = 4000; // ✅ monto fijo desde el backend
+        // Agregamos el campo unificado para domicilio completo
+        $socio['domicilio_completo'] = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));
+
+        // Seleccionamos el mejor teléfono disponible
+        $socio['telefono'] = $socio['telefono_movil'] ?: ($socio['telefono_fijo'] ?? '');
+
+        // Monto fijo
+        $socio['monto'] = 4000;
+
         echo json_encode(['exito' => true, 'socio' => $socio]);
     } else {
         echo json_encode(['exito' => false, 'mensaje' => 'No se encontró ningún socio activo con ese ID']);

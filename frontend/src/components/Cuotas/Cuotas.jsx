@@ -42,12 +42,15 @@ const Cuotas = () => {
       if (dataCuotas.exito) {
         setCuotas(dataCuotas.cuotas);
         if (dataListas.exito && dataListas.listas.periodos.length > 0) {
-          setPeriodoSeleccionado(dataListas.listas.periodos[0].nombre);
+          setPeriodoSeleccionado(dataListas.listas.periodos[0].id);
         }
       }
       if (dataListas.exito) {
         setMediosPago(dataListas.listas.cobradores.map(c => c.nombre));
-        setPeriodos(dataListas.listas.periodos.map(p => p.nombre));
+        setPeriodos(dataListas.listas.periodos.map(p => ({
+          id: p.id,
+          nombre: p.nombre
+        })));
       }
     } catch (error) {
       console.error('Error al conectar con el servidor:', error);
@@ -64,7 +67,7 @@ const Cuotas = () => {
     if (!periodoSeleccionado) return [];
 
     const cuotasFiltradas = cuotas
-      .filter((c) => c.mes === periodoSeleccionado)
+      .filter((c) => String(c.id_periodo) === String(periodoSeleccionado))
       .filter((c) => {
         const coincideBusqueda = busqueda === '' || 
           c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -134,7 +137,7 @@ const Cuotas = () => {
             )}
             <button 
               className="cuo_boton-accion cuo_boton-accion-primary"
-              onClick={() => imprimirRecibos([cuota], periodoSeleccionado)}
+              onClick={() => imprimirRecibos([cuota], getNombrePeriodo(periodoSeleccionado))}
               title="Imprimir recibo"
             >
               <FaPrint />
@@ -153,6 +156,11 @@ const Cuotas = () => {
 
   const toggleFiltros = () => {
     setFiltrosExpandidos(!filtrosExpandidos);
+  };
+
+  const getNombrePeriodo = (id) => {
+    const periodo = periodos.find(p => String(p.id) === String(id));
+    return periodo ? periodo.nombre : id;
   };
 
   return (
@@ -194,8 +202,8 @@ const Cuotas = () => {
             disabled={loading}
           >
             <option value="">Seleccionar período</option>
-            {periodos.map((p, i) => (
-              <option key={i} value={p}>{p}</option>
+            {periodos.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
             ))}
           </select>
         </div>
@@ -276,7 +284,7 @@ const Cuotas = () => {
             <h2 className="cuo_content-title">
               Gestión de Cuotas 
               {periodoSeleccionado && (
-                <span className="cuo_periodo-seleccionado"> - {periodoSeleccionado}</span>
+                <span className="cuo_periodo-seleccionado"> - {getNombrePeriodo(periodoSeleccionado)}</span>
               )}
             </h2>
             
@@ -316,7 +324,7 @@ const Cuotas = () => {
                 className="cuo_boton cuo_boton-warning"
                 onClick={async () => {
                   setLoadingPrint(true);
-                  await imprimirRecibos(cuotasFiltradas, periodoSeleccionado);
+                  await imprimirRecibos(cuotasFiltradas, getNombrePeriodo(periodoSeleccionado));
                   setLoadingPrint(false);
                 }}
                 disabled={loadingPrint || !periodoSeleccionado || cuotasFiltradas.length === 0 || loading}
@@ -418,7 +426,7 @@ const Cuotas = () => {
       {mostrarModalCodigoBarras && (
         <ModalCodigoBarras
           onClose={() => setMostrarModalCodigoBarras(false)}
-          periodo={periodoSeleccionado}
+          periodo={getNombrePeriodo(periodoSeleccionado)}
           onPagoRealizado={obtenerCuotasYListas}
         />
       )}

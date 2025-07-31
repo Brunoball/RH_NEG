@@ -40,10 +40,16 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   }, [codigo]);
 
   const buscarPorCodigo = async (input) => {
-    if (input.length < 2) return;
+    if (input.length < 3) return;
 
-    const id_periodo = input.slice(0, 1);
-    const id_socio = input.slice(1);
+    const id_periodo = parseInt(input.slice(0, 2), 10);
+    const id_socio = input.slice(2);
+
+    if (!id_socio || isNaN(id_periodo)) {
+      setMensaje('⛔ Código inválido.');
+      setError(true);
+      return;
+    }
 
     setMensaje('');
     setError(false);
@@ -54,8 +60,11 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       const res = await fetch(`${BASE_URL}/api.php?action=buscar_socio_codigo&id_socio=${id_socio}&id_periodo=${id_periodo}`);
       const data = await res.json();
       if (data.exito) {
-        setSocioEncontrado({ ...data.socio, id_periodo: parseInt(id_periodo) });
-        setMensaje(`✅ Socio encontrado: ${data.socio.nombre}`);
+        const socio = data.socio;
+        socio.telefono = socio.telefono_movil || socio.telefono_fijo || '';
+        socio.domicilio_completo = [socio.domicilio, socio.numero].filter(Boolean).join(' ');
+        setSocioEncontrado({ ...socio, id_periodo });
+        setMensaje(`✅ Socio encontrado: ${socio.nombre}`);
       } else {
         setMensaje(data.mensaje || 'Socio no encontrado.');
         setError(true);
@@ -76,7 +85,12 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       const res = await fetch(`${BASE_URL}/api.php?action=buscar_por_nombre&nombre=${encodeURIComponent(nombre)}`);
       const data = await res.json();
       if (data.exito && data.socios.length > 0) {
-        setResultadosBusqueda(data.socios);
+        const socios = data.socios.map(s => ({
+          ...s,
+          telefono: s.telefono_movil || s.telefono_fijo || '',
+          domicilio_completo: [s.domicilio, s.numero].filter(Boolean).join(' ')
+        }));
+        setResultadosBusqueda(socios);
       } else {
         setMensaje('No se encontraron socios con ese nombre.');
         setError(true);
@@ -140,16 +154,12 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       <div className="codb-modal-container">
         <div className="codb-modal">
           <div className="codb-modal-header">
-            <div className="codb-header-icon">
-              <FaBarcode />
-            </div>
+            <div className="codb-header-icon"><FaBarcode /></div>
             <div className="codb-header-text">
               <h2>Registro de Pagos</h2>
               <p>Escaneá el código de barras o ingresá manualmente el código/nombre del socio</p>
             </div>
-            <button className="codb-close-button" onClick={onClose}>
-              <FaTimes />
-            </button>
+            <button className="codb-close-button" onClick={onClose}><FaTimes /></button>
           </div>
 
           <div className="codb-modal-content">
@@ -164,7 +174,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   className={`codb-search-input ${error ? 'codb-input-error' : ''}`}
                 />
                 <div className="codb-input-hint">
-                  <FaIdCard /> Formato: PERIODO + ID (ej: 112860) o nombre completo
+                  <FaIdCard /> Formato: PERIODO (2 dígitos) + ID (ej: 12860) o nombre completo
                 </div>
               </div>
             </div>
@@ -186,7 +196,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                         className="codb-result-item"
                       >
                         <span className="codb-result-name">{socio.nombre}</span>
-                        <span className="codb-result-address">{socio.domicilio}</span>
+                        <span className="codb-result-address">{socio.domicilio_completo}</span>
                       </button>
                     </li>
                   ))}
@@ -200,7 +210,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   <h3>Información del Socio</h3>
                   <div className="codb-member-id">ID: {socioEncontrado.id_socio}</div>
                 </div>
-                
+
                 <div className="codb-info-grid">
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaUser /> Nombre:</div>
@@ -208,7 +218,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   </div>
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaHome /> Domicilio:</div>
-                    <div className="codb-info-value">{socioEncontrado.domicilio}</div>
+                    <div className="codb-info-value">{socioEncontrado.domicilio_completo}</div>
                   </div>
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaPhone /> Teléfono:</div>

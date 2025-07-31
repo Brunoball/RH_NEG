@@ -3,17 +3,28 @@ import BASE_URL from '../config/config';
 export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
   const sociosCompletos = [];
 
+  const periodoStr = typeof periodoActual === 'number' ? periodoActual.toString() : periodoActual;
+
   for (let socio of listaSocios) {
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${socio.id_socio}`);
       const data = await res.json();
       if (data.exito) {
-        sociosCompletos.push(data.socio);
+        sociosCompletos.push({
+          ...data.socio,
+          nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || ''
+        });
       } else {
-        sociosCompletos.push({ ...socio });
+        sociosCompletos.push({
+          ...socio,
+          nombre_cobrador: socio.medio_pago || ''
+        });
       }
     } catch {
-      sociosCompletos.push({ ...socio });
+      sociosCompletos.push({
+        ...socio,
+        nombre_cobrador: socio.medio_pago || ''
+      });
     }
   }
 
@@ -35,8 +46,8 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
   if (!ventana) return;
 
   const anioActual = new Date().getFullYear();
-  const numeroPeriodo = periodoActual.replace(/\D/g, '') || '0';
-  const textoPeriodo = `Período: ${numeroPeriodo} / ${anioActual}`;
+  const codigoPeriodo = periodoStr.replace(/\D/g, '') || '0';
+  const posicionesTop = [20, 68, 117, 166, 216, 264];
 
   const html = `
   <html>
@@ -49,152 +60,144 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
           margin: 0;
           padding: 0;
           font-family: Arial, sans-serif;
-          font-size: 8pt;
+          font-size: 7pt;
         }
-        .contenedor-hoja {
-          display: flex;
-          flex-direction: column;
-          padding: 0;
-        }
-        .fila {
-          display: flex;
-          flex-direction: row;
-          margin: 0;
-          padding: 0;
-        }
-        .page-break {
+        .page {
+          width: 210mm;
+          height: 297mm;
+          position: relative;
           page-break-after: always;
         }
-        .recibo {
-          width: 106mm;
-          height: 49mm;
+        .recibo-area {
+          width: 95mm;
+          height: 30mm;
           box-sizing: border-box;
-          border: 1px solid #000;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          padding: 18mm 6mm 4mm 6mm;
-          margin: 0;
+          position: absolute;
+          padding: 0;
+          border: 1px solid black;
+          overflow: hidden;
         }
-        .linea {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1px;
-        }
-        .linea-doble {
+        .recibo {
           width: 100%;
-          margin-bottom: 1px;
+          height: 100%;
+          display: grid;
+          grid-template-columns: 70% 30%;
+          grid-template-rows: repeat(6, 1fr);
+          box-sizing: border-box;
         }
-        .linea-doble p,
-        .linea p {
+        .cell {
+          padding: 0.5mm;
           margin: 0;
-          line-height: 1.1em;
+          box-sizing: border-box;
+          overflow: hidden;
+          line-height: 1em;
+          display: flex;
+          align-items: center;
+          border: 0.3px solid black;
+        }
+        .cell-full {
+          grid-column: 1 / span 2;
+        }
+        .cell.barcode-cell {
+          padding: 0;
+          height: 100%;
+          min-height: 6mm;
         }
         .barcode-container {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          width: 90px;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          padding: 0;
         }
-        .importe-bloque {
-          text-align: right;
+        .barcode {
+          width: 100%;
+          height: auto;
+          max-height: 100%;
         }
-        .importe {
-          margin: 0;
-        }
-        .importe-centrado {
+        .barcode-text {
+          font-size: 6pt;
           text-align: center;
-          font-weight: normal;
-          margin-bottom: 2px;
+          margin: 0;
         }
         .firma {
           font-size: 6pt;
-          margin: 0;
-        }
-        .barcode {
-          width: 90px;
-          height: 28px;
-        }
-        .barcode-text {
-          font-size: 7pt;
           text-align: center;
-          margin-top: 1px;
+          width: 100%;
+        }
+        .importe {
+          font-weight: bold;
+          text-align: center;
+          font-size: 8pt;
+          width: 100%;
         }
       </style>
     </head>
     <body>
-      <div class="contenedor-hoja">
-        ${(() => {
-          const bloques = [];
-          for (let i = 0; i < sociosCompletos.length; i++) {
-            const socio = sociosCompletos[i];
+      ${(() => {
+        let htmlPaginas = '';
+        for (let p = 0; p < Math.ceil(sociosCompletos.length / 6); p++) {
+          const pageSocios = sociosCompletos.slice(p * 6, p * 6 + 6);
+          htmlPaginas += `<div class="page">`;
+
+          for (let i = 0; i < pageSocios.length; i++) {
+            const socio = pageSocios[i];
+            const indexGlobal = p * 6 + i;
+            const top = posicionesTop[i];
+
             const nombre = socio.nombre?.toUpperCase() || '';
             const apellido = socio.apellido?.toUpperCase() || '';
             const domicilio = [socio.domicilio, socio.numero].filter(Boolean).join(' ').trim() || '';
-            const cobro = typeof socio.domicilio_cobro === 'string' && socio.domicilio_cobro.trim() !== '' ? socio.domicilio_cobro.trim() : '';
-            const tel = typeof socio.telefono === 'string' && socio.telefono.trim() !== '' ? socio.telefono.trim() : '';
             const id = socio.id_socio || '';
-
             const categoria = categorias[socio.id_categoria] || socio.nombre_categoria || '';
             const estado = estados[socio.id_estado] || socio.nombre_estado || '';
-            const medioPago = cobradores[socio.id_cobrador] || socio.nombre_cobrador || '';
-
+            const tel = typeof socio.telefono === 'string' && socio.telefono.trim() !== '' ? socio.telefono.trim() : '';
+            const cobro = typeof socio.domicilio_cobro === 'string' ? socio.domicilio_cobro.trim() : '';
             const importe = '$4000';
-            const codigoBarra = `${numeroPeriodo}-${id}`;
+            const codigoBarra = `${codigoPeriodo}-${id}`;
 
-            const reciboHTML = (conCodigo, suffix, mostrarFirma) => `
-              <div class="recibo">
-                <div class="linea-doble">
-                  <p><strong>Socio:</strong> ${id} - ${apellido} ${nombre}</p>
-                  <p><strong>Domicilio:</strong> ${domicilio}</p>
-                </div>
-                <div class="linea">
-                  <p><strong>Cobro:</strong> ${cobro}</p>
-                </div>
-                <div class="linea">
-                  <div>
-                    <p><strong>${textoPeriodo}</strong></p>
-                    <p><strong>Tel.:</strong> ${tel}</p>
-                    <p><strong>Grupo:</strong> ${categoria} - ${estado}</p>
-                    <p><strong>Medio de pago:</strong> ${medioPago}</p>
+            const contenidoRecibo = (conCodigo) => `
+              <div class="recibo-area" style="top: ${top}mm; left: ${conCodigo ? '5mm' : '110mm'};">
+                <div class="recibo">
+                  <div class="cell cell-full"><strong>Socio:</strong> ${id} - ${apellido} ${nombre}</div>
+                  <div class="cell cell-full"><strong>Domicilio:</strong> ${domicilio}</div>
+                  <div class="cell cell-full"><strong>Domicilio de cobro:</strong> ${cobro}</div>
+                  <div class="cell"><strong>Tel:</strong> ${tel}</div>
+                  <div class="cell"><div class="importe">Importe: ${importe}</div></div>
+                  <div class="cell"><strong>Período:</strong> PERÍODO ${periodoStr} / ${anioActual}</div>
+                  <div class="cell barcode-cell">
+                    ${conCodigo
+                      ? `<div class="barcode-container"><svg id="barcode-${indexGlobal}" class="barcode"></svg></div>`
+                      : `<div class="firma">Francisco José Meré -<br>Tesorero</div>`}
                   </div>
-                  <div class="${conCodigo ? 'barcode-container' : 'importe-bloque'}">
-                    ${conCodigo 
-                      ? `<p class="importe-centrado">Importe: ${importe}</p>
-                         <svg id="barcode-${i}${suffix}" class="barcode"></svg>
-                         <div class="barcode-text">${codigoBarra}</div>` 
-                      : `<p class="importe">Importe: ${importe}</p>
-                         ${mostrarFirma ? `<p class="firma">Francisco José Meré - Tesorero</p>` : ''}`}
+                  <div class="cell"><strong>Grupo:</strong> ${categoria} - ${estado}</div>
+                  <div class="cell" style="justify-content: center;">
+                    ${conCodigo ? codigoBarra : ''}
                   </div>
                 </div>
-              </div>`;
-
-            const filaHTML = `
-              <div class="fila">
-                ${reciboHTML(true, 'a', false)}
-                ${reciboHTML(false, 'b', true)}
               </div>
             `;
 
-            bloques.push(filaHTML);
-            if ((i + 1) % 6 === 0) bloques.push(`<div class="page-break"></div>`);
+            htmlPaginas += contenidoRecibo(true);
+            htmlPaginas += contenidoRecibo(false);
           }
 
-          return bloques.join('');
-        })()}
-      </div>
+          htmlPaginas += `</div>`;
+        }
+        return htmlPaginas;
+      })()}
       <script>
         window.onload = function() {
           ${sociosCompletos.map((s, i) => {
             const id = s.id_socio || '-';
-            const codigo = `${numeroPeriodo}-${id}`;
+            const codigo = `${codigoPeriodo}-${id}`;
             return `
-              JsBarcode("#barcode-${i}a", "${codigo}", {
+              JsBarcode("#barcode-${i}", "${codigo}", {
                 format: "CODE128",
                 lineColor: "#000",
-                width: 1.6,
-                height: 28,
+                width: 2.5,
+                height: 50,
                 displayValue: false
               });
             `;
