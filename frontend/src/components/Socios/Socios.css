@@ -41,6 +41,7 @@
 body {
   margin: 0;
   padding: 0;
+  min-width: 100vh;
   min-height: 100vh;
   background: linear-gradient(135deg, #EBF4FF 0%, #E6FFFA 50%, #EBF8FF 100%);
   background-attachment: fixed;
@@ -61,12 +62,7 @@ body::before {
   z-index: -1;
 }
 
-#root {
-  min-width: 100%;
-  min-height: 100%;
-  display: block;
-  overflow: hidden;
-}
+
 
 .soc-container {
   width: 100%;

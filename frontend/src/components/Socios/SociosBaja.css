@@ -1,10 +1,8 @@
-/* src/components/Socios/Socios.css */
-
 /* Estilos Base */
 .soc_container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   color: var(--soc-dark);
   animation: fadeIn 0.5s ease-out;
@@ -107,69 +105,62 @@
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
 }
 
-/* Tabla */
-.soc_tabla-scroll {
-  overflow-x: hidden;
+/* Nueva implementación con Grid */
+.soc_tabla-grid {
+  display: grid;
+  grid-template-columns: 80px minmax(200px, 1fr) minmax(250px, 1fr) minmax(300px, 1fr) 100px;
+  width: 100%;
   border-radius: var(--soc-border-radius);
   box-shadow: var(--soc-shadow-lg);
-  margin-bottom: 2rem;
   background: white;
+  overflow: hidden;
 }
 
-.soc_tabla {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
+.soc_tabla-header {
+  display: contents;
 }
 
-.soc_tabla thead {
-  background: var(--soc-gradient-primary);
-  color: white;
-}
-
-.soc_tabla th {
+.soc_tabla-header-item {
   padding: 1rem;
   text-align: left;
   font-weight: 600;
+  background: var(--soc-gradient-primary);
+  color: white;
   position: sticky;
   top: 0;
+  z-index: 10;
 }
 
-.soc_tabla td {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  transition: var(--soc-transition);
+.soc_tabla-body {
+  display: contents;
 }
 
-.soc_tabla tr:not(:first-child):hover td {
+.soc_tabla-row {
+  display: contents;
+}
+
+.soc_tabla-row:hover .soc_tabla-cell {
   background: rgba(79, 70, 229, 0.05);
   transform: scale(1.01);
 }
 
-.soc_tabla tr:last-child td {
-  border-bottom: none;
+.soc_tabla-cell {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  transition: var(--soc-transition);
+  display: flex;
+  align-items: center;
 }
 
-/* Columnas */
-.soc_col-id {
-  width: 80px;
+/* Alineación específica para la columna de acciones */
+.soc_tabla-cell:nth-child(5) {
+  justify-content: center;
 }
 
-.soc_col-nombre {
-  min-width: 200px;
-}
-
-.soc_col-domicilio {
-  min-width: 250px;
-}
-
-.soc_col-comentario {
-  min-width: 300px;
-}
-
-.soc_col-acciones {
-  width: 100px;
-  text-align: center;
+.soc_tabla-scroll {
+  overflow-y: auto;
+  max-height: 40vh;
+  position: relative;
 }
 
 /* Iconos */
@@ -298,17 +289,9 @@
 
 /* Sin resultados */
 .soc_sin-resultados {
+  grid-column: 1 / -1;
   text-align: center;
   padding: 2rem;
   color: var(--soc-gray);
   font-style: italic;
-}
-
-/* Efectos hover para filas */
-.soc_tabla tbody tr {
-  transition: var(--soc-transition);
-}
-
-.soc_tabla tbody tr:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }

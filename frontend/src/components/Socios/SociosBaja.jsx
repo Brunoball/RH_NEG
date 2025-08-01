@@ -1,4 +1,3 @@
-// src/components/Socios/SociosBaja.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
@@ -102,29 +101,28 @@ const SociosBaja = () => {
         <p className="soc_cargando">Cargando socios dados de baja...</p>
       ) : (
         <div className="soc_tabla-scroll">
-          <table className="soc_tabla">
-            <thead>
-              <tr>
-                <th className="soc_col-id">ID</th>
-                <th className="soc_col-nombre">Nombre</th>
-                <th className="soc_col-domicilio">Domicilio</th>
-                <th className="soc_col-comentario">Comentario</th>
-                <th className="soc_col-acciones">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+          <div className="soc_tabla-grid">
+            {/* Encabezados */}
+            <div className="soc_tabla-header">
+              <div className="soc_tabla-header-item">ID</div>
+              <div className="soc_tabla-header-item">Nombre</div>
+              <div className="soc_tabla-header-item">Domicilio</div>
+              <div className="soc_tabla-header-item">Comentario</div>
+              <div className="soc_tabla-header-item">Acciones</div>
+            </div>
+            
+            {/* Cuerpo */}
+            <div className="soc_tabla-body">
               {sociosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="soc_sin-resultados">No hay resultados.</td>
-                </tr>
+                <div className="soc_sin-resultados">No hay resultados.</div>
               ) : (
                 sociosFiltrados.map((s) => (
-                  <tr key={s.id_socio}>
-                    <td>{s.id_socio}</td>
-                    <td>{s.nombre}</td>
-                    <td>{`${s.domicilio ?? ''} ${s.numero ?? ''}`}</td>
-                    <td>{s.comentario}</td>
-                    <td>
+                  <div className="soc_tabla-row" key={s.id_socio}>
+                    <div className="soc_tabla-cell">{s.id_socio}</div>
+                    <div className="soc_tabla-cell">{s.nombre}</div>
+                    <div className="soc_tabla-cell">{`${s.domicilio ?? ''} ${s.numero ?? ''}`}</div>
+                    <div className="soc_tabla-cell">{s.comentario}</div>
+                    <div className="soc_tabla-cell">
                       <FaUserCheck
                         title="Dar de alta"
                         className="soc_icono"
@@ -133,12 +131,12 @@ const SociosBaja = () => {
                           setMostrarConfirmacion(true);
                         }}
                       />
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       )}
 

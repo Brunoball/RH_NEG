@@ -117,17 +117,26 @@ const AgregarSocio = () => {
       <h2>Agregar Nuevo Socio</h2>
       <form className="addsoc-form" onSubmit={handleSubmit}>
         {[
-          { name: 'nombre', placeholder: 'Nombre completo *' },
-          { name: 'domicilio', placeholder: 'Domicilio' },
-          { name: 'numero', placeholder: 'Número' },
-          { name: 'telefono_movil', placeholder: 'Teléfono Móvil' },
-          { name: 'telefono_fijo', placeholder: 'Teléfono Fijo' },
-          { name: 'comentario', placeholder: 'Comentario' },
-          { name: 'domicilio_cobro', placeholder: 'Domicilio de Cobro' },
-          { name: 'dni', placeholder: 'DNI' },
-        ].map(({ name, placeholder }) => (
+          { name: 'nombre', label: 'Nombre completo *', type: 'text' },
+          { name: 'domicilio', label: 'Domicilio', type: 'text' },
+          { name: 'numero', label: 'Número', type: 'text' },
+          { name: 'telefono_movil', label: 'Teléfono Móvil', type: 'text' },
+          { name: 'telefono_fijo', label: 'Teléfono Fijo', type: 'text' },
+          { name: 'comentario', label: 'Comentario', type: 'text' },
+          { name: 'domicilio_cobro', label: 'Domicilio de Cobro', type: 'text' },
+          { name: 'dni', label: 'DNI', type: 'text' },
+        ].map(({ name, label, type }) => (
           <div className="addsoc-field" key={name}>
-            <input name={name} placeholder={placeholder} onChange={handleChange} />
+            <div className="addsoc-input-container">
+              <input
+                name={name}
+                type={type}
+                value={formData[name]}
+                onChange={handleChange}
+                className={formData[name] ? 'addsoc-input-filled' : ''}
+              />
+              <label className="addsoc-floating-label">{label}</label>
+            </div>
             {mostrarErrores && errores[name] && (
               <span className="addsoc-error">{errores[name]}</span>
             )}
@@ -135,37 +144,67 @@ const AgregarSocio = () => {
         ))}
 
         <div className="addsoc-field">
-          <select name="id_cobrador" onChange={handleChange}>
-            <option value="">Seleccione Cobrador</option>
-            {listas.cobradores.map(c => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </select>
+          <div className="addsoc-input-container">
+            <select 
+              name="id_cobrador" 
+              onChange={handleChange}
+              value={formData.id_cobrador}
+              className={formData.id_cobrador ? 'addsoc-input-filled' : ''}
+            >
+              <option value=""></option>
+              {listas.cobradores.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+            <label className="addsoc-floating-label">Seleccione Cobrador</label>
+          </div>
         </div>
 
         <div className="addsoc-field">
-          <select name="id_categoria" onChange={handleChange}>
-            <option value="">Seleccione Categoría</option>
-            {listas.categorias.map(c => (
-              <option key={c.id} value={c.id}>{c.descripcion}</option>
-            ))}
-          </select>
+          <div className="addsoc-input-container">
+            <select 
+              name="id_categoria" 
+              onChange={handleChange}
+              value={formData.id_categoria}
+              className={formData.id_categoria ? 'addsoc-input-filled' : ''}
+            >
+              <option value=""></option>
+              {listas.categorias.map(c => (
+                <option key={c.id} value={c.id}>{c.descripcion}</option>
+              ))}
+            </select>
+            <label className="addsoc-floating-label">Seleccione Categoría</label>
+          </div>
         </div>
 
         <div className="addsoc-field">
-          <label className="addsoc-date-label">
-            Fecha de nacimiento
-            <input name="nacimiento" type="date" onChange={handleChange} />
-          </label>
+          <div className="addsoc-input-container addsoc-date-container">
+            <input 
+              name="nacimiento" 
+              type="date" 
+              onChange={handleChange}
+              value={formData.nacimiento}
+              className="addsoc-input-filled"
+            />
+            <label className="addsoc-floating-label">Fecha de nacimiento</label>
+          </div>
         </div>
 
         <div className="addsoc-field addsoc-last-field">
-          <select name="id_estado" onChange={handleChange}>
-            <option value="">Seleccione Estado</option>
-            {listas.estados.map(e => (
-              <option key={e.id} value={e.id}>{e.descripcion}</option>
-            ))}
-          </select>
+          <div className="addsoc-input-container">
+            <select 
+              name="id_estado" 
+              onChange={handleChange}
+              value={formData.id_estado}
+              className={formData.id_estado ? 'addsoc-input-filled' : ''}
+            >
+              <option value=""></option>
+              {listas.estados.map(e => (
+                <option key={e.id} value={e.id}>{e.descripcion}</option>
+              ))}
+            </select>
+            <label className="addsoc-floating-label">Seleccione Estado</label>
+          </div>
         </div>
 
         <div className="addsoc-buttons">

@@ -40,7 +40,7 @@ body {
 /* Layout principal */
 .cuo_app-container {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 1.5fr 4fr;
   height: 100vh;
   transition: var(--transition);
 }
