@@ -295,3 +295,15 @@
   color: var(--soc-gray);
   font-style: italic;
 }
+
+/* Filtros activos */
+.soc-filtro-activo {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.soc-filtros-container:has(.soc-filtro-activo-busqueda, .soc-filtro-activo-letra) .soc-filtro-activo {
+  opacity: 1;
+  pointer-events: auto;
+}

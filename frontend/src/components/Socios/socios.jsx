@@ -140,11 +140,7 @@ const BarraSuperior = React.memo(({
             <div className="soc-filtro-activo">
               <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
             </div>
-          ) : (
-            <div className="soc-filtro-activo">
-              <span className="soc-filtro-activo-vacio">-</span>
-            </div>
-          )}
+          ) : null}
         </div>
         
         {mostrarFiltros && (
@@ -183,12 +179,13 @@ const BarraSuperior = React.memo(({
                   ...prev, 
                   letraSeleccionada: 'TODOS',
                   busqueda: '',
-                  filtroActivo: null
+                  filtroActivo: 'todos'
                 }));
                 setMostrarFiltros(false);
                 setAnimarBusqueda(false);
                 setAnimarFiltroLetra(false);
-                setAnimarMostrarTodos(false);
+                setAnimarMostrarTodos(true);
+                setTimeout(() => setAnimarMostrarTodos(false), 1000);
               }}
             >
               Mostrar Todos
@@ -223,8 +220,8 @@ const Socios = () => {
     const saved = localStorage.getItem('filtros_socios');
     return saved ? JSON.parse(saved) : {
       busqueda: '',
-      letraSeleccionada: '',
-      filtroActivo: 'inicial'
+      letraSeleccionada: 'TODOS',
+      filtroActivo: null
     };
   });
 
@@ -281,9 +278,7 @@ const Socios = () => {
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
 
-    if (filtroActivo === 'inicial') {
-      return [];
-    } else if (filtroActivo === 'busqueda' && busqueda) {
+    if (filtroActivo === 'busqueda' && busqueda) {
       resultados = resultados.filter((s) =>
         s.nombre?.toLowerCase().includes(busqueda.toLowerCase())
       );
@@ -291,6 +286,9 @@ const Socios = () => {
       resultados = resultados.filter((s) =>
         s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
       );
+    } else if (filtroActivo === 'todos') {
+      // No aplicamos filtros, mostramos todos
+      return resultados;
     }
 
     return resultados;
@@ -391,7 +389,7 @@ const Socios = () => {
     setFiltros({
       busqueda: '',
       letraSeleccionada: 'TODOS',
-      filtroActivo: null
+      filtroActivo: 'todos'
     });
     setAnimarMostrarTodos(true);
     setTimeout(() => setAnimarMostrarTodos(false), 1000);
@@ -494,8 +492,11 @@ const Socios = () => {
       <div className="soc-tabla-container">
         <div className="soc-tabla-header-container">
           <div className="soc-contador">
-            {filtroActivo ? 'Socios filtrados:' : 'Total de socios:'} 
-            <strong>{filtroActivo ? sociosFiltrados.length : socios.length}</strong>
+            {filtroActivo === 'todos' ? 'Total de socios:' : 
+             filtroActivo === null ? 'Filtre para ver socios:' : 'Socios filtrados:'} 
+            <strong>
+              {filtroActivo === null ? 0 : sociosFiltrados.length}
+            </strong>
           </div>
           <div className="soc-tabla-header">
             <div className="soc-col-id">ID</div>
@@ -516,16 +517,10 @@ const Socios = () => {
           <div className="soc-sin-resultados">
             No hay socios registrados
           </div>
-        ) : (filtroActivo === 'inicial' || sociosFiltrados.length === 0) ? (
+        ) : filtroActivo === null ? (
           <div className="soc-boton-mostrar-container">
             <div className="soc-mensaje-inicial">
-              {sociosFiltrados.length === 0 && filtroActivo !== 'inicial' ? (
-                "No hay resultados con los filtros actuales"
-              ) : (
-                <>
-                  Por favor aplique al menos un filtro para ver los socios
-                </>
-              )}
+              Por favor aplique al menos un filtro para ver los socios
             </div>
             <button
               className="soc-boton-mostrar-todos"
@@ -535,6 +530,10 @@ const Socios = () => {
               <FaSync className="soc-icono-refresh" />
               Mostrar todos los socios
             </button>
+          </div>
+        ) : sociosFiltrados.length === 0 ? (
+          <div className="soc-sin-resultados">
+            No hay resultados con los filtros actuales
           </div>
         ) : (
           <List

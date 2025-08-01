@@ -30,17 +30,15 @@ html, body {
 
 /* Contenedor principal - Ahora es completamente flexible */
 .ini_wrapper {
-  min-height: 100vh;
-  display: flex;
+  min-height: 90vh;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
 }
 
 /* Contenedor del formulario - Tamaño adaptable */
 .ini_contenedor {
   width: 100%;
-  max-width: 500px;
+  max-width: 550px;
   min-height: 500px;
   padding: 2rem;
   background: white;
