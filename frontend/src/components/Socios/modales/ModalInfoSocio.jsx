@@ -1,4 +1,3 @@
-// src/components/socios/modales/ModalInfoSocio.jsx
 import React, { useEffect, useState } from 'react';
 import BASE_URL from '../../../config/config';
 import './ModalInfoSocio.css';
@@ -38,8 +37,11 @@ const ModalInfoSocio = ({ socio, onClose }) => {
 
   if (!socio) return null;
 
+  // ✅ Arreglado para evitar desfase horario
   const formatoFecha = (fecha) => {
-    return fecha ? new Date(fecha).toLocaleDateString('es-AR') : '-';
+    if (!fecha) return '-';
+    const [year, month, day] = fecha.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const obtenerDescripcion = (lista, id, campo = 'descripcion') => {
@@ -98,7 +100,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
               </div>
               <div className="ModalInfo-item">
                 <span className="ModalInfo-label">Ingreso:</span>
-                <span className="ModalInfo-value">{socio.ingreso}</span>
+                <span className="ModalInfo-value">{formatoFecha(socio.ingreso)}</span>
               </div>
               <div className="ModalInfo-item">
                 <span className="ModalInfo-label">Cobrador:</span>

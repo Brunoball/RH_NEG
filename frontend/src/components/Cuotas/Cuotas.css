@@ -1,4 +1,5 @@
 :root {
+  /* Colores principales */
   --color-primary: #4361ee;
   --color-primary-light: #3a86ff;
   --color-secondary: #3f37c9;
@@ -14,6 +15,15 @@
   --color-bg: #f1faee;
   --color-card: #ffffff;
   --color-filtros: #2c3e50;
+  
+  /* Colores específicos para estados */
+  --color-oficina: #7209b7;
+  --color-cobrador: #f8961e;
+  --color-transferencia: #3a86ff;
+  --color-activo: #27ae60;
+  --color-pasivo: #c0392b;
+
+  /* Estilos generales */
   --border-radius: 8px;
   --border-radius-sm: 4px;
   --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -21,6 +31,7 @@
   --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+/* Estilos base */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -40,7 +51,7 @@ body {
 /* Layout principal */
 .cuo_app-container {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: auto 1fr;
   height: 100vh;
   transition: var(--transition);
 }
@@ -59,6 +70,19 @@ body {
   color: white;
   overflow-y: auto;
   height: 100vh;
+  width: 320px;
+  min-width: 320px;
+  transform: translateX(0);
+  transition: transform 0.4s ease, width 0.4s ease;
+}
+
+.cuo_filtros-colapsado {
+  transform: translateX(-100%);
+  transition: transform 0.4s ease, width 0.4s ease;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .cuo_filtros-header {
@@ -82,6 +106,50 @@ body {
 .cuo_filtros-controles {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Botón de toggle horizontal */
+.cuo_boton-toggle-horizontal {
+  background-color: transparent;
+  color: white;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: var(--transition);
+}
+
+.cuo_boton-toggle-horizontal:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Botón flotante para abrir filtros */
+.cuo_boton-flotante-abrir {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 20;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  width: 42px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: background-color 0.3s ease, width 0.3s ease;
+}
+
+.cuo_boton-flotante-abrir:hover {
+  background-color: var(--color-primary-light);
+  width: 48px;
+}
+
+.cuo_flotante-fuera {
+  left: 0;
 }
 
 /* Contenido principal */
@@ -388,7 +456,7 @@ body {
   color: white;
 }
 
-/* Tabla */
+/* Tabla - Estilos mejorados para cabecera fija */
 .cuo_tabla-container {
   flex: 1;
   background-color: white;
@@ -402,13 +470,19 @@ body {
 
 .cuo_tabla-wrapper {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .cuo_list-container {
-  height: calc(100% - 60px);
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
 }
 
+/* Cabecera de tabla fija */
 .cuo_tabla-header {
   display: flex;
   background-color: #3498db;
@@ -417,8 +491,9 @@ body {
   padding: 1rem;
   position: sticky;
   top: 0;
-  z-index: 5;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  border-bottom: 2px solid #2980b9;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .cuo_tabla-header > div {
@@ -430,8 +505,10 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
+/* Columnas con anchos definidos para alinear con el cuerpo */
 .cuo_col-nombre {
   flex: 3;
   min-width: 220px;
@@ -446,11 +523,6 @@ body {
   cursor: pointer;
   user-select: none;
   transition: var(--transition);
-}
-
-.cuo_col-nombre:hover,
-.cuo_col-domicilio:hover {
-  color: white;
 }
 
 .cuo_icono-orden {
@@ -512,7 +584,15 @@ body {
 /* Contenido de las celdas */
 .cuo_tabla-fila > div {
   padding: 0 1rem;
+  flex-shrink: 0;
 }
+
+/* Asegurar que las celdas del cuerpo coincidan con la cabecera */
+.cuo_tabla-fila > .cuo_col-nombre { flex: 3; min-width: 220px; }
+.cuo_tabla-fila > .cuo_col-domicilio { flex: 2; min-width: 180px; }
+.cuo_tabla-fila > .cuo_col-estado { flex: 1; min-width: 120px; }
+.cuo_tabla-fila > .cuo_col-medio-pago { flex: 1.5; min-width: 150px; }
+.cuo_tabla-fila > .cuo_col-acciones { flex: 1; min-width: 120px; text-align: center; }
 
 .cuo_nombre-socio {
   font-weight: 500;
@@ -525,36 +605,49 @@ body {
   color: #7f8c8d;
 }
 
-/* Badges */
+/* Badges - Burbujas de estado mejoradas */
 .cuo_badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: 50px;
+  justify-content: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+  min-width: 100px;
+  text-align: center;
+  transition: var(--transition);
 }
 
-.cuo_badge-success {
-  background-color: rgba(46, 204, 113, 0.2);
+/* Estados del socio - Burbujas mejoradas */
+.cuo_estado-activo {
+  background-color: rgba(39, 174, 96, 0.1);
   color: #27ae60;
 }
 
-.cuo_badge-danger {
-  background-color: rgba(231, 76, 60, 0.2);
+.cuo_estado-pasivo {
+  background-color: rgba(192, 57, 43, 0.1);
   color: #c0392b;
 }
 
-.cuo_badge-info {
-  background-color: rgba(52, 152, 219, 0.2);
-  color: #2980b9;
+/* Medios de Pago - Burbujas mejoradas */
+.cuo_pago-cobrador {
+  background-color: rgba(84, 110, 122, 0.15);
+  color: #455a64;
 }
 
-.cuo_badge-warning {
-  background-color: rgba(241, 196, 15, 0.2);
-  color: #f39c12;
+.cuo_pago-oficina {
+  background-color: rgba(156, 39, 176, 0.12);
+  color: #8e24aa;
+}
+
+.cuo_pago-transferencia {
+  background-color: rgba(30, 136, 229, 0.12);
+  color: #1e88e5;
 }
 
 /* Botones de acción */
@@ -643,6 +736,10 @@ body {
   .cuo_col-domicilio {
     display: none;
   }
+  
+  .cuo_tabla-fila > .cuo_col-domicilio {
+    display: none;
+  }
 }
 
 @media (max-width: 992px) {
@@ -664,12 +761,19 @@ body {
     border-right: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    min-width: 100%;
   }
   
   .cuo_filtros-expandidos {
     transform: translateY(0);
     opacity: 1;
     pointer-events: auto;
+  }
+  
+  .cuo_filtros-colapsado {
+    width: 100%;
+    min-width: 100%;
   }
   
   .cuo_content-header {
