@@ -80,46 +80,62 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
         .recibo {
           width: 100%;
           height: 100%;
-          display: grid;
-          grid-template-columns: 70% 30%;
-          grid-template-rows: repeat(6, 1fr);
+          display: flex;
+          justify-content: center;
+          flex-direction: column;
           box-sizing: border-box;
         }
+        .row {
+          padding: 0 0.8rem;
+          display: flex;
+          width: 100%;
+          min-height: 0;
+        }
         .cell {
-          padding: 0.5mm;
           margin: 0;
           box-sizing: border-box;
           overflow: hidden;
           line-height: 1em;
           display: flex;
-          align-items: center;
-          border: 0.3px solid black;
+          flex: 1;
         }
         .cell-full {
-          grid-column: 1 / span 2;
+          flex: 0 0 100%;
         }
-        .cell.barcode-cell {
+        .cell-double {
+          flex: 2;
+        }
+        .cell-barcode {
+          flex: 1;
           padding: 0;
           height: 100%;
           min-height: 6mm;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
         }
         .barcode-container {
           display: flex;
           align-items: center;
           justify-content: center;
           width: 100%;
-          height: 100%;
+          height: 70%;
           padding: 0;
         }
         .barcode {
           width: 100%;
           height: auto;
-          max-height: 100%;
+          max-height: 24px;
         }
         .barcode-text {
           font-size: 6pt;
           text-align: center;
           margin: 0;
+          height: 30%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .firma {
           font-size: 6pt;
@@ -131,6 +147,18 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
           text-align: center;
           font-size: 8pt;
           width: 100%;
+        }
+        .periodo-grupo {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          flex: 1;
+          height: fit-content;
+        }
+        .periodo-grupo div {
+          flex: 1;
+          display: flex;
+          align-items: center;
         }
       </style>
     </head>
@@ -160,20 +188,30 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
             const contenidoRecibo = (conCodigo) => `
               <div class="recibo-area" style="top: ${top}mm; left: ${conCodigo ? '5mm' : '110mm'};">
                 <div class="recibo">
-                  <div class="cell cell-full"><strong>Socio:</strong> ${id} - ${apellido} ${nombre}</div>
-                  <div class="cell cell-full"><strong>Domicilio:</strong> ${domicilio}</div>
-                  <div class="cell cell-full"><strong>Domicilio de cobro:</strong> ${cobro}</div>
-                  <div class="cell"><strong>Tel:</strong> ${tel}</div>
-                  <div class="cell"><div class="importe">Importe: ${importe}</div></div>
-                  <div class="cell"><strong>Período:</strong> PERÍODO ${periodoStr} / ${anioActual}</div>
-                  <div class="cell barcode-cell">
-                    ${conCodigo
-                      ? `<div class="barcode-container"><svg id="barcode-${indexGlobal}" class="barcode"></svg></div>`
-                      : `<div class="firma">Francisco José Meré -<br>Tesorero</div>`}
+                  <div class="row">
+                    <div class="cell cell-full"><strong>Socio:</strong> ${id} - ${apellido} ${nombre}</div>
                   </div>
-                  <div class="cell"><strong>Grupo:</strong> ${categoria} - ${estado}</div>
-                  <div class="cell" style="justify-content: center;">
-                    ${conCodigo ? codigoBarra : ''}
+                  <div class="row">
+                    <div class="cell cell-full"><strong>Domicilio:</strong> ${domicilio}</div>
+                  </div>
+                  <div class="row">
+                    <div class="cell cell-full"><strong>Domicilio de cobro:</strong> ${cobro}</div>
+                  </div>
+                  <div class="row">
+                    <div class="cell"><strong>Tel:</strong> ${tel}</div>
+                    <div class="cell"><div class="importe">Importe: ${importe}</div></div>
+                  </div>
+                  <div class="row">
+                    <div class="cell periodo-grupo">
+                      <div><strong>Período:</strong> PERÍODO ${periodoStr} / ${anioActual}</div>
+                      <div><strong>Grupo:</strong> ${categoria} - ${estado}</div>
+                    </div>
+                    <div class="cell cell-barcode">
+                      ${conCodigo
+                        ? `<div class="barcode-container"><svg id="barcode-${indexGlobal}" class="barcode"></svg></div>
+                           <div class="barcode-text">${codigoBarra}</div>`
+                        : `<div class="firma">Francisco José Meré -<br>Tesorero</div>`}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -109,7 +109,7 @@
 
 /* Tabla */
 .soc_tabla-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
   border-radius: var(--soc-border-radius);
   box-shadow: var(--soc-shadow-lg);
   margin-bottom: 2rem;
@@ -174,12 +174,11 @@
 
 /* Iconos */
 .soc_icono {
-  font-size: 1.5rem;
+  font-size: 2.3rem;
   color: var(--soc-primary);
   cursor: pointer;
   transition: var(--soc-transition);
   padding: 0.5rem;
-  border-radius: 50%;
 }
 
 .soc_icono:hover {

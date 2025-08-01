@@ -1,29 +1,4 @@
-:root {
-  --soc-primary: #4F46E5;
-  --soc-primary-light: #6366F1;
-  --soc-primary-dark: #4338CA;
-  --soc-secondary: #EC4899;
-  --soc-accent: #F59E0B;
-  --soc-success: #10B981;
-  --soc-warning: #F97316;
-  --soc-danger: #EF4444;
-  --soc-light: #F9FAFB;
-  --soc-dark: #111827;
-  --soc-gray: #6B7280;
-  
-  --soc-gradient-primary: linear-gradient(135deg, var(--soc-primary) 0%, var(--soc-secondary) 100%);
-  --soc-gradient-success: linear-gradient(135deg, var(--soc-success) 0%, #059669 100%);
-  --soc-gradient-warning: linear-gradient(135deg, var(--soc-warning) 0%, #EA580C 100%);
-  --soc-gradient-danger: linear-gradient(135deg, var(--soc-danger) 0%, #DC2626 100%);
-  
-  --soc-border-radius: 12px;
-  --soc-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --soc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --soc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --soc-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --soc-glass: rgba(255, 255, 255, 0.95);
-  --soc-glass-dark: rgba(17, 24, 39, 0.95);
-}
+
 
 /* Modal Overlay */
 .modal-overlay {
@@ -141,7 +116,7 @@
 
 /* Confirm Button */
 .btn-confirmar {
-  background: var(--soc-gradient-danger);
+  background: #EF4444;
   color: white;
   border: 1px solid transparent !important;
   box-shadow: var(--soc-shadow-sm);

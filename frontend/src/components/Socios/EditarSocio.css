@@ -1,0 +1,333 @@
+/* Variables CSS para consistencia de diseño */
+:root {
+  --primary-color: #4361ee;
+  --primary-hover: #3a86ff;
+  --secondary-color: #3f37c9;
+  --success-color: #4cc9f0;
+  --success-dark: #4895ef;
+  --warning-color: #f8961e;
+  --danger-color: #f72585;
+  --danger-dark: #b5179e;
+  --background-color: #f0f4f8;
+  --surface-color: #ffffff;
+  --border-color: #e9ecef;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --border-radius: 0.5rem;
+  --transition: all 0.3s ease;
+  --box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+  --box-shadow-hover: 0 0.375rem 1rem rgba(0, 0, 0, 0.12);
+  --base-font-size: 0.875rem;
+}
+
+/* ===== RESET Y BASE ===== */
+.edit-socio-container * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-size: var(--base-font-size);
+}
+
+/* ===== CONTENEDOR PRINCIPAL ===== */
+.edit-socio-container {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--background-color);
+  background-image: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+}
+
+.edit-socio-box {
+  background: var(--surface-color);
+  padding: 0 1rem;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  width: 100%;
+  max-width: 1500px;
+  margin:  auto;
+}
+
+/* ===== HEADER ===== */
+.edit-socio-header {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: var(--border-radius);
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.edit-socio-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.25rem;
+}
+
+.edit-socio-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ===== FORMULARIO ===== */
+.edit-socio-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.edit-socio-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+
+.edit-socio-section {
+  background: var(--surface-color);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  box-shadow: var(--box-shadow);
+  border: 1px solid var(--border-color);
+}
+
+.edit-socio-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.edit-socio-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+/* ===== INPUTS ===== */
+.edit-socio-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.edit-socio-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.edit-socio-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.8125rem;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  transition: var(--transition);
+  outline: none;
+}
+
+.edit-socio-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+}
+
+.edit-socio-input[type="date"] {
+  padding: 0.45rem 0.75rem;
+}
+
+select.edit-socio-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236c757d' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1em 1em;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.edit-socio-input textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* ===== BOTONES ===== */
+.edit-socio-buttons-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  padding: 1rem;
+}
+
+.edit-socio-button,
+.edit-socio-back-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8rem;
+}
+
+.edit-socio-button {
+  background: var(--primary-color);
+  color: white;
+}
+
+.edit-socio-back-button {
+  background: var(--text-secondary);
+  color: white;
+}
+
+.edit-socio-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--box-shadow-hover);
+}
+
+.edit-socio-back-button:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: var(--box-shadow-hover);
+}
+
+.edit-socio-icon-button {
+  margin-right: 0.375rem;
+  font-size: 0.75rem;
+}
+
+/* ===== TOAST ===== */
+.edit-socio-toast {
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slideIn 0.3s ease-out forwards;
+  font-size: 0.8125rem;
+}
+
+.edit-socio-toast-success {
+  background-color: rgba(76, 201, 240, 0.15);
+  color: var(--success-dark);
+  border-left: 4px solid var(--success-dark);
+}
+
+.edit-socio-toast-error {
+  background-color: rgba(247, 37, 133, 0.15);
+  color: var(--danger-color);
+  border-left: 4px solid var(--danger-color);
+}
+
+.edit-socio-toast-warning {
+  background-color: rgba(248, 150, 30, 0.15);
+  color: var(--warning-color);
+  border-left: 4px solid var(--warning-color);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== LOADER ===== */
+.edit-socio-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.edit-socio-loader {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid var(--secondary-color);
+  border-radius: 50%;
+  width: 3rem;
+  height: 3rem;
+  animation: spin 1s linear infinite;
+}
+
+.edit-socio-loading-text {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  :root {
+    --base-font-size: 0.8125rem;
+  }
+  
+  .edit-socio-container {
+    padding: 0.25rem;
+  }
+  
+  .edit-socio-box {
+    padding: 0.75rem;
+  }
+  
+  .edit-socio-title {
+    font-size: 1.125rem;
+  }
+  
+  .edit-socio-sections {
+    grid-template-columns: 1fr;
+  }
+  
+  .edit-socio-buttons-container {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .edit-socio-button,
+  .edit-socio-back-button {
+    width: 48%;
+    min-width: auto;
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .edit-socio-buttons-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .edit-socio-button,
+  .edit-socio-back-button {
+    width: 100%;
+  }
+  
+  .edit-socio-input {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .edit-socio-label {
+    font-size: 0.75rem;
+  }
+}

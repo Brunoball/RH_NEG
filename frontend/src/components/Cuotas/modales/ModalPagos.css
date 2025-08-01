@@ -1,18 +1,18 @@
 /* Variables de color */
 :root {
-  --primary: #4361ee;
-  --primary-dark: #3a56d4;
-  --secondary: #3f37c9;
-  --accent: #4895ef;
-  --success: #4cc9f0;
-  --danger: #f72585;
-  --warning: #f8961e;
-  --light: #f8f9fa;
-  --dark: #212529;
-  --text: #2b2d42;
-  --text-light: #8d99ae;
-  --bg: #ffffff;
-  --border: #e9ecef;
+  --md-primary: #4361ee;
+  --md-primary-dark: #3a56d4;
+  --md-secondary: #3f37c9;
+  --md-accent: #4895ef;
+  --md-success: #4cc9f0;
+  --md-danger: #f72585;
+  --md-warning: #f8961e;
+  --md-light: #f8f9fa;
+  --md-dark: #212529;
+  --md-text: #2b2d42;
+  --md-text-light: #8d99ae;
+  --md-bg: #ffffff;
+  --md-border: #e9ecef;
 }
 
 /* Estilos base del modal */
@@ -32,7 +32,7 @@
 }
 
 .modal-pagos-contenido {
-  background-color: var(--bg);
+  background-color: var(--md-bg);
   border-radius: 16px;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
   width: 550px;
@@ -59,13 +59,13 @@
 
 .modal-pagos-icono {
   font-size: 3rem;
-  color: var(--primary);
+  color: var(--md-primary);
   margin-bottom: 15px;
   text-shadow: 0 2px 4px rgba(67, 97, 238, 0.3);
 }
 
 .modal-pagos-header h2 {
-  color: var(--primary);
+  color: var(--md-primary);
   margin: 0;
   font-size: 1.8rem;
   font-weight: 700;
@@ -74,7 +74,7 @@
 
 .divider {
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, var(--md-primary), var(--md-accent));
   margin: 15px auto;
   width: 80px;
   border-radius: 3px;
@@ -88,7 +88,7 @@
   background: none;
   border: none;
   font-size: 1.8rem;
-  color: var(--text-light);
+  color: var(--md-text-light);
   cursor: pointer;
   transition: all 0.3s;
   width: 40px;
@@ -100,7 +100,7 @@
 }
 
 .modal-pagos-cerrar:hover {
-  color: var(--danger);
+  color: var(--md-danger);
   transform: rotate(90deg);
   background-color: rgba(247, 37, 133, 0.1);
 }
@@ -111,13 +111,13 @@
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 30px;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--md-primary);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
 }
 
 .modal-pagos-info-socio h3 {
   margin: 0 0 10px;
-  color: var(--text);
+  color: var(--md-text);
   font-size: 1.4rem;
   font-weight: 600;
   text-align: center;
@@ -137,14 +137,14 @@
 
 .fecha-label {
   font-weight: 700;
-  color: var(--primary);
+  color: var(--md-primary);
   font-size: 0.9rem;
   letter-spacing: 0.5px;
 }
 
 .fecha-valor {
   font-weight: 600;
-  color: var(--text);
+  color: var(--md-text);
   font-size: 0.95rem;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .modal-pagos-lista-periodos h4 {
-  color: var(--primary);
+  color: var(--md-primary);
   margin: 0 0 20px;
   font-size: 1.1rem;
   font-weight: 600;
@@ -174,8 +174,8 @@
   align-items: center;
   padding: 12px 18px;
   border-radius: 8px;
-  background-color: var(--light);
-  border: 1px solid var(--border);
+  background-color: var(--md-light);
+  border: 1px solid var(--md-border);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -183,12 +183,12 @@
 .periodo-item:hover:not(.pagado) {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  border-color: var(--accent);
+  border-color: var(--md-accent);
 }
 
 .periodo-item.seleccionado {
   background-color: rgba(67, 97, 238, 0.1);
-  border-color: var(--primary);
+  border-color: var(--md-primary);
   box-shadow: 0 5px 15px rgba(67, 97, 238, 0.1);
 }
 
@@ -216,18 +216,18 @@
   height: 20px;
   width: 20px;
   background-color: white;
-  border: 2px solid var(--text-light);
+  border: 2px solid var(--md-text-light);
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .periodo-item:hover .checkmark {
-  border-color: var(--primary);
+  border-color: var(--md-primary);
 }
 
 .periodo-checkbox input:checked ~ .checkmark {
-  background-color: var(--primary);
-  border-color: var(--primary);
+  background-color: var(--md-primary);
+  border-color: var(--md-primary);
 }
 
 .checkmark:after {
@@ -254,11 +254,11 @@
   align-items: center;
   justify-content: space-between;
   font-weight: 500;
-  color: var(--text);
+  color: var(--md-text);
 }
 
 .badge-pagado {
-  background-color: var(--success);
+  background-color: var(--md-success);
   color: white;
   padding: 4px 10px;
   border-radius: 12px;
@@ -274,7 +274,7 @@
 .modal-pagos-cargando {
   text-align: center;
   padding: 20px;
-  color: var(--primary);
+  color: var(--md-primary);
   font-weight: 500;
   letter-spacing: 0.5px;
 }
@@ -303,7 +303,7 @@
 }
 
 .btn-primario {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: linear-gradient(135deg, var(--md-primary), var(--md-accent));
   color: white;
   box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
 }
@@ -311,7 +311,7 @@
 .btn-primario:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 7px 20px rgba(67, 97, 238, 0.4);
-  background: linear-gradient(135deg, var(--primary-dark), var(--accent));
+  background: linear-gradient(135deg, var(--md-primary-dark), var(--md-accent));
 }
 
 .btn-primario:active:not(:disabled) {
@@ -326,13 +326,13 @@
 
 .btn-secundario {
   background: transparent;
-  color: var(--text-light);
-  border: 2px solid var(--border);
+  color: var(--md-text-light);
+  border: 2px solid var(--md-border);
 }
 
 .btn-secundario:hover:not(:disabled) {
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--md-primary);
+  border-color: var(--md-primary);
   background-color: rgba(67, 97, 238, 0.05);
 }
 

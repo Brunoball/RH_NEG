@@ -1,10 +1,11 @@
-
-
 /* AgregarSocio.css */
+.addsoc-last-field {
+  margin-top: 25px;
+}
 
-.formulario-container {
+.addsoc-container {
   max-width: 900px;
-  margin: 2rem auto;
+  margin:  auto;
   padding: 2rem;
   background: var(--soc-glass);
   border-radius: var(--soc-border-radius);
@@ -14,11 +15,11 @@
   transition: var(--soc-transition);
 }
 
-.formulario-container:hover {
+.addsoc-container:hover {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-.formulario-container h2 {
+.addsoc-container h2 {
   color: var(--soc-dark);
   text-align: center;
   margin-bottom: 2rem;
@@ -30,19 +31,18 @@
   color: transparent;
 }
 
-.formulario-socio {
+.addsoc-form {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
-.campo-formulario {
-  margin-bottom: 1rem;
+.addsoc-field {
   position: relative;
 }
 
-.campo-formulario input,
-.campo-formulario select {
+.addsoc-field input,
+.addsoc-field select {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -53,34 +53,33 @@
   color: var(--soc-dark);
 }
 
-.campo-formulario input:focus,
-.campo-formulario select:focus {
+.addsoc-field input:focus,
+.addsoc-field select:focus {
   outline: none;
   border-color: var(--soc-primary-light);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
   background-color: white;
 }
 
-.campo-formulario input::placeholder {
+.addsoc-field input::placeholder {
   color: var(--soc-gray);
   opacity: 0.7;
 }
 
-.campo-formulario label {
+.addsoc-field label {
   display: block;
-  margin-bottom: 0.5rem;
   font-size: 0.9rem;
   color: var(--soc-dark);
   font-weight: 500;
 }
 
-.label-fecha {
+.addsoc-date-label {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.error-message {
+.addsoc-error {
   display: block;
   margin-top: 0.5rem;
   font-size: 0.8rem;
@@ -93,7 +92,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.botones-formulario {
+.addsoc-buttons {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
@@ -101,7 +100,7 @@
   margin-top: 1rem;
 }
 
-.botones-formulario button {
+.addsoc-buttons button {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: var(--soc-border-radius);
@@ -111,23 +110,23 @@
   font-size: 0.95rem;
 }
 
-.botones-formulario button:first-child {
+.addsoc-buttons button:first-child {
   background: var(--soc-gradient-primary);
   color: white;
 }
 
-.botones-formulario button:first-child:hover {
+.addsoc-buttons button:first-child:hover {
   transform: translateY(-2px);
   box-shadow: var(--soc-shadow-md);
 }
 
-.botones-formulario button:last-child {
+.addsoc-buttons button:last-child {
   background: white;
   color: var(--soc-dark);
   border: 1px solid var(--soc-gray);
 }
 
-.botones-formulario button:last-child:hover {
+.addsoc-buttons button:last-child:hover {
   background: var(--soc-light);
   transform: translateY(-2px);
   box-shadow: var(--soc-shadow-sm);
@@ -140,18 +139,18 @@ input[name="nombre"] {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .formulario-socio {
+  .addsoc-form {
     grid-template-columns: 1fr;
   }
   
-  .formulario-container {
+  .addsoc-container {
     padding: 1.5rem;
     margin: 1rem;
   }
 }
 
 /* Animación de carga para selects */
-.campo-formulario select {
+.addsoc-field select {
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
@@ -160,6 +159,6 @@ input[name="nombre"] {
 }
 
 /* Efecto hover para selects */
-.campo-formulario select:hover {
+.addsoc-field select:hover {
   border-color: var(--soc-primary-light);
 }

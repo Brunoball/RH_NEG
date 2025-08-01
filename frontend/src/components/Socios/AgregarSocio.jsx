@@ -113,9 +113,9 @@ const AgregarSocio = () => {
   };
 
   return (
-    <div className="formulario-container">
+    <div className="addsoc-container">
       <h2>Agregar Nuevo Socio</h2>
-      <form className="formulario-socio" onSubmit={handleSubmit}>
+      <form className="addsoc-form" onSubmit={handleSubmit}>
         {[
           { name: 'nombre', placeholder: 'Nombre completo *' },
           { name: 'domicilio', placeholder: 'Domicilio' },
@@ -126,15 +126,15 @@ const AgregarSocio = () => {
           { name: 'domicilio_cobro', placeholder: 'Domicilio de Cobro' },
           { name: 'dni', placeholder: 'DNI' },
         ].map(({ name, placeholder }) => (
-          <div className="campo-formulario" key={name}>
+          <div className="addsoc-field" key={name}>
             <input name={name} placeholder={placeholder} onChange={handleChange} />
             {mostrarErrores && errores[name] && (
-              <span className="error-message">{errores[name]}</span>
+              <span className="addsoc-error">{errores[name]}</span>
             )}
           </div>
         ))}
 
-        <div className="campo-formulario">
+        <div className="addsoc-field">
           <select name="id_cobrador" onChange={handleChange}>
             <option value="">Seleccione Cobrador</option>
             {listas.cobradores.map(c => (
@@ -143,7 +143,7 @@ const AgregarSocio = () => {
           </select>
         </div>
 
-        <div className="campo-formulario">
+        <div className="addsoc-field">
           <select name="id_categoria" onChange={handleChange}>
             <option value="">Seleccione Categoría</option>
             {listas.categorias.map(c => (
@@ -152,14 +152,14 @@ const AgregarSocio = () => {
           </select>
         </div>
 
-        <div className="campo-formulario">
-          <label className="label-fecha">
+        <div className="addsoc-field">
+          <label className="addsoc-date-label">
             Fecha de nacimiento
             <input name="nacimiento" type="date" onChange={handleChange} />
           </label>
         </div>
 
-        <div className="campo-formulario">
+        <div className="addsoc-field addsoc-last-field">
           <select name="id_estado" onChange={handleChange}>
             <option value="">Seleccione Estado</option>
             {listas.estados.map(e => (
@@ -168,7 +168,7 @@ const AgregarSocio = () => {
           </select>
         </div>
 
-        <div className="botones-formulario">
+        <div className="addsoc-buttons">
           <button type="submit">Guardar</button>
           <button type="button" onClick={() => navigate('/socios')}>Cancelar</button>
         </div>

@@ -22,8 +22,8 @@
   width: 95%;
   max-width: 1400px;
   min-height: 90vh;
-  margin: 20px auto;
-  padding: 30px 20px;
+  margin: 10px auto;
+  padding: 0 20px 1rem;
   background: var(--princ-glass);
   border-radius: var(--princ-border-radius);
   box-shadow: 
@@ -35,7 +35,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  gap: 30px;
   position: relative;
   overflow: auto;
 }
@@ -135,17 +134,17 @@
 .princ-grid-opciones {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 25px;
+  gap: 0 25px ;
   width: 100%;
   padding: 0 20px;
-  margin: 20px 0;
+  margin: 0;
 }
 
 .princ-opcion {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 245, 245, 0.98) 100%);
   color: var(--princ-primary-dark);
   border: none;
-  padding: 25px 20px;
+  padding: 1rem 20px;
   border-radius: var(--princ-border-radius);
   font-weight: 600;
   font-size: 1rem;
@@ -157,7 +156,7 @@
   align-items: center;
   text-align: center;
   box-shadow: var(--princ-shadow-sm), inset 0 0 0 1px rgba(255, 255, 255, 0.95);
-  min-height: 140px;
+  min-height: 10%;
   word-break: break-word;
   position: relative;
   overflow: hidden;
@@ -246,7 +245,7 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 20px 0 0;
+  padding:  0 0;
   margin-top: auto;
 }
 

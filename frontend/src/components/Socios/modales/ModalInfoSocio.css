@@ -1,23 +1,4 @@
-:root {
-  --soc-primary: #5B67D8;
-  --soc-primary-light: #818CF8;
-  --soc-primary-dark: #4C56C0;
-  --soc-secondary: #8B5CF6;
-  --soc-accent: #F472B6;
-  --soc-success: #10b981;
-  --soc-warning: #f59e0b;
-  --soc-danger: #ef4444;
-  --soc-light: #f9fafb;
-  --soc-dark: #111827;
-  --soc-gray: #6b7280;
-  --soc-border-radius: 12px;
-  --soc-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --soc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --soc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --soc-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --soc-glass: rgba(255, 255, 255, 0.9);
-  --soc-glass-dark: rgba(15, 23, 42, 0.9);
-}
+
 /* Fondo para el body */
 body {
   margin: 0;

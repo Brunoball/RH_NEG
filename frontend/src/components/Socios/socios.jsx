@@ -13,7 +13,8 @@ import {
   FaFileExcel,
   FaUserSlash,
   FaSearch,
-  FaTimes
+  FaTimes,
+  FaSync
 } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
@@ -77,28 +78,10 @@ const BarraSuperior = React.memo(({
 
   return (
     <div className="soc-barra-superior">
-      <div className="soc-controles-izquierda">
-        <p className="soc-contador">
-          {filtroActivo ? 'Socios filtrados:' : 'Total de socios:'} 
-          <strong>{filtroActivo ? sociosFiltrados.length : socios.length}</strong>
-        </p>
-        
-        {busqueda && (
-          <div className="soc-filtro-activo">
-            <span className="soc-filtro-activo-busqueda">
-              <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
-              {busqueda}
-            </span>
-          </div>
-        )}
-        
-        {(filtroActivo === 'letra' && letraSeleccionada !== 'TODOS' && !busqueda) && (
-          <div className="soc-filtro-activo">
-            <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
-          </div>
-        )}
+      <div className="soc-titulo-container">
+        <h2 className="soc-titulo">Gestión de Socios</h2>
       </div>
-      
+
       <div className="soc-buscador-container">
         <input
           type="text"
@@ -144,6 +127,25 @@ const BarraSuperior = React.memo(({
         >
           Filtros {mostrarFiltros ? '▲' : '▼'}
         </button>
+        
+        <div className="soc-filtros-activos-container">
+          {busqueda ? (
+            <div className="soc-filtro-activo">
+              <span className="soc-filtro-activo-busqueda">
+                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
+                {busqueda}
+              </span>
+            </div>
+          ) : (filtroActivo === 'letra' && letraSeleccionada !== 'TODOS') ? (
+            <div className="soc-filtro-activo">
+              <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
+            </div>
+          ) : (
+            <div className="soc-filtro-activo">
+              <span className="soc-filtro-activo-vacio">-</span>
+            </div>
+          )}
+        </div>
         
         {mostrarFiltros && (
           <div 
@@ -221,8 +223,8 @@ const Socios = () => {
     const saved = localStorage.getItem('filtros_socios');
     return saved ? JSON.parse(saved) : {
       busqueda: '',
-      letraSeleccionada: 'TODOS',
-      filtroActivo: null
+      letraSeleccionada: '',
+      filtroActivo: 'inicial'
     };
   });
 
@@ -279,11 +281,13 @@ const Socios = () => {
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
 
-    if (filtroActivo === 'busqueda' && busqueda) {
+    if (filtroActivo === 'inicial') {
+      return [];
+    } else if (filtroActivo === 'busqueda' && busqueda) {
       resultados = resultados.filter((s) =>
         s.nombre?.toLowerCase().includes(busqueda.toLowerCase())
       );
-    } else if (filtroActivo === 'letra' && letraSeleccionada !== 'TODOS') {
+    } else if (filtroActivo === 'letra' && letraSeleccionada) {
       resultados = resultados.filter((s) =>
         s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
       );
@@ -396,6 +400,7 @@ const Socios = () => {
   const Row = React.memo(({ index, style, data }) => {
     const socio = data[index];
     const delay = (animarBusqueda || animarFiltroLetra || animarMostrarTodos) && index < 10 ? index * 30 : 0;
+    const esFilaPar = index % 2 === 0;
     
     return (
       <div
@@ -403,7 +408,8 @@ const Socios = () => {
           ...style,
           opacity: delay ? 0 : 1,
           transform: delay ? 'translateY(20px)' : 'translateY(0)',
-          animation: delay ? `soc-fadeInUp 0.4s ease-out ${delay}ms forwards` : 'none'
+          animation: delay ? `soc-fadeInUp 0.4s ease-out ${delay}ms forwards` : 'none',
+          background: esFilaPar ? 'rgba(255, 255, 255, 0.9)' : 'rgba(179, 180, 181, 0.47)'
         }}
         onClick={() => manejarSeleccion(socio)}
         className={`soc-tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc-fila-seleccionada' : ''}`}
@@ -463,8 +469,6 @@ const Socios = () => {
 
   return (
     <div className="soc-container">
-      <h2 className="soc-titulo">Gestión de Socios</h2>
-
       {mensaje && (
         <div className={`soc-mensaje ${tipoMensaje === 'error' ? 'soc-mensaje-error' : 'soc-mensaje-exito'}`}>
           {mensaje}
@@ -488,12 +492,18 @@ const Socios = () => {
       />
 
       <div className="soc-tabla-container">
-        <div className="soc-tabla-header">
-          <div className="soc-col-id">ID</div>
-          <div className="soc-col-nombre">Nombre</div>
-          <div className="soc-col-domicilio">Domicilio</div>
-          <div className="soc-col-comentario">Comentario</div>
-          <div className="soc-col-acciones">Acciones</div>
+        <div className="soc-tabla-header-container">
+          <div className="soc-contador">
+            {filtroActivo ? 'Socios filtrados:' : 'Total de socios:'} 
+            <strong>{filtroActivo ? sociosFiltrados.length : socios.length}</strong>
+          </div>
+          <div className="soc-tabla-header">
+            <div className="soc-col-id">ID</div>
+            <div className="soc-col-nombre">Nombre</div>
+            <div className="soc-col-domicilio">Domicilio</div>
+            <div className="soc-col-comentario">Comentario</div>
+            <div className="soc-col-acciones">Acciones</div>
+          </div>
         </div>
         
         {cargando ? (
@@ -506,17 +516,24 @@ const Socios = () => {
           <div className="soc-sin-resultados">
             No hay socios registrados
           </div>
-        ) : sociosFiltrados.length === 0 ? (
+        ) : (filtroActivo === 'inicial' || sociosFiltrados.length === 0) ? (
           <div className="soc-boton-mostrar-container">
-            <div className="soc-mensaje-filtros">
-              No hay resultados con los filtros actuales
+            <div className="soc-mensaje-inicial">
+              {sociosFiltrados.length === 0 && filtroActivo !== 'inicial' ? (
+                "No hay resultados con los filtros actuales"
+              ) : (
+                <>
+                  Por favor aplique al menos un filtro para ver los socios
+                </>
+              )}
             </div>
             <button
               className="soc-boton-mostrar-todos"
               onClick={handleMostrarTodos}
               disabled={cargando}
             >
-              Restablecer Filtros
+              <FaSync className="soc-icono-refresh" />
+              Mostrar todos los socios
             </button>
           </div>
         ) : (
