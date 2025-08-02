@@ -71,6 +71,11 @@ switch ($action) {
         require_once(__DIR__ . '/../modules/cuotas/buscar_socio_codigo.php');
         break;
 
+    case 'eliminar_pago':
+        require_once(__DIR__ . '/../modules/cuotas/eliminar_pago.php');
+        break;
+
+
     default:
         echo json_encode(['exito' => false, 'mensaje' => 'Acción no válida.']);
         break;
