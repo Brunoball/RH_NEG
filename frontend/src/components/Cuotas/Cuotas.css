@@ -1,41 +1,36 @@
 :root {
-  /* Nueva paleta basada en #274950 (Verde azulado oscuro) */
-  --soc-primary: #274950;
-  --soc-primary-light: #3a6e7a;
-  --soc-primary-dark: #1a363c;
-  --soc-secondary: #5cb3c1;
-  --soc-accent: #4d9eac;
-  --soc-success: #4cc9f0;
-  --soc-success-dark: #4895ef;
-  --soc-warning: #f8961e;
-  --soc-danger: #f72585;
-  --soc-danger-dark: #b5179e;
-  --soc-light: #f8f9fa;
-  --soc-dark: #212529;
-  --soc-gray: #6c757d;
-  --soc-gray-light: #adb5bd;
-  --soc-bg: #f0f7f9;
-  --soc-card: #ffffff;
-  --soc-filtros: #2c3e50;
+
+  /* Colores principales */
+  --color-primary: #4361ee;
+  --color-primary-light: #3a86ff;
+  --color-secondary: #3f37c9;
+  --color-success: #4cc9f0;
+  --color-success-dark: #4895ef;
+  --color-warning: #f8961e;
+  --color-danger: #f72585;
+  --color-danger-dark: #b5179e;
+  --color-light: #f8f9fa;
+  --color-dark: #212529;
+  --color-gray: #6c757d;
+  --color-gray-light: #adb5bd;
+  --color-bg: #f1faee;
+  --color-card: #ffffff;
+  --color-filtros: #2c3e50;
   
-  /* Gradientes actualizados */
-  --soc-gradient-primary: linear-gradient(135deg, var(--soc-primary) 0%, var(--soc-primary-light) 100%);
-  --soc-gradient-secondary: linear-gradient(135deg, var(--soc-secondary) 0%, var(--soc-accent) 100%);
-  --soc-gradient-success: linear-gradient(135deg, var(--soc-success) 0%, var(--soc-success-dark) 100%);
-  --soc-gradient-warning: linear-gradient(135deg, var(--soc-warning) 0%, #f3722c 100%);
-  --soc-gradient-danger: linear-gradient(135deg, var(--soc-danger) 0%, var(--soc-danger-dark) 100%);
-  
-  /* Variables de diseño */
-  --soc-border-radius: 8px;
-  --soc-border-radius-sm: 4px;
-  --soc-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  --soc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --soc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --soc-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-  --soc-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --soc-box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.15);
-  --soc-glass: rgba(255, 255, 255, 0.95);
-  --soc-glass-dark: rgba(51, 51, 51, 0.95);
+  /* Colores específicos para estados */
+  --color-oficina: #7209b7;
+  --color-cobrador: #f8961e;
+  --color-transferencia: #3a86ff;
+  --color-activo: #27ae60;
+  --color-pasivo: #c0392b;
+
+  /* Estilos generales */
+  --border-radius: 8px;
+  --border-radius-sm: 4px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.15);
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
 }
 
 /* Estilos base */
@@ -58,8 +53,8 @@ body {
 /* Layout principal */
 .cuo_app-container {
   display: grid;
-  width: 100%;
-  grid-template-columns: 1.5fr 4fr;
+
+  grid-template-columns: auto 1fr;
   height: 100vh;
   transition: var(--soc-transition);
 }
@@ -78,6 +73,19 @@ body {
   color: white;
   overflow-y: auto;
   height: 100vh;
+  width: 320px;
+  min-width: 320px;
+  transform: translateX(0);
+  transition: transform 0.4s ease, width 0.4s ease;
+}
+
+.cuo_filtros-colapsado {
+  transform: translateX(-100%);
+  transition: transform 0.4s ease, width 0.4s ease;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .cuo_filtros-header {
@@ -101,6 +109,50 @@ body {
 .cuo_filtros-controles {
   display: flex;
   gap: 0.5rem;
+}
+
+/* Botón de toggle horizontal */
+.cuo_boton-toggle-horizontal {
+  background-color: transparent;
+  color: white;
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: var(--transition);
+}
+
+.cuo_boton-toggle-horizontal:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Botón flotante para abrir filtros */
+.cuo_boton-flotante-abrir {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 20;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  width: 42px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: background-color 0.3s ease, width 0.3s ease;
+}
+
+.cuo_boton-flotante-abrir:hover {
+  background-color: var(--color-primary-light);
+  width: 48px;
+}
+
+.cuo_flotante-fuera {
+  left: 0;
 }
 
 /* Contenido principal */
@@ -407,7 +459,7 @@ body {
   color: white;
 }
 
-/* Tabla */
+/* Tabla - Estilos mejorados para cabecera fija */
 .cuo_tabla-container {
   flex: 1;
   background-color: var(--soc-card);
@@ -421,13 +473,19 @@ body {
 
 .cuo_tabla-wrapper {
   flex: 1;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .cuo_list-container {
-  height: calc(100% - 60px);
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
 }
 
+/* Cabecera de tabla fija */
 .cuo_tabla-header {
   display: flex;
   background-color: var(--soc-primary);
@@ -436,8 +494,9 @@ body {
   padding: 1rem;
   position: sticky;
   top: 0;
-  z-index: 5;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  border-bottom: 2px solid #2980b9;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .cuo_tabla-header > div {
@@ -449,8 +508,10 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
+/* Columnas con anchos definidos para alinear con el cuerpo */
 .cuo_col-nombre {
   flex: 3;
   min-width: 220px;
@@ -465,11 +526,6 @@ body {
   cursor: pointer;
   user-select: none;
   transition: var(--soc-transition);
-}
-
-.cuo_col-nombre:hover,
-.cuo_col-domicilio:hover {
-  color: white;
 }
 
 .cuo_icono-orden {
@@ -531,7 +587,15 @@ body {
 /* Contenido de las celdas */
 .cuo_tabla-fila > div {
   padding: 0 1rem;
+  flex-shrink: 0;
 }
+
+/* Asegurar que las celdas del cuerpo coincidan con la cabecera */
+.cuo_tabla-fila > .cuo_col-nombre { flex: 3; min-width: 220px; }
+.cuo_tabla-fila > .cuo_col-domicilio { flex: 2; min-width: 180px; }
+.cuo_tabla-fila > .cuo_col-estado { flex: 1; min-width: 120px; }
+.cuo_tabla-fila > .cuo_col-medio-pago { flex: 1.5; min-width: 150px; }
+.cuo_tabla-fila > .cuo_col-acciones { flex: 1; min-width: 120px; text-align: center; }
 
 .cuo_nombre-socio {
   font-weight: 500;
@@ -544,36 +608,51 @@ body {
   color: var(--soc-gray);
 }
 
-/* Badges */
+/* Badges - Burbujas de estado mejoradas */
 .cuo_badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: 50px;
+  justify-content: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+  min-width: 100px;
+  text-align: center;
+  transition: var(--transition);
 }
 
-.cuo_badge-success {
-  background-color: rgba(76, 201, 240, 0.2);
-  color: var(--soc-success-dark);
+
+/* Estados del socio - Burbujas mejoradas */
+.cuo_estado-activo {
+  background-color: rgba(39, 174, 96, 0.1);
+  color: #27ae60;
 }
 
-.cuo_badge-danger {
-  background-color: rgba(247, 37, 133, 0.2);
-  color: var(--soc-danger-dark);
+.cuo_estado-pasivo {
+  background-color: rgba(192, 57, 43, 0.1);
+  color: #c0392b;
 }
 
-.cuo_badge-info {
-  background-color: rgba(77, 158, 172, 0.2);
-  color: var(--soc-accent);
+/* Medios de Pago - Burbujas mejoradas */
+.cuo_pago-cobrador {
+  background-color: rgba(84, 110, 122, 0.15);
+  color: #455a64;
 }
 
-.cuo_badge-warning {
-  background-color: rgba(248, 150, 30, 0.2);
-  color: var(--soc-warning);
+.cuo_pago-oficina {
+  background-color: rgba(156, 39, 176, 0.12);
+  color: #8e24aa;
+}
+
+.cuo_pago-transferencia {
+  background-color: rgba(30, 136, 229, 0.12);
+  color: #1e88e5;
+
 }
 
 /* Botones de acción */
@@ -662,6 +741,10 @@ body {
   .cuo_col-domicilio {
     display: none;
   }
+  
+  .cuo_tabla-fila > .cuo_col-domicilio {
+    display: none;
+  }
 }
 
 @media (max-width: 992px) {
@@ -682,13 +765,22 @@ body {
     pointer-events: none;
     border-right: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: var(--soc-shadow-lg);
+
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    min-width: 100%;
+
   }
   
   .cuo_filtros-expandidos {
     transform: translateY(0);
     opacity: 1;
     pointer-events: auto;
+  }
+  
+  .cuo_filtros-colapsado {
+    width: 100%;
+    min-width: 100%;
   }
   
   .cuo_content-header {

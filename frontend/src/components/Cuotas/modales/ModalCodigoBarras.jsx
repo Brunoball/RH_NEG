@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  FaTimes, FaCheck, FaSearch, FaSpinner, FaBarcode,
+  FaTimes, FaCheck, FaSpinner, FaBarcode,
   FaUser, FaHome, FaPhone, FaCalendarAlt, FaMoneyBillWave, FaIdCard
 } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
@@ -12,7 +12,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState(false);
   const [socioEncontrado, setSocioEncontrado] = useState(null);
-  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -22,7 +21,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   useEffect(() => {
     const delay = setTimeout(() => {
       if (!codigo.trim()) {
-        setResultadosBusqueda([]);
         setSocioEncontrado(null);
         setMensaje('');
         return;
@@ -32,7 +30,8 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       if (/^\d+$/.test(limpio)) {
         buscarPorCodigo(limpio);
       } else {
-        buscarPorNombre(codigo);
+        setMensaje('⛔ Solo se permite ingresar código numérico del socio');
+        setError(true);
       }
     }, 400);
 
@@ -46,7 +45,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     const id_socio = input.slice(2);
 
     if (!id_socio || isNaN(id_periodo)) {
-      setMensaje('⛔ Código inválido.');
+      setMensaje('⛔ Código inválido');
       setError(true);
       return;
     }
@@ -54,7 +53,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     setMensaje('');
     setError(false);
     setSocioEncontrado(null);
-    setResultadosBusqueda([]);
 
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=buscar_socio_codigo&id_socio=${id_socio}&id_periodo=${id_periodo}`);
@@ -66,46 +64,13 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         setSocioEncontrado({ ...socio, id_periodo });
         setMensaje(`✅ Socio encontrado: ${socio.nombre}`);
       } else {
-        setMensaje(data.mensaje || 'Socio no encontrado.');
+        setMensaje(data.mensaje || 'Socio no encontrado');
         setError(true);
       }
     } catch {
       setMensaje('⛔ Error al conectar con el servidor');
       setError(true);
     }
-  };
-
-  const buscarPorNombre = async (nombre) => {
-    setMensaje('');
-    setError(false);
-    setSocioEncontrado(null);
-    setResultadosBusqueda([]);
-
-    try {
-      const res = await fetch(`${BASE_URL}/api.php?action=buscar_por_nombre&nombre=${encodeURIComponent(nombre)}`);
-      const data = await res.json();
-      if (data.exito && data.socios.length > 0) {
-        const socios = data.socios.map(s => ({
-          ...s,
-          telefono: s.telefono_movil || s.telefono_fijo || '',
-          domicilio_completo: [s.domicilio, s.numero].filter(Boolean).join(' ')
-        }));
-        setResultadosBusqueda(socios);
-      } else {
-        setMensaje('No se encontraron socios con ese nombre.');
-        setError(true);
-      }
-    } catch {
-      setMensaje('⛔ Error al conectar con el servidor');
-      setError(true);
-    }
-  };
-
-  const seleccionarSocio = (socio) => {
-    setSocioEncontrado({ ...socio, id_periodo: parseInt(periodo) });
-    setMensaje(`✅ Socio seleccionado: ${socio.nombre}`);
-    setError(false);
-    setResultadosBusqueda([]);
   };
 
   const registrarPago = async () => {
@@ -149,6 +114,14 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
+  // ✅ Formato: 12 -> 1/2
+  const mostrarPeriodoFormateado = (numero) => {
+    const str = numero.toString().padStart(2, '0');
+    const mes = str[0];
+    const anio = str[1];
+    return `${mes}/${anio}`;
+  };
+
   return (
     <div className="codb-modal-overlay">
       <div className="codb-modal-container">
@@ -157,7 +130,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
             <div className="codb-header-icon"><FaBarcode /></div>
             <div className="codb-header-text">
               <h2>Registro de Pagos</h2>
-              <p>Escaneá el código de barras o ingresá manualmente el código/nombre del socio</p>
+              <p>Escaneá el código de barras o ingresá manualmente el número</p>
             </div>
             <button className="codb-close-button" onClick={onClose}><FaTimes /></button>
           </div>
@@ -170,11 +143,11 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   type="text"
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
-                  placeholder="Ej: 12860 (Período + ID) o nombre del socio"
+                  placeholder="Ej: 12860 (Período + ID)"
                   className={`codb-search-input ${error ? 'codb-input-error' : ''}`}
                 />
                 <div className="codb-input-hint">
-                  <FaIdCard /> Formato: PERIODO (2 dígitos) + ID (ej: 12860) o nombre completo
+                  <FaIdCard /> Formato: PERÍODO (2 dígitos) + ID del socio
                 </div>
               </div>
             </div>
@@ -182,25 +155,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
             {mensaje && (
               <div className={`codb-message-container ${error ? 'codb-error' : 'codb-success'}`}>
                 {mensaje}
-              </div>
-            )}
-
-            {resultadosBusqueda.length > 0 && (
-              <div className="codb-search-results">
-                <h3>Resultados de búsqueda:</h3>
-                <ul>
-                  {resultadosBusqueda.map((socio) => (
-                    <li key={socio.id_socio}>
-                      <button 
-                        onClick={() => seleccionarSocio(socio)}
-                        className="codb-result-item"
-                      >
-                        <span className="codb-result-name">{socio.nombre}</span>
-                        <span className="codb-result-address">{socio.domicilio_completo}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
               </div>
             )}
 
@@ -226,7 +180,9 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   </div>
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaCalendarAlt /> Período:</div>
-                    <div className="codb-info-value codb-badge">{socioEncontrado.id_periodo}</div>
+                    <div className="codb-info-value codb-badge">
+                      {mostrarPeriodoFormateado(socioEncontrado.id_periodo)}
+                    </div>
                   </div>
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaMoneyBillWave /> Monto:</div>
@@ -235,9 +191,9 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                 </div>
 
                 <div className="codb-payment-button-container">
-                  <button 
-                    onClick={registrarPago} 
-                    disabled={loading} 
+                  <button
+                    onClick={registrarPago}
+                    disabled={loading}
                     className="codb-payment-button"
                   >
                     {loading ? (

@@ -3,8 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import BASE_URL from '../../config/config';
-import { FaDollarSign, FaPrint, FaSpinner, FaBarcode, FaSearch, FaCalendarAlt, FaFilter, FaUndo, FaSort, FaUsers } from 'react-icons/fa';
-import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import {
+  FaDollarSign,
+  FaPrint,
+  FaSpinner,
+  FaBarcode,
+  FaSearch,
+  FaCalendarAlt,
+  FaFilter,
+  FaUndo,
+  FaSort,
+  FaUsers
+} from 'react-icons/fa';
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiChevronUp,
+  FiChevronDown
+} from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
 import ModalCodigoBarras from './modales/ModalCodigoBarras';
 import { imprimirRecibos } from '../../utils/imprimirRecibos';
@@ -21,10 +37,11 @@ const Cuotas = () => {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
   const [mediosPago, setMediosPago] = useState([]);
   const [periodos, setPeriodos] = useState([]);
+  const [estados, setEstados] = useState([]);
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
   const [socioParaPagar, setSocioParaPagar] = useState(null);
-  const [filtrosExpandidos, setFiltrosExpandidos] = useState(false);
+  const [filtrosExpandidos, setFiltrosExpandidos] = useState(true);
   const [orden, setOrden] = useState({ campo: 'nombre', ascendente: true });
   const navigate = useNavigate();
 
@@ -41,9 +58,6 @@ const Cuotas = () => {
 
       if (dataCuotas.exito) {
         setCuotas(dataCuotas.cuotas);
-        if (dataListas.exito && dataListas.listas.periodos.length > 0) {
-          setPeriodoSeleccionado(dataListas.listas.periodos[0].id);
-        }
       }
       if (dataListas.exito) {
         setMediosPago(dataListas.listas.cobradores.map(c => c.nombre));
@@ -51,6 +65,7 @@ const Cuotas = () => {
           id: p.id,
           nombre: p.nombre
         })));
+        setEstados(dataListas.listas.estados.map(e => e.descripcion));
       }
     } catch (error) {
       console.error('Error al conectar con el servidor:', error);
@@ -99,8 +114,38 @@ const Cuotas = () => {
     }));
   };
 
+  const handleImprimirTodos = async () => {
+    const ventanaImpresion = window.open('', '_blank');
+    if (!ventanaImpresion) {
+      alert('Por favor deshabilita el bloqueador de ventanas emergentes para esta página');
+      return;
+    }
+    
+    setLoadingPrint(true);
+    try {
+      await imprimirRecibos(cuotasFiltradas, getNombrePeriodo(periodoSeleccionado), ventanaImpresion);
+    } catch (error) {
+      console.error('Error al imprimir:', error);
+      ventanaImpresion.close();
+    } finally {
+      setLoadingPrint(false);
+    }
+  };
+
   const Row = ({ index, style, data }) => {
     const cuota = data[index];
+    
+    const claseEstado = {
+      activo: 'cuo_estado-activo',
+      pasivo: 'cuo_estado-pasivo'
+    }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
+
+    const claseMedioPago = {
+      cobrador: 'cuo_pago-cobrador',
+      oficina: 'cuo_pago-oficina',
+      transferencia: 'cuo_pago-transferencia'
+    }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
+
     return (
       <div 
         style={style} 
@@ -112,12 +157,12 @@ const Cuotas = () => {
         </div>
         <div className="cuo_col-domicilio">{cuota.domicilio || '-'}</div>
         <div className="cuo_col-estado">
-          <span className={`cuo_badge ${cuota.estado === 'Activo' ? 'cuo_badge-success' : 'cuo_badge-danger'}`}>
+          <span className={`cuo_badge ${claseEstado}`}>
             {cuota.estado}
           </span>
         </div>
         <div className="cuo_col-medio-pago">
-          <span className={`cuo_badge ${cuota.medio_pago ? 'cuo_badge-info' : 'cuo_badge-warning'}`}>
+          <span className={`cuo_badge ${claseMedioPago}`}>
             {cuota.medio_pago || 'Sin especificar'}
           </span>
         </div>
@@ -137,7 +182,14 @@ const Cuotas = () => {
             )}
             <button 
               className="cuo_boton-accion cuo_boton-accion-primary"
-              onClick={() => imprimirRecibos([cuota], getNombrePeriodo(periodoSeleccionado))}
+              onClick={() => {
+                const ventanaImpresion = window.open('', '_blank');
+                if (ventanaImpresion) {
+                  imprimirRecibos([cuota], getNombrePeriodo(periodoSeleccionado), ventanaImpresion);
+                } else {
+                  alert('Por favor deshabilita el bloqueador de ventanas emergentes para imprimir');
+                }
+              }}
               title="Imprimir recibo"
             >
               <FaPrint />
@@ -165,8 +217,7 @@ const Cuotas = () => {
 
   return (
     <div className="cuo_app-container">
-      {/* Panel de filtros */}
-      <div className={`cuo_filtros-panel ${filtrosExpandidos ? 'cuo_filtros-expandidos' : ''}`}>
+      <div className={`cuo_filtros-panel ${!filtrosExpandidos ? 'cuo_filtros-colapsado' : ''}`}>
         <div className="cuo_filtros-header">
           <h3 className="cuo_filtros-titulo">
             <FaFilter className="cuo_filtro-icono" />
@@ -174,110 +225,124 @@ const Cuotas = () => {
           </h3>
           <div className="cuo_filtros-controles">
             <button 
-              className="cuo_boton cuo_boton-secondary cuo_boton-icono"
-              onClick={() => navigate('/panel')}
-              title="Volver al panel"
-            >
-              <FaUndo />
-            </button>
-            <button 
-              className="cuo_boton cuo_boton-icono cuo_boton-toggle"
+              className="cuo_boton cuo_boton-icono cuo_boton-toggle-horizontal"
               onClick={toggleFiltros}
               title={filtrosExpandidos ? 'Ocultar filtros' : 'Mostrar filtros'}
             >
-              {filtrosExpandidos ? <FiChevronUp /> : <FiChevronDown />}
+              {filtrosExpandidos ? <FiChevronLeft /> : <FiChevronRight />}
             </button>
           </div>
         </div>
 
-        <div className="cuo_filtro-grupo">
-          <label className="cuo_filtro-label">
-            <FaCalendarAlt className="cuo_filtro-icono" />
-            Período
-          </label>
-          <select 
-            value={periodoSeleccionado} 
-            onChange={(e) => setPeriodoSeleccionado(e.target.value)} 
-            className="cuo_filtro-select"
-            disabled={loading}
-          >
-            <option value="">Seleccionar período</option>
-            {periodos.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </select>
-        </div>
+        {filtrosExpandidos && (
+          <>
+            <div className="cuo_filtro-grupo">
+              <label className="cuo_filtro-label">
+                <FaCalendarAlt className="cuo_filtro-icono" />
+                Período
+              </label>
+              <select 
+                value={periodoSeleccionado} 
+                onChange={(e) => setPeriodoSeleccionado(e.target.value)} 
+                className="cuo_filtro-select"
+                disabled={loading}
+              >
+                <option value="">Seleccionar período</option>
+                {periodos.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
 
-        <div className="cuo_tabs-container">
-          <label className="cuo_filtro-label">
-            <FaFilter className="cuo_filtro-icono" />
-            Estado de Pago
-          </label>
-          <div className="cuo_tabs-estado-pago">
-            <button
-              className={`cuo_tab ${estadoPagoSeleccionado === 'deudor' ? 'cuo_tab-activo' : ''}`}
-              onClick={() => setEstadoPagoSeleccionado('deudor')}
-              disabled={loading}
-            >
-              Deudores
-            </button>
-            <button
-              className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
-              onClick={() => setEstadoPagoSeleccionado('pagado')}
-              disabled={loading}
-            >
-              Pagados
-            </button>
-          </div>
-        </div>
+            <div className="cuo_tabs-container">
+              <label className="cuo_filtro-label">
+                <FaFilter className="cuo_filtro-icono" />
+                Estado de Pago
+              </label>
+              <div className="cuo_tabs-estado-pago">
+                <button
+                  className={`cuo_tab ${estadoPagoSeleccionado === 'deudor' ? 'cuo_tab-activo' : ''}`}
+                  onClick={() => setEstadoPagoSeleccionado('deudor')}
+                  disabled={loading}
+                >
+                  Deudores
+                </button>
+                <button
+                  className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
+                  onClick={() => setEstadoPagoSeleccionado('pagado')}
+                  disabled={loading}
+                >
+                  Pagados
+                </button>
+              </div>
+            </div>
 
-        <div className="cuo_filtro-grupo">
-          <label className="cuo_filtro-label">
-            <FaFilter className="cuo_filtro-icono" />
-            Estado del Socio
-          </label>
-          <select 
-            value={estadoSocioSeleccionado} 
-            onChange={(e) => setEstadoSocioSeleccionado(e.target.value)} 
-            className="cuo_filtro-select"
-            disabled={loading}
-          >
-            <option value="">Todos los estados</option>
-            <option value="Activo">Activos</option>
-            <option value="Pasivo">Pasivos</option>
-          </select>
-        </div>
+            <div className="cuo_filtro-grupo">
+              <label className="cuo_filtro-label">
+                <FaFilter className="cuo_filtro-icono" />
+                Estado del Socio
+              </label>
+              <select 
+                value={estadoSocioSeleccionado} 
+                onChange={(e) => setEstadoSocioSeleccionado(e.target.value)} 
+                className="cuo_filtro-select"
+                disabled={loading}
+              >
+                <option value="">Todos los estados</option>
+                {estados.map((estado, i) => (
+                  <option key={i} value={estado}>{estado}</option>
+                ))}
+              </select>
+            </div>
 
-        <div className="cuo_filtro-grupo">
-          <label className="cuo_filtro-label">
-            <FaFilter className="cuo_filtro-icono" />
-            Medio de Pago
-          </label>
-          <select 
-            value={medioPagoSeleccionado} 
-            onChange={(e) => setMedioPagoSeleccionado(e.target.value)} 
-            className="cuo_filtro-select"
-            disabled={loading}
-          >
-            <option value="">Todos los medios</option>
-            {mediosPago.map((m, i) => (
-              <option key={i} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
+            <div className="cuo_filtro-grupo">
+              <label className="cuo_filtro-label">
+                <FaFilter className="cuo_filtro-icono" />
+                Medio de Pago
+              </label>
+              <select 
+                value={medioPagoSeleccionado} 
+                onChange={(e) => setMedioPagoSeleccionado(e.target.value)} 
+                className="cuo_filtro-select"
+                disabled={loading}
+              >
+                <option value="">Todos los medios</option>
+                {mediosPago.map((m, i) => (
+                  <option key={i} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
 
-        <div className="cuo_filtro-acciones">
-          <button 
-            className="cuo_boton cuo_boton-light cuo_boton-limpiar"
-            onClick={limpiarFiltros}
-            disabled={loading}
-          >
-            Limpiar Filtros
-          </button>
-        </div>
+            <div className="cuo_filtro-acciones" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button 
+                className="cuo_boton cuo_boton-light cuo_boton-limpiar"
+                onClick={limpiarFiltros}
+                disabled={loading}
+              >
+                Limpiar Filtros
+              </button>
+              <button 
+                className="cuo_boton cuo_boton-secondary"
+                onClick={() => navigate('/panel')}
+                disabled={loading}
+              >
+                <FaUndo style={{ marginRight: '5px' }} /> Volver
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Contenido principal */}
+      {!filtrosExpandidos && (
+        <button
+          className="cuo_boton-flotante-abrir cuo_flotante-fuera"
+          onClick={toggleFiltros}
+          title="Mostrar filtros"
+        >
+          <FiChevronRight size={20} />
+        </button>
+      )}
+
       <div className="cuo_main-content">
         <div className="cuo_content-header">
           <div className="cuo_header-top">
@@ -315,18 +380,14 @@ const Cuotas = () => {
               <button
                 className="cuo_boton cuo_boton-success"
                 onClick={() => setMostrarModalCodigoBarras(true)}
-                disabled={!periodoSeleccionado || loading}
+                disabled={loading}
               >
                 <FaBarcode /> Código de Barras
               </button>
 
               <button
                 className="cuo_boton cuo_boton-warning"
-                onClick={async () => {
-                  setLoadingPrint(true);
-                  await imprimirRecibos(cuotasFiltradas, getNombrePeriodo(periodoSeleccionado));
-                  setLoadingPrint(false);
-                }}
+                onClick={handleImprimirTodos}
                 disabled={loadingPrint || !periodoSeleccionado || cuotasFiltradas.length === 0 || loading}
               >
                 {loadingPrint ? (
@@ -339,27 +400,41 @@ const Cuotas = () => {
                   </>
                 )}
               </button>
-
-              <button 
-                className="cuo_boton cuo_boton-primary cuo_boton-icono"
-                onClick={toggleFiltros}
-                title={filtrosExpandidos ? 'Ocultar filtros' : 'Mostrar filtros'}
-              >
-                <FaFilter />
-              </button>
             </div>
           </div>
         </div>
 
         <div className="cuo_tabla-container">
-          {loading ? (
-            <div className="cuo_estado-container">
-              <FaSpinner className="cuo_spinner" size={24} />
-              <p className="cuo_estado-mensaje">Cargando cuotas...</p>
+          <div className="cuo_tabla-wrapper">
+            <div className="cuo_tabla-header">
+              <div 
+                className="cuo_col-nombre" 
+                onClick={() => toggleOrden('nombre')}
+              >
+                Socio 
+                <FaSort className={`cuo_icono-orden ${orden.campo === 'nombre' ? 'cuo_icono-orden-activo' : ''}`} />
+                {orden.campo === 'nombre' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
+              </div>
+              <div 
+                className="cuo_col-domicilio"
+                onClick={() => toggleOrden('domicilio')}
+              >
+                Dirección
+                <FaSort className={`cuo_icono-orden ${orden.campo === 'domicilio' ? 'cuo_icono-orden-activo' : ''}`} />
+                {orden.campo === 'domicilio' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
+              </div>
+              <div className="cuo_col-estado">Estado</div>
+              <div className="cuo_col-medio-pago">Medio de Pago</div>
+              <div className="cuo_col-acciones">Acciones</div>
             </div>
-          ) : (
-            <div className="cuo_tabla-wrapper">
-              {cuotasFiltradas.length === 0 ? (
+
+            <div className="cuo_list-container">
+              {loading ? (
+                <div className="cuo_estado-container">
+                  <FaSpinner className="cuo_spinner" size={24} />
+                  <p className="cuo_estado-mensaje">Cargando cuotas...</p>
+                </div>
+              ) : cuotasFiltradas.length === 0 ? (
                 <div className="cuo_estado-container">
                   <p className="cuo_estado-mensaje">
                     {periodoSeleccionado 
@@ -368,48 +443,22 @@ const Cuotas = () => {
                   </p>
                 </div>
               ) : (
-                <>
-                  <div className="cuo_tabla-header">
-                    <div 
-                      className="cuo_col-nombre" 
-                      onClick={() => toggleOrden('nombre')}
+                <AutoSizer>
+                  {({ height, width }) => (
+                    <List
+                      height={height}
+                      itemCount={cuotasFiltradas.length}
+                      itemSize={70}
+                      width={width}
+                      itemData={cuotasFiltradas}
                     >
-                      Socio 
-                      <FaSort className={`cuo_icono-orden ${orden.campo === 'nombre' ? 'cuo_icono-orden-activo' : ''}`} />
-                      {orden.campo === 'nombre' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
-                    </div>
-                    <div 
-                      className="cuo_col-domicilio"
-                      onClick={() => toggleOrden('domicilio')}
-                    >
-                      Dirección
-                      <FaSort className={`cuo_icono-orden ${orden.campo === 'domicilio' ? 'cuo_icono-orden-activo' : ''}`} />
-                      {orden.campo === 'domicilio' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
-                    </div>
-                    <div className="cuo_col-estado">Estado</div>
-                    <div className="cuo_col-medio-pago">Medio de Pago</div>
-                    <div className="cuo_col-acciones">Acciones</div>
-                  </div>
-
-                  <div className="cuo_list-container">
-                    <AutoSizer>
-                      {({ height, width }) => (
-                        <List
-                          height={height}
-                          itemCount={cuotasFiltradas.length}
-                          itemSize={70}
-                          width={width}
-                          itemData={cuotasFiltradas}
-                        >
-                          {Row}
-                        </List>
-                      )}
-                    </AutoSizer>
-                  </div>
-                </>
+                      {Row}
+                    </List>
+                  )}
+                </AutoSizer>
               )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 

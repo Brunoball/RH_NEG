@@ -21,11 +21,13 @@
 .codb-modal-container {
   width: 95%;
   max-width: 750px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border-radius: 12px;
+  height: 90vh;
+  border-radius: 20px; /* Aumentado de 12px a 20px */
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
   animation: codb-slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Añadido para que el contenido interno no sobresalga de los bordes redondeados */
 }
 
 @keyframes codb-slideUp {
@@ -41,8 +43,7 @@
 
 .codb-modal {
   background-color: white;
-  border-radius: 12px;
-  overflow: hidden;
+  border-radius: 20px; /* Aumentado de 12px a 20px para coincidir con el contenedor */
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -56,6 +57,10 @@
   align-items: center;
   position: relative;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+  position: sticky;
+  top: 0;
+  background-clip: padding-box;
 }
 
 .codb-header-icon {
@@ -109,6 +114,8 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  background-color: white;
 }
 
 .codb-search-section {
@@ -373,28 +380,32 @@
 }
 
 /* Scrollbar styling */
-.codb-search-results::-webkit-scrollbar {
+.codb-search-results::-webkit-scrollbar,
+.codb-modal-content::-webkit-scrollbar {
   width: 8px;
 }
 
-.codb-search-results::-webkit-scrollbar-track {
+.codb-search-results::-webkit-scrollbar-track,
+.codb-modal-content::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
 
-.codb-search-results::-webkit-scrollbar-thumb {
+.codb-search-results::-webkit-scrollbar-thumb,
+.codb-modal-content::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
 
-.codb-search-results::-webkit-scrollbar-thumb:hover {
+.codb-search-results::-webkit-scrollbar-thumb:hover,
+.codb-modal-content::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 
 @media (max-width: 768px) {
   .codb-modal-container {
     width: 98%;
-    max-height: 95vh;
+    height: 95vh;
   }
   
   .codb-modal-header {
