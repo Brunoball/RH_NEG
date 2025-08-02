@@ -13,7 +13,8 @@ import {
   FaFilter,
   FaUndo,
   FaSort,
-  FaUsers
+  FaUsers,
+  FaTimes
 } from 'react-icons/fa';
 import {
   FiChevronLeft,
@@ -23,6 +24,7 @@ import {
 } from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
 import ModalCodigoBarras from './modales/ModalCodigoBarras';
+import ModalEliminarPago from './modales/ModalEliminarPago';
 import { imprimirRecibos } from '../../utils/imprimirRecibos';
 import './Cuotas.css';
 
@@ -40,6 +42,7 @@ const Cuotas = () => {
   const [estados, setEstados] = useState([]);
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
+  const [mostrarModalEliminarPago, setMostrarModalEliminarPago] = useState(false);
   const [socioParaPagar, setSocioParaPagar] = useState(null);
   const [filtrosExpandidos, setFiltrosExpandidos] = useState(true);
   const [orden, setOrden] = useState({ campo: 'nombre', ascendente: true });
@@ -168,7 +171,7 @@ const Cuotas = () => {
         </div>
         <div className="cuo_col-acciones">
           <div className="cuo_acciones-cell">
-            {estadoPagoSeleccionado === 'deudor' && (
+            {estadoPagoSeleccionado === 'deudor' ? (
               <button 
                 className="cuo_boton-accion cuo_boton-accion-success"
                 onClick={() => {
@@ -178,6 +181,17 @@ const Cuotas = () => {
                 title="Registrar pago"
               >
                 <FaDollarSign />
+              </button>
+            ) : (
+              <button
+                className="cuo_boton-accion cuo_boton-accion-danger"
+                onClick={() => {
+                  setSocioParaPagar(cuota);
+                  setMostrarModalEliminarPago(true);
+                }}
+                title="Eliminar pago"
+              >
+                <FaTimes />
               </button>
             )}
             <button 
@@ -477,6 +491,15 @@ const Cuotas = () => {
           onClose={() => setMostrarModalCodigoBarras(false)}
           periodo={getNombrePeriodo(periodoSeleccionado)}
           onPagoRealizado={obtenerCuotasYListas}
+        />
+      )}
+
+      {mostrarModalEliminarPago && (
+        <ModalEliminarPago
+          socio={socioParaPagar}
+          periodo={periodoSeleccionado}
+          onClose={() => setMostrarModalEliminarPago(false)}
+          onEliminado={obtenerCuotasYListas}
         />
       )}
     </div>
