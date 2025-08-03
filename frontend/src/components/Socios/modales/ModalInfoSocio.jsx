@@ -10,6 +10,8 @@ const ModalInfoSocio = ({ socio, onClose }) => {
     periodos: []
   });
 
+  const [pestañaActiva, setPestañaActiva] = useState('datos'); // valores: 'datos', 'contacto', 'finanzas'
+
   useEffect(() => {
     if (!socio) return;
 
@@ -37,7 +39,6 @@ const ModalInfoSocio = ({ socio, onClose }) => {
 
   if (!socio) return null;
 
-  // ✅ Arreglado para evitar desfase horario
   const formatoFecha = (fecha) => {
     if (!fecha) return '-';
     const [year, month, day] = fecha.split('-');
@@ -51,105 +52,141 @@ const ModalInfoSocio = ({ socio, onClose }) => {
   };
 
   return (
-    <div className="ModalInfo-overlay">
-      <div className="ModalInfo-container">
-        <div className="ModalInfo-header">
-          <h2 className="ModalInfo-title">Información del Socio</h2>
+    <div className="modal-overlay">
+      <div className="modal-container">
+        <div className="modal-header">
+          <div className="modal-header-content">
+            <h2 className="modal-title">Información del Socio</h2>
+            <p className="modal-subtitle">ID: {socio.id_socio} | {socio.nombre}</p>
+          </div>
           <button 
-            className="ModalInfo-closeButton" 
+            className="modal-close-btn" 
             onClick={onClose}
             aria-label="Cerrar modal"
           >
-            &times;
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
 
-        <div className="ModalInfo-content">
-          <div className="ModalInfo-section">
-            <h3 className="ModalInfo-sectionTitle">Datos Personales</h3>
-            <div className="ModalInfo-grid">
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">ID:</span>
-                <span className="ModalInfo-value">{socio.id_socio}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Nombre:</span>
-                <span className="ModalInfo-value">{socio.nombre}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">DNI:</span>
-                <span className="ModalInfo-value">{socio.dni || '-'}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Nacimiento:</span>
-                <span className="ModalInfo-value">{formatoFecha(socio.nacimiento)}</span>
-              </div>
+        <div className="modal-content">
+          <div className="modal-tabs">
+            <div 
+              className={`tab ${pestañaActiva === 'datos' ? 'active' : ''}`} 
+              onClick={() => setPestañaActiva('datos')}
+            >
+              Datos Generales
+            </div>
+            <div 
+              className={`tab ${pestañaActiva === 'contacto' ? 'active' : ''}`} 
+              onClick={() => setPestañaActiva('contacto')}
+            >
+              Contacto
+            </div>
+            <div 
+              className={`tab ${pestañaActiva === 'finanzas' ? 'active' : ''}`} 
+              onClick={() => setPestañaActiva('finanzas')}
+            >
+              Finanzas
             </div>
           </div>
 
-          <div className="ModalInfo-section">
-            <h3 className="ModalInfo-sectionTitle">Datos de Membresía</h3>
-            <div className="ModalInfo-grid">
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Categoría:</span>
-                <span className="ModalInfo-value">{obtenerDescripcion(listas.categorias, socio.id_categoria)}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Estado:</span>
-                <span className="ModalInfo-value">{obtenerDescripcion(listas.estados, socio.id_estado)}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Ingreso:</span>
-                <span className="ModalInfo-value">{formatoFecha(socio.ingreso)}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Cobrador:</span>
-                <span className="ModalInfo-value">{obtenerDescripcion(listas.cobradores, socio.id_cobrador, 'nombre')}</span>
+          {pestañaActiva === 'datos' && (
+            <div className="tab-content active">
+              <div className="info-grid">
+                <div className="info-card">
+                  <h3 className="info-card-title">Datos Personales</h3>
+                  <div className="info-item">
+                    <span className="info-label">DNI:</span>
+                    <span className="info-value">{socio.dni || '-'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Nacimiento:</span>
+                    <span className="info-value">{formatoFecha(socio.nacimiento)}</span>
+                  </div>
+                </div>
+
+                <div className="info-card">
+                  <h3 className="info-card-title">Membresía</h3>
+                  <div className="info-item">
+                    <span className="info-label">Categoría:</span>
+                    <span className="info-value">{obtenerDescripcion(listas.categorias, socio.id_categoria)}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Estado:</span>
+                    <span className="info-value">{obtenerDescripcion(listas.estados, socio.id_estado)}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Ingreso:</span>
+                    <span className="info-value">{formatoFecha(socio.ingreso)}</span>
+                  </div>
+                </div>
+
+                <div className="info-card info-card-full">
+                  <h3 className="info-card-title">Cobranza</h3>
+                  <div className="info-item">
+                    <span className="info-label">Cobrador:</span>
+                    <span className="info-value">{obtenerDescripcion(listas.cobradores, socio.id_cobrador, 'nombre')}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Domicilio Cobro:</span>
+                    <span className="info-value">{socio.domicilio_cobro || '-'}</span>
+                  </div>
+                  <div className="info-item comentario">
+                    <span className="info-label">Comentario:</span>
+                    <span className="info-value">{(socio.comentario && socio.comentario.trim() !== '') ? socio.comentario : '-'}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="ModalInfo-section">
-            <h3 className="ModalInfo-sectionTitle">Contacto</h3>
-            <div className="ModalInfo-grid">
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Domicilio:</span>
-                <span className="ModalInfo-value">{socio.domicilio} {socio.numero}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Domicilio de Cobro:</span>
-                <span className="ModalInfo-value">{socio.domicilio_cobro}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Teléfono Móvil:</span>
-                <span className="ModalInfo-value">{socio.telefono_movil}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Teléfono Fijo:</span>
-                <span className="ModalInfo-value">{socio.telefono_fijo}</span>
+          {pestañaActiva === 'contacto' && (
+            <div className="tab-content active">
+              <div className="info-grid">
+                <div className="info-card">
+                  <h3 className="info-card-title">Direcciones</h3>
+                  <div className="info-item">
+                    <span className="info-label">Domicilio:</span>
+                    <span className="info-value">{socio.domicilio || '-'} {socio.numero || ''}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Domicilio Cobro:</span>
+                    <span className="info-value">{socio.domicilio_cobro || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="info-card">
+                  <h3 className="info-card-title">Contacto</h3>
+                  <div className="info-item">
+                    <span className="info-label">Teléfono Móvil:</span>
+                    <span className="info-value">{socio.telefono_movil || '-'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Teléfono Fijo:</span>
+                    <span className="info-value">{socio.telefono_fijo || '-'}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="ModalInfo-section">
-            <h3 className="ModalInfo-sectionTitle">Finanzas</h3>
-            <div className="ModalInfo-grid">
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Deuda 2024:</span>
-                <span className="ModalInfo-value">{socio.deuda_2024}</span>
-              </div>
-              <div className="ModalInfo-item">
-                <span className="ModalInfo-label">Periodo Adeudado:</span>
-                <span className="ModalInfo-value">{obtenerDescripcion(listas.periodos, socio.id_periodo_adeudado)}</span>
-              </div>
-            </div>
-          </div>
-
-          {socio.comentario && (
-            <div className="ModalInfo-section">
-              <h3 className="ModalInfo-sectionTitle">Comentario</h3>
-              <div className="ModalInfo-comment">
-                {socio.comentario}
+          {pestañaActiva === 'finanzas' && (
+            <div className="tab-content active">
+              <div className="info-grid">
+                <div className="info-card">
+                  <h3 className="info-card-title">Estado Financiero</h3>
+                  <div className="info-item">
+                    <span className="info-label">Deuda 2024:</span>
+                    <span className="info-value">{socio.deuda_2024 || '0'}</span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Periodo Adeudado:</span>
+                    <span className="info-value">{obtenerDescripcion(listas.periodos, socio.id_periodo_adeudado)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
