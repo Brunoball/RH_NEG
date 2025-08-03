@@ -110,13 +110,31 @@ const Cuotas = () => {
     });
   }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado, estadoPagoSeleccionado, orden]);
 
-  const cantidadDeudores = useMemo(() => {
-    return cuotas.filter((c) => String(c.id_periodo) === String(periodoSeleccionado) && c.estado_pago === 'deudor').length;
-  }, [cuotas, periodoSeleccionado]);
+  const cantidadFiltradaDeudores = useMemo(() => {
+    return cuotas.filter(c => 
+      String(c.id_periodo) === String(periodoSeleccionado) &&
+      (busqueda === '' || 
+        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
+      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
+      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
+      c.estado_pago === 'deudor'
+    ).length;
+  }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
-  const cantidadPagados = useMemo(() => {
-    return cuotas.filter((c) => String(c.id_periodo) === String(periodoSeleccionado) && c.estado_pago === 'pagado').length;
-  }, [cuotas, periodoSeleccionado]);
+  const cantidadFiltradaPagados = useMemo(() => {
+    return cuotas.filter(c => 
+      String(c.id_periodo) === String(periodoSeleccionado) &&
+      (busqueda === '' || 
+        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
+      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
+      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
+      c.estado_pago === 'pagado'
+    ).length;
+  }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
   const toggleOrden = (campo) => {
     setOrden(prev => ({
@@ -134,7 +152,7 @@ const Cuotas = () => {
     
     setLoadingPrint(true);
     try {
-      await imprimirRecibos(cuotasFiltradas, getNombrePeriodo(periodoSeleccionado), ventanaImpresion);
+      await imprimirRecibos(cuotasFiltradas, periodoSeleccionado, ventanaImpresion);
     } catch (error) {
       console.error('Error al imprimir:', error);
       ventanaImpresion.close();
@@ -207,7 +225,7 @@ const Cuotas = () => {
               onClick={() => {
                 const ventanaImpresion = window.open('', '_blank');
                 if (ventanaImpresion) {
-                  imprimirRecibos([cuota], getNombrePeriodo(periodoSeleccionado), ventanaImpresion);
+                  imprimirRecibos([cuota], periodoSeleccionado, ventanaImpresion);
                 } else {
                   alert('Por favor deshabilita el bloqueador de ventanas emergentes para imprimir');
                 }
@@ -287,14 +305,14 @@ const Cuotas = () => {
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
                 >
-                  Deudores <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadDeudores})</span>
+                  Deudores <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
                 >
-                  Pagados <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadPagados})</span>
+                  Pagados <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
                 </button>
               </div>
             </div>
@@ -498,6 +516,7 @@ const Cuotas = () => {
         <ModalCodigoBarras
           onClose={() => setMostrarModalCodigoBarras(false)}
           periodo={getNombrePeriodo(periodoSeleccionado)}
+          periodoId={periodoSeleccionado}
           onPagoRealizado={obtenerCuotasYListas}
         />
       )}

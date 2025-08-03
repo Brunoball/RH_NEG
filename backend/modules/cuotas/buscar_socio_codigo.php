@@ -13,6 +13,19 @@ if (!$id_socio || !$id_periodo) {
     exit;
 }
 
+// Función auxiliar: convierte id_periodo a último mes del período
+function obtenerUltimoMesDePeriodo($id_periodo) {
+    $mapa = [
+        1 => 2,  // febrero
+        2 => 4,  // abril
+        3 => 6,  // junio
+        4 => 8,  // agosto
+        5 => 10, // octubre
+        6 => 12  // diciembre
+    ];
+    return $mapa[$id_periodo] ?? 0;
+}
+
 try {
     $stmt = $pdo->prepare("
         SELECT 
@@ -25,6 +38,7 @@ try {
             s.domicilio_cobro,
             s.dni,
             s.id_categoria,
+            s.ingreso,
             cat.descripcion AS categoria
         FROM socios s
         JOIN categoria cat ON s.id_categoria = cat.id_categoria
@@ -37,13 +51,21 @@ try {
     $socio = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($socio) {
-        // Agregamos el campo unificado para domicilio completo
+        $fechaIngreso = $socio['ingreso'];
+        $mesIngreso = (int)date('n', strtotime($fechaIngreso));
+
+        $ultimoMesDelPeriodo = obtenerUltimoMesDePeriodo((int)$id_periodo);
+
+        if ($mesIngreso > $ultimoMesDelPeriodo) {
+            echo json_encode([
+                'exito' => false,
+                'mensaje' => "⛔ El socio {$socio['nombre']} aún no estaba registrado en ese período"
+            ]);
+            exit;
+        }
+
         $socio['domicilio_completo'] = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));
-
-        // Seleccionamos el mejor teléfono disponible
         $socio['telefono'] = $socio['telefono_movil'] ?: ($socio['telefono_fijo'] ?? '');
-
-        // Monto fijo
         $socio['monto'] = 4000;
 
         echo json_encode(['exito' => true, 'socio' => $socio]);
