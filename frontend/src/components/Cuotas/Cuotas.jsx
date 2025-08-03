@@ -110,6 +110,14 @@ const Cuotas = () => {
     });
   }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado, estadoPagoSeleccionado, orden]);
 
+  const cantidadDeudores = useMemo(() => {
+    return cuotas.filter((c) => String(c.id_periodo) === String(periodoSeleccionado) && c.estado_pago === 'deudor').length;
+  }, [cuotas, periodoSeleccionado]);
+
+  const cantidadPagados = useMemo(() => {
+    return cuotas.filter((c) => String(c.id_periodo) === String(periodoSeleccionado) && c.estado_pago === 'pagado').length;
+  }, [cuotas, periodoSeleccionado]);
+
   const toggleOrden = (campo) => {
     setOrden(prev => ({
       campo,
@@ -279,14 +287,14 @@ const Cuotas = () => {
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
                 >
-                  Deudores
+                  Deudores <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadDeudores})</span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
                 >
-                  Pagados
+                  Pagados <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadPagados})</span>
                 </button>
               </div>
             </div>

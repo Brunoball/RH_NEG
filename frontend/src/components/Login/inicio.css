@@ -1,58 +1,68 @@
+/* Variables y tipografía consistentes con Principal.css */
 :root {
-  --primary: #5B67D8;
-  --primary-light: #818CF8;
-  --primary-dark: #4C56C0;
-  --secondary: #8B5CF6;
-  --accent: #F472B6;
-  --light: #F8FAFC;
-  --dark: #1F2937;
-  --gray: #64748B;
-  --gray-light: #E2E8F0;
-  --error: #EF4444;
-  --error-bg: rgba(239, 68, 68, 0.1);
-  --border-radius: 24px;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 10px 35px rgba(0, 0, 0, 0.2);
-  --text-gradient: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  --princ-primary: #2563EB;
+  --princ-primary-light: #3B82F6;
+  --princ-primary-dark: #1D4ED8;
+  --princ-secondary: #7C3AED;
+  --princ-accent: #EC4899;
+  --princ-success: #10B981;
+  --princ-warning: #F59E0B;
+  --princ-danger: #EF4444;
+  --princ-light: #F8FAFC;
+  --princ-dark: #0F172A;
+  --princ-gray-100: #F1F5F9;
+  --princ-gray-200: #E2E8F0;
+  --princ-gray-300: #CBD5E1;
+  --princ-gray-400: #94A3B8;
+  --princ-gray-500: #64748B;
+  --princ-gray-600: #475569;
+  --princ-gray-700: #334155;
+  --princ-gray-800: #1E293B;
+  --princ-gray-900: #0F172A;
+  
+  --princ-border-radius: 12px;
+  --princ-border-radius-lg: 16px;
+  --princ-border-radius-xl: 20px;
+  --princ-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --princ-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --princ-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --princ-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --princ-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --princ-glass: rgba(255, 255, 255, 0.95);
+  --princ-glass-border: rgba(255, 255, 255, 0.2);
+  --princ-text-gradient: linear-gradient(135deg, var(--princ-primary) 0%, var(--princ-secondary) 100%);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 
-html, body {
-  height: 100%;
-}
-
-/* Contenedor principal - Ahora es completamente flexible */
+/* Estilos base consistentes */
 .ini_wrapper {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  background-attachment: fixed;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Contenedor del formulario - Tamaño adaptable */
 .ini_contenedor {
   width: 100%;
   max-width: 500px;
   min-height: 500px;
   padding: 2rem;
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
+  background: var(--princ-glass);
+  border-radius: var(--princ-border-radius-xl);
+  box-shadow: var(--princ-shadow-xl);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--princ-glass-border);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Barra superior decorativa */
+/* Barra superior decorativa con gradiente consistente */
 .ini_contenedor::before {
   content: '';
   position: absolute;
@@ -60,7 +70,7 @@ html, body {
   left: 0;
   right: 0;
   height: 8px;
-  background: var(--text-gradient);
+  background: var(--princ-text-gradient);
   background-size: 200% 200%;
   animation: gradientShift 6s ease infinite alternate;
 }
@@ -71,7 +81,7 @@ html, body {
   100% { background-position: 0% 50%; }
 }
 
-/* Estilos del logo */
+/* Logo y títulos con estilo consistente */
 .ini_logo-container {
   display: flex;
   flex-direction: column;
@@ -88,19 +98,23 @@ html, body {
   object-fit: cover;
   margin-bottom: 1.5rem;
   border: 4px solid white;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease;
+  box-shadow: var(--princ-shadow-md);
+  transition: var(--princ-transition);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+  padding: 0.5rem;
 }
 
 .ini_logo:hover {
-  transform: scale(1.05) rotate(5deg);
+  transform: scale(1.05);
+  box-shadow: var(--princ-shadow-lg);
 }
 
 .ini_title {
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: var(--text-gradient);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--princ-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -109,11 +123,12 @@ html, body {
 
 .ini_subtitle {
   font-size: 1rem;
-  color: var(--gray);
+  color: var(--princ-gray-600);
   margin-bottom: 2rem;
+  font-weight: 400;
 }
 
-/* Formulario - contenido desplazable si es necesario */
+/* Formulario */
 .ini_formulario {
   width: 100%;
   display: flex;
@@ -123,19 +138,20 @@ html, body {
   padding-bottom: 1rem;
 }
 
-/* Mensaje de error */
+/* Mensaje de error con estilo consistente */
 .ini_error {
   width: calc(100% - 40px);
   max-width: 420px;
   padding: 12px 16px;
-  background: var(--error);
+  background: var(--princ-danger);
   color: white;
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--princ-border-radius);
+  box-shadow: var(--princ-shadow-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  font-size: 0.9rem;
 }
 
 .ini_error-container {
@@ -150,12 +166,13 @@ html, body {
   animation: fadeInDown 0.4s ease-out forwards;
 }
 
-/* Campos con íconos */
+/* Campos de entrada */
 .ini_input-group {
   position: relative;
   margin-bottom: 1.5rem;
 }
-.ini_input-group2{
+
+.ini_input-group2 {
   margin-bottom: 0;
 }
 
@@ -164,35 +181,36 @@ html, body {
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--primary);
+  color: var(--princ-primary);
   z-index: 2;
   font-size: 1.1rem;
-  transition: var(--transition);
+  transition: var(--princ-transition);
 }
 
 .ini_input-group:hover .ini_input-icon {
-  color: var(--primary-dark);
+  color: var(--princ-primary-dark);
 }
 
 .ini_input-group:focus-within .ini_input-icon {
-  color: var(--primary-light);
+  color: var(--princ-primary-light);
 }
 
 .ini_input-field {
   width: 100%;
   padding: 16px 16px 16px 50px;
   font-size: 1rem;
-  border: 2px solid var(--gray-light);
-  border-radius: 12px;
-  transition: var(--transition);
-  background: white;
-  color: var(--dark);
+  border: 2px solid var(--princ-gray-200);
+  border-radius: var(--princ-border-radius);
+  transition: var(--princ-transition);
+  background: var(--princ-glass);
+  color: var(--princ-gray-900);
+  font-family: 'Inter', sans-serif;
 }
 
 .ini_input-field:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(91, 103, 216, 0.2);
+  border-color: var(--princ-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 /* Labels flotantes */
@@ -200,12 +218,13 @@ html, body {
   position: absolute;
   left: 50px;
   top: 16px;
-  color: var(--gray);
-  transition: var(--transition);
+  color: var(--princ-gray-500);
+  transition: var(--princ-transition);
   pointer-events: none;
-  background: white;
+  background: var(--princ-glass);
   padding: 0 6px;
   font-size: 1rem;
+  font-family: 'Inter', sans-serif;
 }
 
 .ini_input-field:focus + .ini_input-label,
@@ -213,33 +232,34 @@ html, body {
   top: -10px;
   left: 35px;
   font-size: 0.8rem;
-  color: var(--primary);
-  background: white;
+  color: var(--princ-primary);
+  background: var(--princ-glass);
   z-index: 2;
   font-weight: 500;
 }
 
-/* Botón */
+/* Botón con estilo consistente */
 .ini_button {
   width: 100%;
   padding: 1rem;
-  background: var(--text-gradient);
+  background: var(--princ-text-gradient);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--princ-border-radius);
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition);
+  transition: var(--princ-transition);
   margin-top: 1rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--princ-shadow-sm);
   position: relative;
   overflow: hidden;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .ini_button:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--princ-shadow-lg);
 }
 
 .ini_button::after {
@@ -291,13 +311,12 @@ html, body {
   }
 }
 
-/* Media Queries para diferentes tamaños de pantalla */
-
-/* Pantallas muy pequeñas (móviles pequeños) */
+/* Media Queries consistentes con Principal.css */
 @media (max-width: 400px) {
   .ini_contenedor {
     padding: 1.5rem;
     min-height: 450px;
+    border-radius: var(--princ-border-radius-lg);
   }
   
   .ini_logo {
@@ -344,7 +363,6 @@ html, body {
   }
 }
 
-/* Pantallas medianas (tablets) */
 @media (min-width: 768px) {
   .ini_contenedor {
     max-width: 450px;
@@ -365,7 +383,6 @@ html, body {
   }
 }
 
-/* Pantallas grandes (monitores) */
 @media (min-width: 1200px) {
   .ini_contenedor {
     max-width: 500px;
@@ -402,22 +419,5 @@ html, body {
   .ini_button {
     padding: 1.1rem;
     font-size: 1.15rem;
-  }
-}
-
-/* Pantallas muy grandes (monitores HD+) */
-@media (min-width: 1600px) {
-  .ini_contenedor {
-    max-width: 550px;
-    padding: 3rem;
-  }
-  
-  .ini_logo {
-    width: 130px;
-    height: 130px;
-  }
-  
-  .ini_title {
-    font-size: 2.2rem;
   }
 }
