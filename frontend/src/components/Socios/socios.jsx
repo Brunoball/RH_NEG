@@ -22,6 +22,14 @@ import ModalInfoSocio from './modales/ModalInfoSocio';
 import ModalDarBajaSocio from './modales/ModalDarBajaSocio';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import Toast from '../Global/Toast';
+import '../Global/roots.css';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCheckCircle,
+  faExclamationTriangle,
+  faTimesCircle
+} from "@fortawesome/free-solid-svg-icons";
 
 const BotonesInferiores = React.memo(({ cargando, navigate, sociosFiltrados, exportarExcel }) => (
   <div className="soc-barra-inferior">
@@ -205,8 +213,6 @@ const Socios = () => {
   const [socioAEliminar, setSocioAEliminar] = useState(null);
   const [mostrarModalInfo, setMostrarModalInfo] = useState(false);
   const [socioInfo, setSocioInfo] = useState(null);
-  const [mensaje, setMensaje] = useState('');
-  const [tipoMensaje, setTipoMensaje] = useState('');
   const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
   const [socioDarBaja, setSocioDarBaja] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -215,6 +221,12 @@ const Socios = () => {
   const [animarMostrarTodos, setAnimarMostrarTodos] = useState(false);
   const filtrosRef = useRef(null);
   const navigate = useNavigate();
+
+  const [toast, setToast] = useState({
+    mostrar: false,
+    tipo: '',
+    mensaje: ''
+  });
 
   const [filtros, setFiltros] = useState(() => {
     const saved = localStorage.getItem('filtros_socios');
@@ -240,13 +252,12 @@ const Socios = () => {
     };
   }, []);
 
-  const mostrarMensaje = useCallback((texto, tipo = 'exito') => {
-    setMensaje(texto);
-    setTipoMensaje(tipo);
-    setTimeout(() => {
-      setMensaje('');
-      setTipoMensaje('');
-    }, 3000);
+  const mostrarToast = useCallback((mensaje, tipo = 'exito') => {
+    setToast({
+      mostrar: true,
+      tipo,
+      mensaje
+    });
   }, []);
 
   useEffect(() => {
@@ -259,17 +270,17 @@ const Socios = () => {
         if (data.exito) {
           setSocios(data.socios);
         } else {
-          mostrarMensaje(`Error al obtener socios: ${data.mensaje}`, 'error');
+          mostrarToast(`Error al obtener socios: ${data.mensaje}`, 'error');
         }
       } catch (error) {
-        mostrarMensaje('Error de red al obtener socios', 'error');
+        mostrarToast('Error de red al obtener socios', 'error');
       } finally {
         setCargando(false);
       }
     };
 
     cargarDatosIniciales();
-  }, [mostrarMensaje]);
+  }, [mostrarToast]);
 
   useEffect(() => {
     localStorage.setItem('filtros_socios', JSON.stringify(filtros));
@@ -287,7 +298,6 @@ const Socios = () => {
         s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
       );
     } else if (filtroActivo === 'todos') {
-      // No aplicamos filtros, mostramos todos
       return resultados;
     }
 
@@ -311,17 +321,17 @@ const Socios = () => {
       const data = await response.json();
       if (data.exito) {
         setSocios(prev => prev.filter((s) => s.id_socio !== id));
-        mostrarMensaje('✅ Socio eliminado correctamente');
+        mostrarToast('Socio eliminado correctamente');
       } else {
-        mostrarMensaje(`Error al eliminar: ${data.mensaje}`, 'error');
+        mostrarToast(`Error al eliminar: ${data.mensaje}`, 'error');
       }
     } catch (error) {
-      mostrarMensaje('Error de red al intentar eliminar', 'error');
+      mostrarToast('Error de red al intentar eliminar', 'error');
     } finally {
       setMostrarModalEliminar(false);
       setSocioAEliminar(null);
     }
-  }, [mostrarMensaje]);
+  }, [mostrarToast]);
 
   const darDeBajaSocio = useCallback(async (id) => {
     try {
@@ -333,17 +343,17 @@ const Socios = () => {
       const data = await response.json();
       if (data.exito) {
         setSocios(prev => prev.filter((s) => s.id_socio !== id));
-        mostrarMensaje('✅ Socio dado de baja correctamente');
+        mostrarToast('Socio dado de baja correctamente');
       } else {
-        mostrarMensaje(`Error: ${data.mensaje}`, 'error');
+        mostrarToast(`Error: ${data.mensaje}`, 'error');
       }
     } catch (error) {
-      mostrarMensaje('Error de red al intentar dar de baja', 'error');
+      mostrarToast('Error de red al intentar dar de baja', 'error');
     } finally {
       setMostrarModalDarBaja(false);
       setSocioDarBaja(null);
     }
-  }, [mostrarMensaje]);
+  }, [mostrarToast]);
 
   const construirDomicilio = useCallback((domicilio, numero) => {
     const calle = domicilio?.trim() || '';
@@ -355,7 +365,7 @@ const Socios = () => {
 
   const exportarExcel = useCallback(() => {
     if (sociosFiltrados.length === 0) {
-      mostrarMensaje('⚠️ No hay socios para exportar. Seleccioná un filtro o realizá una búsqueda primero.', 'error');
+      mostrarToast('No hay socios para exportar. Seleccioná un filtro o realizá una búsqueda primero.', 'error');
       return;
     }
 
@@ -383,7 +393,7 @@ const Socios = () => {
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
     saveAs(blob, 'Socios.xlsx');
-  }, [sociosFiltrados, construirDomicilio, mostrarMensaje]);
+  }, [sociosFiltrados, construirDomicilio, mostrarToast]);
 
   const handleMostrarTodos = useCallback(() => {
     setFiltros({
@@ -467,10 +477,13 @@ const Socios = () => {
 
   return (
     <div className="soc-container">
-      {mensaje && (
-        <div className={`soc-mensaje ${tipoMensaje === 'error' ? 'soc-mensaje-error' : 'soc-mensaje-exito'}`}>
-          {mensaje}
-        </div>
+      {toast.mostrar && (
+        <Toast 
+          tipo={toast.tipo} 
+          mensaje={toast.mensaje} 
+          onClose={() => setToast({mostrar: false, tipo: '', mensaje: ''})}
+          duracion={3000}
+        />
       )}
 
       <BarraSuperior
@@ -537,7 +550,7 @@ const Socios = () => {
           </div>
         ) : (
           <List
-            height={400}
+            height={2000}
             itemCount={sociosFiltrados.length}
             itemSize={60}
             width="100%"

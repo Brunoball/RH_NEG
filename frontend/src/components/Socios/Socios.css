@@ -27,7 +27,7 @@
   
   /* Variables de diseño */
   --soc-border-radius: 8px;
-  --soc-border-radius-sm: 4px;
+  --soc-border-radius-sm: 6px; /* Unificado para consistencia */
   --soc-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   --soc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --soc-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -61,8 +61,6 @@ body::before {
     radial-gradient(circle at 90% 80%, rgba(255,255,255,0.1) 0%, transparent 20%);
   z-index: -1;
 }
-
-
 
 .soc-container {
   width: 100%;
@@ -110,7 +108,7 @@ body::before {
   align-items: center;
   gap: 16px;
   background: var(--soc-gradient-primary);
-  padding:  1.8rem 1rem;
+  padding: 1.8rem 1rem;
   backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   margin: 0 0 0.5rem 0;
@@ -138,7 +136,7 @@ body::before {
   background: var(--soc-gradient-primary);
   color: white;
   border: none;
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -195,7 +193,7 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--soc-border-radius-sm);
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
   cursor: pointer;
@@ -223,7 +221,7 @@ body::before {
   background: white;
   color: var(--soc-primary);
   border: 2px solid var(--soc-primary-light);
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
@@ -250,7 +248,7 @@ body::before {
   width: 100%;
   padding: 10px 35px 10px 12px;
   border: 1px solid rgba(203, 213, 224, 0.5);
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   font-size: 0.9rem;
   transition: var(--soc-transition);
   background: rgba(255, 255, 255, 0.8);
@@ -303,6 +301,7 @@ body::before {
   margin: 0;
   padding: 0;
   line-height: 1.2;
+  text-transform: capitalize; /* Mejor legibilidad para títulos */
 }
 
 .soc-contador {
@@ -312,9 +311,17 @@ body::before {
   font-weight: 500;
   background: rgba(255, 255, 255, 0.7);
   padding: 6px 12px;
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   backdrop-filter: blur(5px);
   border: 2px solid var(--soc-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.soc-contador::before {
+  content: "👥";
+  font-size: 0.9em;
 }
 
 .soc-contador strong {
@@ -427,7 +434,7 @@ body::before {
   padding: 10px 15px;
   color: white;
   border: none;
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -579,7 +586,7 @@ body::before {
   color: white;
   font-weight: 600;
   font-size: 0.9rem;
-  padding: 10px 0;
+  padding: 12px 0; /* Aumentado padding vertical */
   backdrop-filter: blur(5px);
   position: sticky;
   top: 0;
@@ -611,7 +618,7 @@ body::before {
 .soc-tabla-fila {
   display: grid;
   grid-template-columns: 60px 1.5fr 1.5fr 1fr 140px;
-  padding: 10px 0;
+  padding: 12px 0; /* Aumentado padding vertical */
   border-bottom: 1px solid rgba(237, 242, 247, 0.7);
   align-items: center;
   cursor: pointer;
@@ -653,6 +660,7 @@ body::before {
   white-space: nowrap;
   max-width: 100%;
   padding: 0 8px;
+  text-transform: capitalize; /* Mejor legibilidad para nombres */
 }
 
 /* Ajustes específicos para cada columna */
@@ -827,7 +835,7 @@ body::before {
   height: 50px;
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
-  border-radius: var(--soc-border-radius);
+  border-radius: var(--soc-border-radius-sm);
   animation: soc-shimmer 1.5s infinite;
 }
 
@@ -920,6 +928,7 @@ body::before {
   .soc-col-comentario {
     white-space: normal;
     max-width: 100%;
+    text-transform: capitalize; /* Mantener consistencia en móvil */
   }
   
   .soc-tabla-fila > div {

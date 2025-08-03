@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoRH from '../../imagenes/Logo_rh.jpeg';
 import './principal.css';
+import '../Global/roots.css';
+
 
 // Font Awesome
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
