@@ -26,7 +26,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         return;
       }
 
-      const limpio = codigo.replace(/[^a-zA-Z0-9]/g, '');
+      const limpio = codigo.replace(/[^0-9]/g, '');
       if (/^\d+$/.test(limpio)) {
         buscarPorCodigo(limpio);
       } else {
@@ -39,13 +39,17 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   }, [codigo]);
 
   const buscarPorCodigo = async (input) => {
-    if (input.length < 3) return;
+    if (input.length < 2) {
+      setMensaje('⛔ El código debe tener al menos 2 dígitos (1 para período y al menos 1 para socio)');
+      setError(true);
+      return;
+    }
 
-    const id_periodo = parseInt(input.slice(0, 2), 10);
-    const id_socio = input.slice(2);
+    const id_periodo = parseInt(input.charAt(0), 10); // solo 1 dígito
+    const id_socio = input.slice(1); // el resto
 
-    if (!id_socio || isNaN(id_periodo)) {
-      setMensaje('⛔ Código inválido');
+    if (!id_socio || isNaN(id_periodo) || id_periodo < 1 || id_periodo > 6) {
+      setMensaje('⛔ Código inválido. Formato esperado: [1 dígito periodo] + [ID socio]');
       setError(true);
       return;
     }
@@ -114,12 +118,16 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
-  // ✅ Formato: 12 -> 1/2
-  const mostrarPeriodoFormateado = (numero) => {
-    const str = numero.toString().padStart(2, '0');
-    const mes = str[0];
-    const anio = str[1];
-    return `${mes}/${anio}`;
+  const mostrarPeriodoFormateado = (id) => {
+    const mapa = {
+      1: '1/2',
+      2: '3/4',
+      3: '5/6',
+      4: '7/8',
+      5: '9/10',
+      6: '11/12'
+    };
+    return mapa[id] || `Período ${id}`;
   };
 
   return (
@@ -143,11 +151,11 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   type="text"
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
-                  placeholder="Ej: 12860 (Período + ID)"
+                  placeholder="Ej: 1123 (Período + ID del socio)"
                   className={`codb-search-input ${error ? 'codb-input-error' : ''}`}
                 />
                 <div className="codb-input-hint">
-                  <FaIdCard /> Formato: PERÍODO (2 dígitos) + ID del socio
+                  <FaIdCard /> Formato: PERÍODO (1 dígito) + ID del socio
                 </div>
               </div>
             </div>

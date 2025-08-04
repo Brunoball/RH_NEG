@@ -1,9 +1,7 @@
 import BASE_URL from '../config/config';
 
-export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
+export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) => {
   const sociosCompletos = [];
-
-  const periodoStr = typeof periodoActual === 'number' ? periodoActual.toString() : periodoActual;
 
   for (let socio of listaSocios) {
     try {
@@ -17,13 +15,15 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
       } else {
         sociosCompletos.push({
           ...socio,
-          nombre_cobrador: socio.medio_pago || ''
+          nombre_cobrador: socio.medio_pago || '',
+          id_periodo: socio.id_periodo || periodoActual || ''
         });
       }
     } catch {
       sociosCompletos.push({
         ...socio,
-        nombre_cobrador: socio.medio_pago || ''
+        nombre_cobrador: socio.medio_pago || '',
+        id_periodo: socio.id_periodo || periodoActual || ''
       });
     }
   }
@@ -42,11 +42,10 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
     console.error("Error obteniendo listas:", error);
   }
 
-  const ventana = window.open('', '', 'width=800,height=600');
-  if (!ventana) return;
+  const ventanaImpresion = ventana || window.open('', '', 'width=800,height=600');
+  if (!ventanaImpresion) return;
 
   const anioActual = new Date().getFullYear();
-  const codigoPeriodo = periodoStr.replace(/\D/g, '') || '0';
   const posicionesTop = [20, 68, 117, 166, 216, 264];
 
   const html = `
@@ -183,6 +182,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
             const tel = typeof socio.telefono === 'string' && socio.telefono.trim() !== '' ? socio.telefono.trim() : '';
             const cobro = typeof socio.domicilio_cobro === 'string' ? socio.domicilio_cobro.trim() : '';
             const importe = '$4000';
+            const codigoPeriodo = socio.id_periodo || periodoActual || '0';
             const codigoBarra = `${codigoPeriodo}-${id}`;
 
             const contenidoRecibo = (conCodigo) => `
@@ -203,7 +203,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
                   </div>
                   <div class="row">
                     <div class="cell periodo-grupo">
-                      <div><strong>Período:</strong>${periodoStr} / ${anioActual}</div>
+                      <div><strong>Período:</strong> ${codigoPeriodo} / ${anioActual}</div>
                       <div><strong>Grupo:</strong> ${categoria} - ${estado}</div>
                     </div>
                     <div class="cell cell-barcode">
@@ -229,6 +229,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
         window.onload = function() {
           ${sociosCompletos.map((s, i) => {
             const id = s.id_socio || '-';
+            const codigoPeriodo = s.id_periodo || periodoActual || '0';
             const codigo = `${codigoPeriodo}-${id}`;
             return `
               JsBarcode("#barcode-${i}", "${codigo}", {
@@ -246,6 +247,6 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '') => {
     </body>
   </html>`;
 
-  ventana.document.write(html);
-  ventana.document.close();
+  ventanaImpresion.document.write(html);
+  ventanaImpresion.document.close();
 };
