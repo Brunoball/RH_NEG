@@ -124,10 +124,8 @@ const AgregarSocio = () => {
     setMostrarErrores(true);
     const nuevosErrores = {};
 
-    // Validación de campos obligatorios
     if (!formData.nombre.trim()) nuevosErrores.nombre = 'El nombre es obligatorio';
 
-    // Validación de formatos
     Object.entries(formData).forEach(([key, value]) => {
       const error = validarCampo(key, value);
       if (error) nuevosErrores[key] = error;
@@ -196,7 +194,6 @@ const AgregarSocio = () => {
         
         <form onSubmit={handleSubmit} className="add-socio-form">
           <div className="add-socio-sections">
-            {/* Sección de Información Básica */}
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Información Básica</h3>
               <div className="add-socio-section-content">
@@ -232,19 +229,19 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-          <div className="add-socio-input-wrapper has-value">
-            <label className="add-socio-label">Fecha de nacimiento</label>
-            <input
-              type="date"
-              name="nacimiento"
-              value={formData.nacimiento || ''}
-              onChange={handleChange}
-              onFocus={() => handleFocus('nacimiento')}
-              onBlur={handleBlur}
-              className="add-socio-input"
-            />
-            <span className="add-socio-input-highlight"></span>
-          </div>
+                <div className="add-socio-input-wrapper has-value">
+                  <label className="add-socio-label">Fecha de nacimiento</label>
+                  <input
+                    type="date"
+                    name="nacimiento"
+                    value={formData.nacimiento || ''}
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('nacimiento')}
+                    onBlur={handleBlur}
+                    className="add-socio-input"
+                  />
+                  <span className="add-socio-input-highlight"></span>
+                </div>
 
                 <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
                   <label className="add-socio-label">Número de socio</label>
@@ -264,7 +261,6 @@ const AgregarSocio = () => {
               </div>
             </div>
 
-            {/* Sección de Contacto y Cobro */}
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
@@ -332,7 +328,7 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                <div className={`add-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
+                <div className="add-socio-input-wrapper has-value">
                   <label className="add-socio-label">Cobrador</label>
                   <select 
                     name="id_cobrador" 
@@ -343,6 +339,7 @@ const AgregarSocio = () => {
                     className="add-socio-input"
                     disabled={loading || !listas.loaded}
                   >
+                    <option value="">Seleccionar cobrador</option>
                     {listas.cobradores.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
@@ -352,30 +349,29 @@ const AgregarSocio = () => {
               </div>
             </div>
 
-            {/* Sección de Estado y Comentarios */}
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Estado y Comentarios</h3>
               <div className="add-socio-section-content">
-                <div className={`add-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Categoría</label>
-                  <select 
-                    name="id_categoria" 
-                    value={formData.id_categoria || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_categoria')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    
-                    {listas.categorias.map(c => (
-                      <option key={c.id} value={c.id}>{c.descripcion}</option>
-                    ))}
-                  </select>
-                  <span className="add-socio-input-highlight"></span>
-                </div>
+              <div className="add-socio-input-wrapper has-value">
+                <label className="add-socio-label">Categoría</label>
+                <select 
+                  name="id_categoria" 
+                  value={formData.id_categoria || ''} 
+                  onChange={handleChange}
+                  onFocus={() => handleFocus('id_categoria')}
+                  onBlur={handleBlur}
+                  className="add-socio-input"
+                  disabled={loading || !listas.loaded}
+                >
+                  <option value="">Seleccionar categoría</option>
+                  {listas.categorias.map(c => (
+                    <option key={c.id} value={c.id}>{c.descripcion}</option>
+                  ))}
+                </select>
+                <span className="add-socio-input-highlight"></span>
+              </div>
 
-                <div className={`add-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                <div className="add-socio-input-wrapper has-value">
                   <label className="add-socio-label">Estado</label>
                   <select 
                     name="id_estado" 
@@ -386,6 +382,7 @@ const AgregarSocio = () => {
                     className="add-socio-input"
                     disabled={loading || !listas.loaded}
                   >
+                    <option value="">Seleccionar estado</option>
                     {listas.estados.map(e => (
                       <option key={e.id} value={e.id}>{e.descripcion}</option>
                     ))}

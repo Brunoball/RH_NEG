@@ -73,23 +73,36 @@ const SociosBaja = () => {
   };
 
   return (
-    <div className="soc_container">
-      <h2 className="soc_titulo">Socios Dados de Baja</h2>
-      <button className="soc_boton" onClick={() => navigate('/socios')}>← Volver</button>
+    <div className="soc-container-baja">
+      <div className="soc-glass-effect-baja"></div>
+      <div className="soc-barra-superior-baja">
+        <div className="soc-titulo-container-baja">
+          <h2 className="soc-titulo-baja">Socios Dados de Baja</h2>
+        </div>
+        <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>← Volver</button>
+      </div>
 
-      <input
-        type="text"
-        className="soc_input-busqueda"
-        placeholder="Buscar por nombre..."
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-      />
+      <div className="soc-buscador-container-baja">
+        <input
+          type="text"
+          className="soc-buscador-baja"
+          placeholder="Buscar por nombre..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        <div className="soc-buscador-iconos-baja">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </div>
+      </div>
 
       {mensaje.texto && (
-        <div className={`soc_mensaje ${mensaje.tipo}`}>
+        <div className={`soc-mensaje-baja ${mensaje.tipo}`}>
           {mensaje.texto}
           <button 
-            className="soc_cerrar-mensaje" 
+            className="soc-cerrar-mensaje-baja" 
             onClick={() => setMensaje({ texto: '', tipo: '' })}
           >
             ×
@@ -98,34 +111,40 @@ const SociosBaja = () => {
       )}
 
       {loading ? (
-        <p className="soc_cargando">Cargando socios dados de baja...</p>
+        <p className="soc-cargando-baja">Cargando socios dados de baja...</p>
       ) : (
-        <div className="soc_tabla-scroll">
-          <div className="soc_tabla-grid">
-            {/* Encabezados */}
-            <div className="soc_tabla-header">
-              <div className="soc_tabla-header-item">ID</div>
-              <div className="soc_tabla-header-item">Nombre</div>
-              <div className="soc_tabla-header-item">Domicilio</div>
-              <div className="soc_tabla-header-item">Comentario</div>
-              <div className="soc_tabla-header-item">Acciones</div>
+        
+        <div className="soc-tabla-container-baja">
+                      <div className="soc-contador-baja">
+              Mostrando <strong>{sociosFiltrados.length}</strong> socios
+            </div>
+          <div className="soc-tabla-header-container-baja">
+            <div className="soc-tabla-header-baja">
+              <div className="soc-col-id-baja">ID</div>
+              <div className="soc-col-nombre-baja">Nombre</div>
+              <div className="soc-col-domicilio-baja">Domicilio</div>
+              <div className="soc-col-comentario-baja">Comentario</div>
+              <div className="soc-col-acciones-baja">Acciones</div>
             </div>
             
-            {/* Cuerpo */}
-            <div className="soc_tabla-body">
-              {sociosFiltrados.length === 0 ? (
-                <div className="soc_sin-resultados">No hay resultados.</div>
-              ) : (
-                sociosFiltrados.map((s) => (
-                  <div className="soc_tabla-row" key={s.id_socio}>
-                    <div className="soc_tabla-cell">{s.id_socio}</div>
-                    <div className="soc_tabla-cell">{s.nombre}</div>
-                    <div className="soc_tabla-cell">{`${s.domicilio ?? ''} ${s.numero ?? ''}`}</div>
-                    <div className="soc_tabla-cell">{s.comentario}</div>
-                    <div className="soc_tabla-cell">
+
+          </div>
+          
+          <div className="soc-tabla-body-baja">
+            {sociosFiltrados.length === 0 ? (
+              <div className="soc-sin-resultados-baja">No hay resultados.</div>
+            ) : (
+              sociosFiltrados.map((s) => (
+                <div className="soc-tabla-fila-baja" key={s.id_socio}>
+                  <div className="soc-col-id-baja">{s.id_socio}</div>
+                  <div className="soc-col-nombre-baja">{s.nombre}</div>
+                  <div className="soc-col-domicilio-baja">{`${s.domicilio ?? ''} ${s.numero ?? ''}`}</div>
+                  <div className="soc-col-comentario-baja">{s.comentario}</div>
+                  <div className="soc-col-acciones-baja">
+                    <div className="soc-iconos-acciones-baja">
                       <FaUserCheck
                         title="Dar de alta"
-                        className="soc_icono"
+                        className="soc-icono-baja"
                         onClick={() => {
                           setSocioSeleccionado(s);
                           setMostrarConfirmacion(true);
@@ -133,26 +152,26 @@ const SociosBaja = () => {
                       />
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
 
       {mostrarConfirmacion && socioSeleccionado && (
-        <div className="soc_modal-overlay">
-          <div className="soc_modal-contenido">
+        <div className="soc-modal-overlay-baja">
+          <div className="soc-modal-contenido-baja">
             <h3>¿Deseás dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?</h3>
-            <div className="soc_modal-botones">
+            <div className="soc-modal-botones-baja">
               <button
-                className="soc_boton-confirmar"
+                className="soc-boton-confirmar-baja"
                 onClick={() => darAltaSocio(socioSeleccionado.id_socio)}
               >
                 ✅ Sí, dar de alta
               </button>
               <button
-                className="soc_boton-cancelar"
+                className="soc-boton-cancelar-baja"
                 onClick={() => {
                   setMostrarConfirmacion(false);
                   setSocioSeleccionado(null);

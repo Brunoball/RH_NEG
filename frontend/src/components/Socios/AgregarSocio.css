@@ -1,4 +1,3 @@
-/* Variables raíz - Coherentes con Principal */
 :root {
   --add-glass: rgba(255, 255, 255, 0.85);
   --add-glass-border: rgba(255, 255, 255, 0.3);
@@ -40,23 +39,21 @@
   --transition-fast: 0.15s ease;
 }
 
-/* Contenedor principal - Estilo glassmorphism como Principal */
+/* Contenedor principal */
 .add-socio-container {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
   background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  border-radius: var(--add-border-radius-xl);
+  border-radius: var(--add-border-radius-lg);
   box-shadow: var(--add-shadow-xl);
-  backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid var(--add-glass-border);
   overflow: hidden;
 }
 
-/* Efecto de fondo animado como Principal */
 .add-socio-container::before {
   content: '';
   position: absolute;
@@ -76,18 +73,33 @@
   to { transform: rotate(360deg); }
 }
 
-/* Caja del formulario */
 .add-socio-box {
   position: relative;
-  width: 100%;
-  max-width: 1200px;
-  transform: scale(.9);
+  width: 90%;
+  height: 90vh;
   background: rgba(255, 255, 255, 0.7);
   border-radius: var(--add-border-radius-lg);
-  box-shadow: var(--add-shadow-md);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Encabezado */
+.add-socio-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0 1.5rem 1.3rem;
+}
+
+.add-socio-sections {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  overflow-y: hidden;
+}
+
 .add-header {
   display: flex;
   justify-content: space-between;
@@ -138,20 +150,6 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Formulario */
-.add-socio-form {
-  display: flex;
-  flex-direction: column;
-  padding: var(--spacing-lg);
-}
-
-/* Secciones del formulario */
-.add-socio-sections {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
 .add-socio-section {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
   padding: 1.5rem;
@@ -175,7 +173,6 @@
   gap: 1.2rem;
 }
 
-/* Inputs - Estilo moderno con efecto de focus */
 .add-socio-input-wrapper {
   position: relative;
   width: 100%;
@@ -227,7 +224,6 @@
   width: 100%;
 }
 
-/* Efecto para inputs con valor (floating labels) */
 .add-socio-input-wrapper.has-value .add-socio-label,
 .add-socio-input:focus ~ .add-socio-label {
   transform: translateY(-1.4rem) scale(0.85);
@@ -243,7 +239,6 @@
   resize: vertical;
 }
 
-/* Select - Estilo coherente */
 .add-socio-input-wrapper select.add-socio-input {
   appearance: none;
   background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
@@ -253,7 +248,6 @@
   padding-right: 2.5rem;
 }
 
-/* Mensajes de error */
 .add-socio-error {
   position: absolute;
   bottom: -1.2rem;
@@ -265,13 +259,14 @@
   border-radius: 0 0 var(--add-border-radius) var(--add-border-radius);
 }
 
-/* Botones - Estilo similar a Principal */
 .add-socio-buttons-container {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  padding-top: 1.5rem;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
 }
 
 .add-socio-button {
@@ -318,7 +313,6 @@
   z-index: 2;
 }
 
-/* Efecto de onda al hacer clic (como en Principal) */
 .add-socio-button:active::after {
   content: '';
   position: absolute;
@@ -345,69 +339,72 @@
   }
 }
 
-/* Responsive */
 @media (max-width: 992px) {
   .add-socio-container {
-    padding: 1.5rem;
-  }
-  
-  .add-header {
-    padding: var(--spacing-md) var(--spacing-lg);
-  }
-  
-  .add-icon-title h1 {
-    font-size: 1.3rem;
-  }
-  
-  .add-icon-title p {
-    font-size: 0.85rem;
+    width: 90vw;
+    height: auto;
+    min-height: 80vh;
   }
 }
 
 @media (max-width: 768px) {
+  .add-socio-container {
+    width: 95vw;
+    margin: 1vh auto;
+  }
+  
   .add-socio-sections {
     grid-template-columns: 1fr;
-  }
-  
-  .add-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-  }
-  
-  .add-back-btn {
-    width: 100%;
-    justify-content: center;
-    margin-top: var(--spacing-sm);
   }
 }
 
 @media (max-width: 576px) {
   .add-socio-container {
-    padding: 1rem;
-    margin: 1rem auto;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
   }
   
   .add-socio-box {
-    padding: 0;
+    border-radius: 0;
   }
   
-  .add-socio-form {
-    padding: var(--spacing-md);
+  .add-header {
+    border-radius: 0;
   }
   
-  .add-socio-section {
-    padding: 1.2rem;
-  }
-  
-  .add-socio-input {
-    padding: 0.7rem 0.9rem;
-    font-size: 0.9rem;
+  .add-icon-title h1 {
+    font-size: 1.25rem;
   }
   
   .add-socio-input-wrapper.has-value .add-socio-label,
   .add-socio-input:focus ~ .add-socio-label {
     transform: translateY(-1.2rem) scale(0.8);
+    left: 0.5rem;
+  }
+  
+  .add-socio-button {
+    width: 100%;
+    padding: 0.85rem 1.5rem;
+  }
+  
+  .add-socio-form {
+    padding-bottom: 3rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .add-socio-input {
+    font-size: 0.9rem;
+    padding: 0.7rem 0.9rem;
+  }
+  
+  .add-socio-label {
+    font-size: 0.8rem;
+  }
+  
+  .add-socio-section-title {
+    font-size: 1rem;
   }
 }
