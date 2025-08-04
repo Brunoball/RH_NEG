@@ -61,6 +61,7 @@ body {
 /* Layout principal */
 .cuo_app-container {
   display: grid;
+  width: 100%;
   grid-template-columns: auto 1fr;
   height: 100vh;
   transition: var(--princ-transition);

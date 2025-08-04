@@ -24,12 +24,6 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Toast from '../Global/Toast';
 import '../Global/roots.css';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCheckCircle,
-  faExclamationTriangle,
-  faTimesCircle
-} from "@fortawesome/free-solid-svg-icons";
 
 const BotonesInferiores = React.memo(({ cargando, navigate, sociosFiltrados, exportarExcel }) => (
   <div className="soc-barra-inferior">
@@ -71,18 +65,38 @@ const BarraSuperior = React.memo(({
   cargando, 
   busqueda, 
   letraSeleccionada, 
-  socios, 
-  sociosFiltrados, 
   setFiltros, 
   filtrosRef, 
   mostrarFiltros, 
   setMostrarFiltros,
-  setAnimarBusqueda,
-  setAnimarFiltroLetra,
-  setAnimarMostrarTodos,
-  filtroActivo
+  filtroActivo,
+  setAnimacionActiva
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  const handleLetraClick = useCallback((letra) => {
+    setFiltros(prev => ({ 
+      ...prev, 
+      letraSeleccionada: letra,
+      busqueda: '',
+      filtroActivo: 'letra'
+    }));
+    setMostrarFiltros(false);
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 1000);
+  }, [setFiltros, setMostrarFiltros, setAnimacionActiva]);
+
+  const handleMostrarTodos = useCallback(() => {
+    setFiltros(prev => ({ 
+      ...prev, 
+      letraSeleccionada: 'TODOS',
+      busqueda: '',
+      filtroActivo: 'todos'
+    }));
+    setMostrarFiltros(false);
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 1000);
+  }, [setFiltros, setMostrarFiltros, setAnimacionActiva]);
 
   return (
     <div className="soc-barra-superior">
@@ -102,9 +116,8 @@ const BarraSuperior = React.memo(({
               letraSeleccionada: 'TODOS',
               filtroActivo: e.target.value ? 'busqueda' : null
             }));
-            setAnimarBusqueda(true);
-            setAnimarMostrarTodos(false);
-            setTimeout(() => setAnimarBusqueda(false), 1000);
+            setAnimacionActiva(true);
+            setTimeout(() => setAnimacionActiva(false), 1000);
           }}
           className="soc-buscador"
           disabled={cargando}
@@ -115,7 +128,8 @@ const BarraSuperior = React.memo(({
               className="soc-buscador-icono" 
               onClick={() => {
                 setFiltros(prev => ({ ...prev, busqueda: '', filtroActivo: null }));
-                setAnimarBusqueda(false);
+                setAnimacionActiva(true);
+                setTimeout(() => setAnimacionActiva(false), 1000);
               }}
             />
           ) : (
@@ -163,16 +177,7 @@ const BarraSuperior = React.memo(({
                   className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setFiltros(prev => ({ 
-                      ...prev, 
-                      letraSeleccionada: letra,
-                      busqueda: '',
-                      filtroActivo: 'letra'
-                    }));
-                    setMostrarFiltros(false);
-                    setAnimarFiltroLetra(true);
-                    setAnimarMostrarTodos(false);
-                    setTimeout(() => setAnimarFiltroLetra(false), 1000);
+                    handleLetraClick(letra);
                   }}
                 >
                   {letra}
@@ -183,17 +188,7 @@ const BarraSuperior = React.memo(({
               className="soc-boton-todos"
               onClick={(e) => {
                 e.stopPropagation();
-                setFiltros(prev => ({ 
-                  ...prev, 
-                  letraSeleccionada: 'TODOS',
-                  busqueda: '',
-                  filtroActivo: 'todos'
-                }));
-                setMostrarFiltros(false);
-                setAnimarBusqueda(false);
-                setAnimarFiltroLetra(false);
-                setAnimarMostrarTodos(true);
-                setTimeout(() => setAnimarMostrarTodos(false), 1000);
+                handleMostrarTodos();
               }}
             >
               Mostrar Todos
@@ -216,9 +211,8 @@ const Socios = () => {
   const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
   const [socioDarBaja, setSocioDarBaja] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
-  const [animarBusqueda, setAnimarBusqueda] = useState(false);
-  const [animarFiltroLetra, setAnimarFiltroLetra] = useState(false);
-  const [animarMostrarTodos, setAnimarMostrarTodos] = useState(false);
+  const [bloquearInteraccion, setBloquearInteraccion] = useState(true);
+  const [animacionActiva, setAnimacionActiva] = useState(false);
   const filtrosRef = useRef(null);
   const navigate = useNavigate();
 
@@ -239,16 +233,53 @@ const Socios = () => {
 
   const { busqueda, letraSeleccionada, filtroActivo } = filtros;
 
+  const sociosFiltrados = useMemo(() => {
+    let resultados = [...socios];
+
+    if (filtroActivo === 'busqueda' && busqueda) {
+      resultados = resultados.filter((s) =>
+        s.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+      );
+    } else if (filtroActivo === 'letra' && letraSeleccionada) {
+      resultados = resultados.filter((s) =>
+        s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
+      );
+    } else if (filtroActivo === 'todos') {
+      return resultados;
+    }
+
+    return resultados;
+  }, [socios, busqueda, letraSeleccionada, filtroActivo]);
+
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    if (sociosFiltrados.length > 0) {
+      const timer = setTimeout(() => {
+        setBloquearInteraccion(false);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [sociosFiltrados]);
+
+  useEffect(() => {
+    const handleClickOutsideFiltros = (event) => {
       if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
         setMostrarFiltros(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    const handleClickOutsideTable = (event) => {
+      if (!event.target.closest('.soc-tabla-fila')) {
+        setSocioSeleccionado(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutsideFiltros);
+    document.addEventListener('click', handleClickOutsideTable);
+    
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutsideFiltros);
+      document.removeEventListener('click', handleClickOutsideTable);
     };
   }, []);
 
@@ -286,29 +317,13 @@ const Socios = () => {
     localStorage.setItem('filtros_socios', JSON.stringify(filtros));
   }, [filtros]);
 
-  const sociosFiltrados = useMemo(() => {
-    let resultados = [...socios];
-
-    if (filtroActivo === 'busqueda' && busqueda) {
-      resultados = resultados.filter((s) =>
-        s.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      );
-    } else if (filtroActivo === 'letra' && letraSeleccionada) {
-      resultados = resultados.filter((s) =>
-        s.nombre?.toLowerCase().startsWith(letraSeleccionada.toLowerCase())
-      );
-    } else if (filtroActivo === 'todos') {
-      return resultados;
-    }
-
-    return resultados;
-  }, [socios, busqueda, letraSeleccionada, filtroActivo]);
-
   const manejarSeleccion = useCallback((socio) => {
+    if (bloquearInteraccion || animacionActiva) return;
+    
     setSocioSeleccionado(prev => 
-      prev?.id_socio === socio.id_socio ? null : socio
+      prev?.id_socio !== socio.id_socio ? socio : null
     );
-  }, []);
+  }, [bloquearInteraccion, animacionActiva]);
 
   const eliminarSocio = useCallback(async (id) => {
     try {
@@ -401,26 +416,28 @@ const Socios = () => {
       letraSeleccionada: 'TODOS',
       filtroActivo: 'todos'
     });
-    setAnimarMostrarTodos(true);
-    setTimeout(() => setAnimarMostrarTodos(false), 1000);
+    setAnimacionActiva(true);
+    
+    setTimeout(() => {
+      setAnimacionActiva(false);
+    }, 500);
   }, []);
 
   const Row = React.memo(({ index, style, data }) => {
     const socio = data[index];
-    const delay = (animarBusqueda || animarFiltroLetra || animarMostrarTodos) && index < 10 ? index * 30 : 0;
     const esFilaPar = index % 2 === 0;
+    const animationDelay = `${index * 0.05}s`;
     
     return (
       <div
         style={{
           ...style,
-          opacity: delay ? 0 : 1,
-          transform: delay ? 'translateY(20px)' : 'translateY(0)',
-          animation: delay ? `soc-fadeInUp 0.4s ease-out ${delay}ms forwards` : 'none',
-          background: esFilaPar ? 'rgba(255, 255, 255, 0.9)' : 'rgba(179, 180, 181, 0.47)'
+          background: esFilaPar ? 'rgba(255, 255, 255, 0.9)' : 'rgba(179, 180, 181, 0.47)',
+          animationDelay: animacionActiva ? animationDelay : '0s',
+          animationName: animacionActiva ? 'fadeIn' : 'none'
         }}
-        onClick={() => manejarSeleccion(socio)}
         className={`soc-tabla-fila ${socioSeleccionado?.id_socio === socio.id_socio ? 'soc-fila-seleccionada' : ''}`}
+        onClick={() => !animacionActiva && manejarSeleccion(socio)}
       >
         <div className="soc-col-id" title={socio.id_socio}>{socio.id_socio}</div>
         <div className="soc-col-nombre" title={socio.nombre}>{socio.nombre}</div>
@@ -476,137 +493,135 @@ const Socios = () => {
   });
 
   return (
-    <div className="soc-container">
-      {toast.mostrar && (
-        <Toast 
-          tipo={toast.tipo} 
-          mensaje={toast.mensaje} 
-          onClose={() => setToast({mostrar: false, tipo: '', mensaje: ''})}
-          duracion={3000}
+    <div className={`soc-main-container ${animacionActiva ? 'soc-cascade-animation' : ''}`}>
+      <div className="soc-container">
+        {toast.mostrar && (
+          <Toast 
+            tipo={toast.tipo} 
+            mensaje={toast.mensaje} 
+            onClose={() => setToast({mostrar: false, tipo: '', mensaje: ''})}
+            duracion={3000}
+          />
+        )}
+
+        <BarraSuperior
+          cargando={cargando}
+          busqueda={busqueda}
+          letraSeleccionada={letraSeleccionada}
+          setFiltros={setFiltros}
+          filtrosRef={filtrosRef}
+          mostrarFiltros={mostrarFiltros}
+          setMostrarFiltros={setMostrarFiltros}
+          filtroActivo={filtroActivo}
+          setAnimacionActiva={setAnimacionActiva}
         />
-      )}
 
-      <BarraSuperior
-        cargando={cargando}
-        busqueda={busqueda}
-        letraSeleccionada={letraSeleccionada}
-        socios={socios}
-        sociosFiltrados={sociosFiltrados}
-        setFiltros={setFiltros}
-        filtrosRef={filtrosRef}
-        mostrarFiltros={mostrarFiltros}
-        setMostrarFiltros={setMostrarFiltros}
-        setAnimarBusqueda={setAnimarBusqueda}
-        setAnimarFiltroLetra={setAnimarFiltroLetra}
-        setAnimarMostrarTodos={setAnimarMostrarTodos}
-        filtroActivo={filtroActivo}
-      />
-
-      <div className="soc-tabla-container">
-        <div className="soc-tabla-header-container">
-          <div className="soc-contador">
-            {filtroActivo === 'todos' ? 'Total de socios:' : 
-             filtroActivo === null ? 'Filtre para ver socios:' : 'Socios filtrados:'} 
-            <strong>
-              {filtroActivo === null ? 0 : sociosFiltrados.length}
-            </strong>
-          </div>
-          <div className="soc-tabla-header">
-            <div className="soc-col-id">ID</div>
-            <div className="soc-col-nombre">Nombre</div>
-            <div className="soc-col-domicilio">Domicilio</div>
-            <div className="soc-col-comentario">Comentario</div>
-            <div className="soc-col-acciones">Acciones</div>
-          </div>
-        </div>
-        
-        {cargando ? (
-          <div className="soc-skeleton-rows">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="soc-skeleton-row"></div>
-            ))}
-          </div>
-        ) : socios.length === 0 ? (
-          <div className="soc-sin-resultados">
-            No hay socios registrados
-          </div>
-        ) : filtroActivo === null ? (
-          <div className="soc-boton-mostrar-container">
-            <div className="soc-mensaje-inicial">
-              Por favor aplique al menos un filtro para ver los socios
+        <div className="soc-tabla-container">
+          <div className="soc-tabla-header-container">
+            <div className="soc-contador">
+              {filtroActivo === 'todos' ? 'Total de socios:' : 
+               filtroActivo === null ? 'Filtre para ver socios:' : 'Socios filtrados:'} 
+              <strong>
+                {filtroActivo === null ? 0 : sociosFiltrados.length}
+              </strong>
             </div>
-            <button
-              className="soc-boton-mostrar-todos"
-              onClick={handleMostrarTodos}
-              disabled={cargando}
+            <div className="soc-tabla-header">
+              <div className="soc-col-id">ID</div>
+              <div className="soc-col-nombre">Nombre</div>
+              <div className="soc-col-domicilio">Domicilio</div>
+              <div className="soc-col-comentario">Comentario</div>
+              <div className="soc-col-acciones">Acciones</div>
+            </div>
+          </div>
+          
+          {cargando ? (
+            <div className="soc-skeleton-rows">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="soc-skeleton-row"></div>
+              ))}
+            </div>
+          ) : socios.length === 0 ? (
+            <div className="soc-sin-resultados">
+              No hay socios registrados
+            </div>
+          ) : filtroActivo === null ? (
+            <div className="soc-boton-mostrar-container">
+              <div className="soc-mensaje-inicial">
+                Por favor aplique al menos un filtro para ver los socios
+              </div>
+              <button
+                className="soc-boton-mostrar-todos"
+                onClick={handleMostrarTodos}
+                disabled={cargando}
+              >
+                <FaSync className="soc-icono-refresh" />
+                Mostrar todos los socios
+              </button>
+            </div>
+          ) : sociosFiltrados.length === 0 ? (
+            <div className="soc-sin-resultados">
+              No hay resultados con los filtros actuales
+            </div>
+          ) : (
+            <List
+              height={2000}
+              itemCount={sociosFiltrados.length}
+              itemSize={60}
+              width="100%"
+              itemData={sociosFiltrados}
+              overscanCount={10}
+              key={`list-${busqueda}-${letraSeleccionada}`}
             >
-              <FaSync className="soc-icono-refresh" />
-              Mostrar todos los socios
-            </button>
-          </div>
-        ) : sociosFiltrados.length === 0 ? (
-          <div className="soc-sin-resultados">
-            No hay resultados con los filtros actuales
-          </div>
-        ) : (
-          <List
-            height={2000}
-            itemCount={sociosFiltrados.length}
-            itemSize={60}
-            width="100%"
-            itemData={sociosFiltrados}
-            overscanCount={10}
-            key={`list-${busqueda}-${letraSeleccionada}-${animarBusqueda}-${animarFiltroLetra}-${animarMostrarTodos}`}
-          >
-            {Row}
-          </List>
+              {Row}
+            </List>
+          )}
+        </div>
+
+        <BotonesInferiores 
+          cargando={cargando} 
+          navigate={navigate} 
+          sociosFiltrados={sociosFiltrados} 
+          exportarExcel={exportarExcel} 
+        />
+
+        {ReactDOM.createPortal(
+          <ModalEliminarSocio
+            mostrar={mostrarModalEliminar}
+            socio={socioAEliminar}
+            onClose={() => {
+              setMostrarModalEliminar(false);
+              setSocioAEliminar(null);
+            }}
+            onEliminar={eliminarSocio}
+          />,
+          document.body
+        )}
+
+        {ReactDOM.createPortal(
+          <ModalInfoSocio
+            mostrar={mostrarModalInfo}
+            socio={socioInfo}
+            onClose={() => {
+              setMostrarModalInfo(false);
+              setSocioInfo(null);
+            }}
+          />,
+          document.body
+        )}
+
+        {ReactDOM.createPortal(
+          <ModalDarBajaSocio
+            mostrar={mostrarModalDarBaja}
+            socio={socioDarBaja}
+            onClose={() => {
+              setMostrarModalDarBaja(false);
+              setSocioDarBaja(null);
+            }}
+            onDarBaja={darDeBajaSocio}
+          />,
+          document.body
         )}
       </div>
-
-      <BotonesInferiores 
-        cargando={cargando} 
-        navigate={navigate} 
-        sociosFiltrados={sociosFiltrados} 
-        exportarExcel={exportarExcel} 
-      />
-
-      {ReactDOM.createPortal(
-        <ModalEliminarSocio
-          mostrar={mostrarModalEliminar}
-          socio={socioAEliminar}
-          onClose={() => {
-            setMostrarModalEliminar(false);
-            setSocioAEliminar(null);
-          }}
-          onEliminar={eliminarSocio}
-        />,
-        document.body
-      )}
-
-      {ReactDOM.createPortal(
-        <ModalInfoSocio
-          mostrar={mostrarModalInfo}
-          socio={socioInfo}
-          onClose={() => {
-            setMostrarModalInfo(false);
-            setSocioInfo(null);
-          }}
-        />,
-        document.body
-      )}
-
-      {ReactDOM.createPortal(
-        <ModalDarBajaSocio
-          mostrar={mostrarModalDarBaja}
-          socio={socioDarBaja}
-          onClose={() => {
-            setMostrarModalDarBaja(false);
-            setSocioDarBaja(null);
-          }}
-          onDarBaja={darDeBajaSocio}
-        />,
-        document.body
-      )}
     </div>
   );
 };

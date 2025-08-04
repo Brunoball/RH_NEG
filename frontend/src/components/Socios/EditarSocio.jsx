@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSave, faArrowLeft, faUserEdit } from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
 import './EditarSocio.css';
@@ -157,9 +157,21 @@ const EditarSocio = () => {
           />
         )}
 
-        <div className="edit-socio-header">
-          <h2 className="edit-socio-title">Editar Socio #{id}</h2>
-          <p className="edit-socio-subtitle">Actualiza la información del socio</p>
+        <div className="edit-header">
+          <div className="edit-icon-title">
+            <FontAwesomeIcon icon={faUserEdit} className="edit-icon" />
+            <div>
+              <h1>Editar Socio #{id}</h1>
+              <p>Actualiza la información del socio</p>
+            </div>
+          </div>
+          <button 
+            className="edit-back-btn"
+            onClick={() => navigate('/socios')}
+          >
+            <FontAwesomeIcon icon={faArrowLeft} />
+            Volver
+          </button>
         </div>
         
         <form onSubmit={handleSubmit} className="edit-socio-form" ref={formRef}>
@@ -177,7 +189,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('nombre')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: JUAN PEREZ"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -191,7 +202,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('dni')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 12345678"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -222,7 +232,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('numero')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 1234"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -236,7 +245,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('ingreso')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 15/03/2020"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -256,7 +264,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('domicilio')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: AV. LIBERTADOR 1234"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -270,7 +277,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('domicilio_cobro')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: AV. LIBERTADOR 1234"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -284,7 +290,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('telefono_movil')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 1122334455"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -298,7 +303,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('telefono_fijo')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 4111222"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -375,7 +379,6 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('deuda_2024')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 2500"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -389,14 +392,13 @@ const EditarSocio = () => {
                     onFocus={() => handleFocus('id_periodo_adeudado')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
-                    placeholder="Ej: 2024-03"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
                 <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Comentarios</label>
-                  <textarea
+                  <input
                     name="comentario"
                     value={formData.comentario || ''}
                     onChange={handleChange}
@@ -404,7 +406,6 @@ const EditarSocio = () => {
                     onBlur={handleBlur}
                     className="edit-socio-input"
                     rows="3"
-                    placeholder="Ingrese cualquier observación relevante"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -414,16 +415,9 @@ const EditarSocio = () => {
 
           <div className="edit-socio-buttons-container">
             <button 
-              type="button" 
-              onClick={() => navigate('/socios')} 
-              className="edit-socio-back-button"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} className="edit-socio-icon-button" />
-              Cancelar
-            </button>
-            <button 
               type="submit" 
               className="edit-socio-button"
+              disabled={loading}
             >
               <FontAwesomeIcon icon={faSave} className="edit-socio-icon-button" />
               <span className="edit-socio-button-text">

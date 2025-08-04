@@ -102,17 +102,8 @@
   border: 1px solid #E5E7EB !important;
 }
 
-.btn-cancelar:hover {
-  background: #F9FAFB;
-  color: var(--soc-dark);
-  border-color: #D1D5DB !important;
-  transform: translateY(-1px);
-}
 
-.btn-cancelar:active {
-  transform: translateY(0);
-  background: #F3F4F6;
-}
+
 
 /* Confirm Button */
 .btn-confirmar {
@@ -123,8 +114,6 @@
 }
 
 .btn-confirmar:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--soc-shadow-md);
   background: linear-gradient(135deg, #F87171 0%, #EF4444 100%);
 }
 
