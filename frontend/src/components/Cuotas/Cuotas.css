@@ -1,7 +1,7 @@
 /* Importación de tipografía */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 
-/* Variables de diseño moderno (consistentes con Principal.css) */
+/* Variables de diseño moderno */
 :root {
   --soc-primary: #2563EB;
   --soc-primary-light: #3B82F6;
@@ -40,6 +40,29 @@
   --soc-estado-transferencia: #3B82F6;
   --soc-estado-activo: #10B981;
   --soc-estado-pasivo: #EF4444;
+}
+/* Scrollbar general para todo el sitio (WebKit) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 4px;
+  border: 2px solid transparent;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
 }
 
 /* Estilos base */
@@ -474,7 +497,93 @@ body {
   color: white;
 }
 
-/* Tabla - Estilos mejorados para cabecera fija */
+/* Estilos Grid para la tabla */
+.cuo_grid-container {
+  display: grid;
+  grid-template-columns: 
+    minmax(220px, 3fr) 
+    minmax(180px, 2fr) 
+    minmax(120px, 1fr) 
+    minmax(150px, 1.5fr) 
+    minmax(120px, 1fr);
+  align-items: center;
+
+}
+
+.cuo_tabla-header {
+  background-color: var(--soc-primary);
+  color: white;
+  font-weight: 600;
+  padding-right: .5rem;
+  padding-bottom: 1rem;
+  padding-top: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid var(--soc-primary-dark);
+  box-shadow: var(--soc-shadow-sm);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.cuo_tabla-header > div {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cuo_tabla-fila {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--soc-gray-200);
+  transition: var(--soc-transition);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.cuo_tabla-fila > div {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+
+}
+
+/* Ajustes específicos para columnas */
+.cuo_col-nombre {
+  justify-content: flex-start;
+  padding-left: 1rem;
+
+}
+.cuo_col-domicilio, .cuo_col-nombre{
+    font-size: .8rem;
+}
+
+.cuo_col-domicilio {
+  justify-content: flex-start;
+}
+
+.cuo_col-estado,
+.cuo_col-medio-pago,
+.cuo_col-acciones {
+  justify-content: center;
+}
+.cuo_col-acciones {
+  margin-right: .5rem;
+}
+
+.cuo_acciones-cell {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* Tabla - Estilos mejorados */
 .cuo_tabla-container {
   flex: 1;
   background-color: var(--soc-glass);
@@ -502,104 +611,8 @@ body {
   position: relative;
 }
 
-/* Cabecera de tabla fija */
-.cuo_tabla-header {
-  display: flex;
-  background-color: var(--soc-primary);
-  color: white;
-  font-weight: 600;
-  padding: 1rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  border-bottom: 2px solid var(--soc-primary-dark);
-  box-shadow: var(--soc-shadow-sm);
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
 
-.cuo_tabla-header > div {
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
 
-/* Columnas con anchos definidos para alinear con el cuerpo */
-.cuo_col-nombre {
-  flex: 3;
-  min-width: 220px;
-  cursor: pointer;
-  user-select: none;
-  transition: var(--soc-transition);
-}
-
-.cuo_col-domicilio {
-  flex: 2;
-  min-width: 180px;
-  cursor: pointer;
-  user-select: none;
-  transition: var(--soc-transition);
-}
-
-.cuo_icono-orden {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin-left: 0.25rem;
-  transition: var(--soc-transition);
-}
-
-.cuo_icono-orden-activo {
-  opacity: 1;
-  color: white;
-}
-
-.cuo_col-nombre:hover .cuo_icono-orden,
-.cuo_col-domicilio:hover .cuo_icono-orden {
-  opacity: 1;
-}
-
-.cuo_col-estado {
-  flex: 1;
-  min-width: 120px;
-
-}
-
-/* Estilos modificados para centrar la columna de Medio de Pago */
-.cuo_col-medio-pago {
-  flex: 1.5;
-  min-width: 150px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 0 !important;
-}
-
-.cuo_col-acciones {
-  flex: 1;
-  min-width: 120px;
-  text-align: center;
-}
-
-/* Filas de la tabla */
-.cuo_tabla-fila {
-  display: flex;
-  padding: .5rem;
-  border-bottom: 1px solid var(--soc-gray-200);
-  transition: var(--soc-transition);
-  align-items: center;
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 .cuo_fila-par {
   background-color: var(--soc-glass);
@@ -610,28 +623,6 @@ body {
 }
 
 /* Contenido de las celdas */
-.cuo_tabla-fila > div {
-  padding: 0 1rem;
-  flex-shrink: 0;
-}
-
-/* Asegurar que las celdas del cuerpo coincidan con la cabecera */
-.cuo_tabla-fila > .cuo_col-nombre { flex: 3; min-width: 220px; }
-.cuo_tabla-fila > .cuo_col-domicilio { flex: 2; min-width: 180px; }
-.cuo_tabla-fila > .cuo_col-estado { flex: 1; min-width: 120px; }
-
-/* Estilos modificados para centrar la columna de Medio de Pago en las filas */
-.cuo_tabla-fila > .cuo_col-medio-pago { 
-  flex: 1.5; 
-  min-width: 150px; 
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-
-.cuo_tabla-fila > .cuo_col-acciones { flex: 1; min-width: 120px; text-align: center; }
-
 .cuo_nombre-socio {
   font-weight: 500;
   color: var(--soc-gray-900);
@@ -641,13 +632,6 @@ body {
 .cuo_documento {
   font-size: 0.75rem;
   color: var(--soc-gray-500);
-}
-
-/* Estilo adicional para el contenido del medio de pago */
-.cuo_medio-pago-content {
-  width: 100%;
-  display: flex;
-  justify-content: center;
 }
 
 /* Badges - Burbujas de estado mejoradas */
@@ -672,20 +656,17 @@ body {
 .cuo_estado-activo {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--soc-success);
-  margin-right: 5rem;
 }
 
 .cuo_estado-pasivo {
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--soc-danger);
-  margin-right: 2rem;
 }
 
 /* Medios de Pago - Burbujas mejoradas */
 .cuo_pago-cobrador {
   background-color: rgba(245, 158, 11, 0.1);
   color: var(--soc-warning);
-  margin-left: 1rem;
 }
 
 .cuo_pago-oficina {
@@ -699,16 +680,11 @@ body {
 }
 
 /* Botones de acción */
-.cuo_acciones-cell {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
 .cuo_boton-accion {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
+  background: var(--soc-danger);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -775,6 +751,12 @@ body {
   border-top: 1px solid var(--soc-gray-700);
 }
 
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .cuo_app-container {
@@ -787,6 +769,14 @@ body {
   
   .cuo_tabla-fila > .cuo_col-domicilio {
     display: none;
+  }
+  
+  .cuo_grid-container {
+    grid-template-columns: 
+      minmax(220px, 3fr) 
+      minmax(120px, 1fr) 
+      minmax(150px, 1.5fr) 
+      minmax(120px, 1fr);
   }
 }
 
@@ -880,6 +870,12 @@ body {
     content: "Estado:";
     color: var(--soc-gray-500);
     margin-right: 0.5rem;
+  }
+  
+  .cuo_grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }
 

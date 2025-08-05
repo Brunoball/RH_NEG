@@ -224,7 +224,7 @@ const EditarSocio = () => {
                   className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}
                   data-field="numero"
                 >
-                  <label className="edit-socio-label">Número de socio</label>
+                  <label className="edit-socio-label">Número de Domicilio</label>
                   <input
                     name="numero"
                     value={formData.numero || ''}

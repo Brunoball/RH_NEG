@@ -196,7 +196,7 @@ const Cuotas = () => {
     return (
       <div 
         style={style} 
-        className={`cuo_tabla-fila ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
+        className={`cuo_tabla-fila cuo_grid-container ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
       >
         <div className="cuo_col-nombre">
           <div className="cuo_nombre-socio">{cuota.nombre}</div>
@@ -454,7 +454,7 @@ const Cuotas = () => {
 
         <div className="cuo_tabla-container">
           <div className="cuo_tabla-wrapper">
-            <div className="cuo_tabla-header">
+            <div className="cuo_tabla-header cuo_grid-container">
               <div 
                 className="cuo_col-nombre" 
                 onClick={() => toggleOrden('nombre')}
