@@ -470,10 +470,10 @@ const Socios = () => {
         <div className="soc-col-comentario">
           {socio.comentario && (
             <>
-              {socio.comentario.length > 35 ? (
+              {socio.comentario.length > 36 ? (
                 <>
                   <span className="soc-comentario-preview">
-                    {socio.comentario.substring(0, 20)}
+                    {socio.comentario.substring(0, 36)}
                   </span>
                   <button 
                     className="soc-boton-tres-puntos"

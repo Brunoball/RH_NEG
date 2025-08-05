@@ -502,7 +502,7 @@
 }
 
 .soc-col-comentario {
-  min-width: 150px;
+  min-width: 350px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -614,7 +614,7 @@
   justify-content: center;
   text-align: center;
   padding: 20px;
-  color: var(--soc-dark);
+  color: var(--soc-gray-700);
   font-size: 0.9rem;
   background: rgba(255, 245, 245, 0.7);
   backdrop-filter: blur(5px);
