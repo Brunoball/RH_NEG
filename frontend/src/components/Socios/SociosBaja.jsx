@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
 import { FaUserCheck } from 'react-icons/fa';
+import Toast from '../Global/Toast';
 import './SociosBaja.css';
 
 const SociosBaja = () => {
@@ -10,7 +11,7 @@ const SociosBaja = () => {
   const [loading, setLoading] = useState(true);
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
-  const [mensaje, setMensaje] = useState({ texto: '', tipo: '' });
+  const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
   const navigate = useNavigate();
 
@@ -35,11 +36,19 @@ const SociosBaja = () => {
         setSociosFiltrados(data.socios);
       } else {
         console.error('Error al obtener socios dados de baja:', data.mensaje);
-        setMensaje({ texto: 'Error al cargar socios dados de baja', tipo: 'error' });
+        setToast({
+          show: true,
+          tipo: 'error',
+          mensaje: 'Error al cargar socios dados de baja',
+        });
       }
     } catch (error) {
       console.error('Error de red:', error);
-      setMensaje({ texto: 'Error de conexión al cargar socios', tipo: 'error' });
+      setToast({
+        show: true,
+        tipo: 'error',
+        mensaje: 'Error de conexión al cargar socios',
+      });
     } finally {
       setLoading(false);
     }
@@ -59,17 +68,29 @@ const SociosBaja = () => {
         setSociosFiltrados(prev => prev.filter(s => s.id_socio !== id));
         setMostrarConfirmacion(false);
         setSocioSeleccionado(null);
-        setMensaje({ texto: 'Socio dado de alta correctamente', tipo: 'exito' });
-        
-        setTimeout(() => {
-          setMensaje({ texto: '', tipo: '' });
-        }, 3000);
+        setToast({
+          show: true,
+          tipo: 'exito',
+          mensaje: 'Socio dado de alta correctamente',
+        });
       } else {
-        setMensaje({ texto: 'Error al dar de alta: ' + data.mensaje, tipo: 'error' });
+        setToast({
+          show: true,
+          tipo: 'error',
+          mensaje: 'Error al dar de alta: ' + data.mensaje,
+        });
       }
     } catch (error) {
-      setMensaje({ texto: 'Error de red al dar de alta', tipo: 'error' });
+      setToast({
+        show: true,
+        tipo: 'error',
+        mensaje: 'Error de red al dar de alta',
+      });
     }
+  };
+
+  const closeToast = () => {
+    setToast({ ...toast, show: false });
   };
 
   return (
@@ -98,16 +119,13 @@ const SociosBaja = () => {
         </div>
       </div>
 
-      {mensaje.texto && (
-        <div className={`soc-mensaje-baja ${mensaje.tipo}`}>
-          {mensaje.texto}
-          <button 
-            className="soc-cerrar-mensaje-baja" 
-            onClick={() => setMensaje({ texto: '', tipo: '' })}
-          >
-            ×
-          </button>
-        </div>
+      {toast.show && (
+        <Toast
+          tipo={toast.tipo}
+          mensaje={toast.mensaje}
+          onClose={closeToast}
+          duracion={3000}
+        />
       )}
 
       {loading ? (

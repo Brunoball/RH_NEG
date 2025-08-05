@@ -15,7 +15,7 @@
   width: 80%;
   height:  95vh;
   margin: 0;
-  padding: 2rem;
+  padding: 1.2rem;
   background: var(--princ-glass);
   border-radius: var(--princ-border-radius-xl);
   box-shadow: var(--princ-shadow-xl);
@@ -333,10 +333,7 @@
 }
 
 .princ-creditos-container {
-  align-self: flex-start;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-bottom: 1rem;
+  align-self: flex-end;
 }
 
 .princ-creditos {
