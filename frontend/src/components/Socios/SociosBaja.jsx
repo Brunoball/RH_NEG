@@ -129,7 +129,12 @@ const SociosBaja = () => {
           
           <div className="soc-tabla-body-baja">
             {sociosFiltrados.length === 0 ? (
-              <div className="soc-sin-resultados-baja">No hay resultados.</div>
+              <div className="soc-sin-resultados-container-baja">
+                <div className="soc-sin-resultados-baja">
+                  <FaUserCheck className="soc-icono-sin-resultados-baja" />
+                  No hay socios dados de baja
+                </div>
+              </div>
             ) : (
               sociosFiltrados.map((s) => (
                 <div className="soc-tabla-fila-baja" key={s.id_socio}>

@@ -27,7 +27,14 @@ import { saveAs } from 'file-saver';
 import Toast from '../Global/Toast';
 import '../Global/roots.css';
 
-const BotonesInferiores = React.memo(({ cargando, navigate, sociosFiltrados, exportarExcel }) => (
+const BotonesInferiores = React.memo(({ 
+  cargando, 
+  navigate, 
+  sociosFiltrados, 
+  socios,
+  exportarExcel,
+  filtroActivo
+}) => (
   <div className="soc-barra-inferior">
     <button
       className="soc-boton soc-boton-volver"
@@ -49,7 +56,7 @@ const BotonesInferiores = React.memo(({ cargando, navigate, sociosFiltrados, exp
       <button 
         className="soc-boton soc-boton-exportar" 
         onClick={exportarExcel} 
-        disabled={cargando || sociosFiltrados.length === 0}
+        disabled={cargando || sociosFiltrados.length === 0 || socios.length === 0 || filtroActivo === null}
       >
         <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
       </button>
@@ -157,7 +164,7 @@ const BarraSuperior = React.memo(({
             <div className="soc-filtro-activo">
               <span className="soc-filtro-activo-busqueda">
                 <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
-                {busqueda}
+                {busqueda.length > 3 ? `${busqueda.substring(0, 3)}...` : busqueda}
               </span>
             </div>
           ) : (filtroActivo === 'letra' && letraSeleccionada !== 'TODOS') ? (
@@ -387,8 +394,16 @@ const Socios = () => {
   }, []);
 
   const exportarExcel = useCallback(() => {
+    if (socios.length === 0) {
+      mostrarToast('No hay socios registrados para exportar.', 'error');
+      return;
+    }
+    if (filtroActivo === null) {
+      mostrarToast('Por favor aplique al menos un filtro para exportar los socios.', 'error');
+      return;
+    }
     if (sociosFiltrados.length === 0) {
-      mostrarToast('No hay socios para exportar. Seleccioná un filtro o realizá una búsqueda primero.', 'error');
+      mostrarToast('No hay socios que coincidan con los filtros actuales.', 'error');
       return;
     }
 
@@ -416,7 +431,7 @@ const Socios = () => {
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
     saveAs(blob, 'Socios.xlsx');
-  }, [sociosFiltrados, construirDomicilio, mostrarToast]);
+  }, [socios, sociosFiltrados, filtroActivo, construirDomicilio, mostrarToast]);
 
   const handleMostrarTodos = useCallback(() => {
     setFiltros({
@@ -455,10 +470,10 @@ const Socios = () => {
         <div className="soc-col-comentario">
           {socio.comentario && (
             <>
-              {socio.comentario.length > 20 ? (
+              {socio.comentario.length > 35 ? (
                 <>
                   <span className="soc-comentario-preview">
-                    {socio.comentario.substring(0, 15)}
+                    {socio.comentario.substring(0, 20)}
                   </span>
                   <button 
                     className="soc-boton-tres-puntos"
@@ -495,7 +510,7 @@ const Socios = () => {
                       top: '50%',
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
-                      maxWidth: '300px'
+                      
                     }}
                   >
                     {socio.comentario}
@@ -596,7 +611,7 @@ const Socios = () => {
             </div>
             <div className="soc-tabla-header">
               <div className="soc-col-id">ID</div>
-              <div className="soc-col-nombre">Nombre</div>
+              <div className="soc-col-nombre">Apellido y Nombre</div>
               <div className="soc-col-domicilio">Domicilio</div>
               <div className="soc-col-comentario">Comentario</div>
               <div className="soc-col-acciones">Acciones</div>
@@ -650,7 +665,9 @@ const Socios = () => {
           cargando={cargando} 
           navigate={navigate} 
           sociosFiltrados={sociosFiltrados} 
-          exportarExcel={exportarExcel} 
+          socios={socios}
+          exportarExcel={exportarExcel}
+          filtroActivo={filtroActivo}
         />
 
         {ReactDOM.createPortal(

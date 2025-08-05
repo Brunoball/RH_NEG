@@ -121,7 +121,6 @@
 }
 
 .princ-usuario-info {
-  margin-top: 1.5rem;
   position: relative;
   display: inline-block;
 }
@@ -153,10 +152,11 @@
 /* Grid de opciones */
 .princ-grid-opciones {
   display: grid;
+  align-items: center;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.2rem;
   width: 100%;
-  padding: 0;
+  padding: 0.5rem;
   flex-grow: 1;
   overflow: auto;
 }
@@ -164,7 +164,7 @@
 .princ-opcion {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
   border: none;
-  padding: 1.5rem 1.2rem;
+  padding: 1rem 1.2rem 1.5rem;
   border-radius: var(--princ-border-radius-lg);
   font-weight: 600;
   cursor: pointer;
@@ -174,9 +174,8 @@
   text-align: center;
   box-shadow: var(--princ-shadow-md);
   position: relative;
-  overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  min-height: 160px;
+  max-height: 160px;
 }
 
 .princ-opcion::before {
@@ -205,7 +204,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
   gap: 0.75rem;
   position: relative;
   z-index: 2;

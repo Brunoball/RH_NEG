@@ -414,11 +414,10 @@ const AgregarSocio = () => {
             <button 
               type="submit" 
               className="add-socio-button"
-              disabled={loading}
             >
               <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
               <span className="add-socio-button-text">
-                {loading ? 'Guardando...' : 'Guardar Socio'}
+                {loading ? 'Guardar Socio' : 'Guardar Socio'}
               </span>
             </button>
           </div>
