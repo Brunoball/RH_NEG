@@ -14,7 +14,9 @@ import {
   FaUserSlash,
   FaSearch,
   FaTimes,
-  FaSync
+  FaSync,
+  FaUsers,
+  FaEllipsisH
 } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
@@ -213,6 +215,7 @@ const Socios = () => {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [bloquearInteraccion, setBloquearInteraccion] = useState(true);
   const [animacionActiva, setAnimacionActiva] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(null);
   const filtrosRef = useRef(null);
   const navigate = useNavigate();
 
@@ -324,6 +327,11 @@ const Socios = () => {
       prev?.id_socio !== socio.id_socio ? socio : null
     );
   }, [bloquearInteraccion, animacionActiva]);
+
+  const toggleTooltip = useCallback((id, e) => {
+    e.stopPropagation();
+    setTooltipVisible(prev => prev === id ? null : id);
+  }, []);
 
   const eliminarSocio = useCallback(async (id) => {
     try {
@@ -444,8 +452,68 @@ const Socios = () => {
         <div className="soc-col-domicilio" title={construirDomicilio(socio.domicilio, socio.numero)}>
           {construirDomicilio(socio.domicilio, socio.numero)}
         </div>
-        <div className="soc-col-comentario" title={socio.comentario}>
-          {socio.comentario}
+        <div className="soc-col-comentario">
+          {socio.comentario && (
+            <>
+              {socio.comentario.length > 20 ? (
+                <>
+                  <span className="soc-comentario-preview">
+                    {socio.comentario.substring(0, 15)}
+                  </span>
+                  <button 
+                    className="soc-boton-tres-puntos"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTooltip(socio.id_socio, e);
+                    }}
+                    title="Ver comentario completo"
+                  >
+                    <FaEllipsisH />
+                  </button>
+                </>
+              ) : (
+                <span>{socio.comentario}</span>
+              )}
+              {tooltipVisible === socio.id_socio && ReactDOM.createPortal(
+                <div 
+                  className="soc-tooltip-overlay" 
+                  onClick={() => setTooltipVisible(null)}
+                  style={{
+                    position: 'fixed',
+                    top: '0',
+                    left: '0',
+                    right: '0',
+                    bottom: '0',
+                    zIndex: '1000'
+                  }}
+                >
+                  <div 
+                    className="soc-tooltip-comentario" 
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      maxWidth: '300px'
+                    }}
+                  >
+                    {socio.comentario}
+                    <button 
+                      className="soc-tooltip-cerrar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTooltipVisible(null);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>,
+                document.body
+              )}
+            </>
+          )}
         </div>
         <div className="soc-col-acciones">
           {socioSeleccionado?.id_socio === socio.id_socio && (
@@ -519,6 +587,7 @@ const Socios = () => {
         <div className="soc-tabla-container">
           <div className="soc-tabla-header-container">
             <div className="soc-contador">
+              <FaUsers className="soc-contador-icono" size={14} />
               {filtroActivo === 'todos' ? 'Total de socios:' : 
                filtroActivo === null ? 'Filtre para ver socios:' : 'Socios filtrados:'} 
               <strong>
@@ -566,7 +635,7 @@ const Socios = () => {
             <List
               height={2000}
               itemCount={sociosFiltrados.length}
-              itemSize={60}
+              itemSize={50}
               width="100%"
               itemData={sociosFiltrados}
               overscanCount={10}

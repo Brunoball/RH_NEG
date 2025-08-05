@@ -113,11 +113,10 @@ const SociosBaja = () => {
       {loading ? (
         <p className="soc-cargando-baja">Cargando socios dados de baja...</p>
       ) : (
-        
         <div className="soc-tabla-container-baja">
-                      <div className="soc-contador-baja">
-              Mostrando <strong>{sociosFiltrados.length}</strong> socios
-            </div>
+          <div className="soc-contador-baja">
+            Mostrando <strong>{sociosFiltrados.length}</strong> socios
+          </div>
           <div className="soc-tabla-header-container-baja">
             <div className="soc-tabla-header-baja">
               <div className="soc-col-id-baja">ID</div>
@@ -126,8 +125,6 @@ const SociosBaja = () => {
               <div className="soc-col-comentario-baja">Comentario</div>
               <div className="soc-col-acciones-baja">Acciones</div>
             </div>
-            
-
           </div>
           
           <div className="soc-tabla-body-baja">
