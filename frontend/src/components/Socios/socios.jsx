@@ -650,7 +650,7 @@ const Socios = () => {
             <List
               height={2000}
               itemCount={sociosFiltrados.length}
-              itemSize={50}
+              itemSize={45}
               width="100%"
               itemData={sociosFiltrados}
               overscanCount={10}
