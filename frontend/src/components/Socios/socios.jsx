@@ -638,7 +638,6 @@ const Socios = () => {
                 onClick={handleMostrarTodos}
                 disabled={cargando}
               >
-                <FaSync className="soc-icono-refresh" />
                 Mostrar todos los socios
               </button>
             </div>

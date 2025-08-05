@@ -329,8 +329,7 @@ body {
 }
 
 .cuo_tab {
-  flex: 1;
-  min-width: 140px;
+  width: 100%;
   text-align: center;
   padding: 0.75rem;
   border: none;
@@ -519,13 +518,13 @@ body {
 }
 
 .cuo_tabla-header > div {
-  padding: 0 1rem;
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.9);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   flex-shrink: 0;
 }
@@ -567,11 +566,18 @@ body {
 .cuo_col-estado {
   flex: 1;
   min-width: 120px;
+
 }
 
+/* Estilos modificados para centrar la columna de Medio de Pago */
 .cuo_col-medio-pago {
   flex: 1.5;
   min-width: 150px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0 !important;
 }
 
 .cuo_col-acciones {
@@ -583,7 +589,7 @@ body {
 /* Filas de la tabla */
 .cuo_tabla-fila {
   display: flex;
-  padding: 1rem;
+  padding: .5rem;
   border-bottom: 1px solid var(--soc-gray-200);
   transition: var(--soc-transition);
   align-items: center;
@@ -613,7 +619,17 @@ body {
 .cuo_tabla-fila > .cuo_col-nombre { flex: 3; min-width: 220px; }
 .cuo_tabla-fila > .cuo_col-domicilio { flex: 2; min-width: 180px; }
 .cuo_tabla-fila > .cuo_col-estado { flex: 1; min-width: 120px; }
-.cuo_tabla-fila > .cuo_col-medio-pago { flex: 1.5; min-width: 150px; }
+
+/* Estilos modificados para centrar la columna de Medio de Pago en las filas */
+.cuo_tabla-fila > .cuo_col-medio-pago { 
+  flex: 1.5; 
+  min-width: 150px; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
 .cuo_tabla-fila > .cuo_col-acciones { flex: 1; min-width: 120px; text-align: center; }
 
 .cuo_nombre-socio {
@@ -625,6 +641,13 @@ body {
 .cuo_documento {
   font-size: 0.75rem;
   color: var(--soc-gray-500);
+}
+
+/* Estilo adicional para el contenido del medio de pago */
+.cuo_medio-pago-content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 /* Badges - Burbujas de estado mejoradas */
@@ -649,17 +672,20 @@ body {
 .cuo_estado-activo {
   background-color: rgba(16, 185, 129, 0.1);
   color: var(--soc-success);
+  margin-right: 5rem;
 }
 
 .cuo_estado-pasivo {
   background-color: rgba(239, 68, 68, 0.1);
   color: var(--soc-danger);
+  margin-right: 2rem;
 }
 
 /* Medios de Pago - Burbujas mejoradas */
 .cuo_pago-cobrador {
   background-color: rgba(245, 158, 11, 0.1);
   color: var(--soc-warning);
+  margin-left: 1rem;
 }
 
 .cuo_pago-oficina {

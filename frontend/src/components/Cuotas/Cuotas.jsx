@@ -313,14 +313,14 @@ const Cuotas = () => {
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
                 >
-                  Deudores <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
+                  Deudores <span style={{ display: 'inline-block',  textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
                 >
-                  Pagados <span style={{ display: 'inline-block', width: '45px', textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
+                  Pagados <span style={{ display: 'inline-block',  textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
                 </button>
               </div>
             </div>
@@ -496,7 +496,7 @@ const Cuotas = () => {
                     <List
                       height={height}
                       itemCount={cuotasFiltradas.length}
-                      itemSize={70}
+                      itemSize={60}
                       width={width}
                       itemData={cuotasFiltradas}
                     >

@@ -23,6 +23,10 @@ const Principal = () => {
     navigate('/');
   };
 
+  const redirectTo3Devs = () => {
+    window.open('https://3devsnet.com', '_blank');
+  };
+
   return (
     <div className="princ-contenedor-padre">
       <div className="princ-contenedor">
@@ -33,8 +37,9 @@ const Principal = () => {
             <img src={logoRH} alt="Logo RH Negativo" className="princ-logo" />
             <div className="princ-logo-glow"></div>
           </div>
-          <h1>Sistema de Gestión <span>RH Negativo</span></h1>
+          <h1>Sistema de Gestión <span>Círculo RH Negativo</span></h1>
           <p className="princ-subtitulo">Panel de administración integral para la gestión eficiente de tu organización</p>
+          
           <div className="princ-usuario-info">
             <h2>Bienvenido, <span>{usuario?.Nombre_Completo || 'Usuario'}</span></h2>
             <div className="princ-usuario-status"></div>
@@ -84,10 +89,22 @@ const Principal = () => {
         </div>
 
         <div className="princ-footer">
-          <button onClick={cerrarSesion} className="princ-boton-salir">
-            <FontAwesomeIcon icon={faSignOutAlt} className="princ-boton-salir-icono" />
-            <span>Cerrar Sesión</span>
-          </button>
+          <div className="princ-footer-container">
+            <div className="princ-creditos-container">
+              <p 
+                className="princ-creditos"
+                onClick={redirectTo3Devs}
+              >
+                Desarrollado por 3devs.solutions
+              </p>
+            </div>
+            <div className="princ-boton-salir-container">
+              <button onClick={cerrarSesion} className="princ-boton-salir">
+                <FontAwesomeIcon icon={faSignOutAlt} className="princ-boton-salir-icono" />
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

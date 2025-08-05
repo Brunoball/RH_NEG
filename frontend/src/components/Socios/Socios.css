@@ -540,8 +540,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 6px;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   color: var(--soc-primary);
 }
 .soc-iconos-acciones svg{

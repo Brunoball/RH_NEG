@@ -96,7 +96,6 @@
 
 .princ-encabezado h1 {
   font-size: 2rem;
-
   font-weight: 700;
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--princ-dark);
@@ -156,7 +155,7 @@
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.2rem;
   width: 100%;
-  padding: 0.5rem;
+  padding: 1.2rem;
   flex-grow: 1;
   overflow: auto;
 }
@@ -322,8 +321,39 @@
   width: 100%;
   padding: 0;
   margin-top: auto;
+}
+
+.princ-footer-container {
+  width: 100%;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.princ-creditos-container {
+  align-self: flex-start;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-bottom: 1rem;
+}
+
+.princ-creditos {
+  font-size: 0.8rem;
+  color: var(--princ-gray-500);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: var(--princ-transition);
+  display: inline-block;
+}
+
+.princ-creditos:hover {
+  color: var(--princ-primary);
+}
+
+.princ-boton-salir-container {
+  margin-left: auto;
 }
 
 .princ-boton-salir {
@@ -416,6 +446,10 @@
     min-height: 85vh;
   }
   
+  .princ-contenedor {
+    padding: 1.2rem;
+  }
+  
   .princ-grid-opciones {
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
@@ -433,6 +467,11 @@
   
   .princ-encabezado h1 {
     font-size: 1.6rem;
+  }
+  
+  .princ-boton-salir {
+    min-width: 160px;
+    padding: 0.7rem 1.2rem;
   }
 }
 
@@ -473,6 +512,22 @@
     padding: 0.7rem 1.2rem;
     font-size: 0.95rem;
     min-width: 160px;
+  }
+  
+  .princ-footer-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .princ-creditos-container {
+    align-self: center;
+    padding: 0;
+    text-align: center;
+  }
+  
+  .princ-boton-salir-container {
+    margin-left: 0;
   }
 }
 

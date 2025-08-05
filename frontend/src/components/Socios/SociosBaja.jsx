@@ -170,7 +170,7 @@ const SociosBaja = () => {
                 className="soc-boton-confirmar-baja"
                 onClick={() => darAltaSocio(socioSeleccionado.id_socio)}
               >
-                ✅ Sí, dar de alta
+                 Sí, dar de alta
               </button>
               <button
                 className="soc-boton-cancelar-baja"
@@ -179,7 +179,7 @@ const SociosBaja = () => {
                   setSocioSeleccionado(null);
                 }}
               >
-                ❌ Cancelar
+                 Cancelar
               </button>
             </div>
           </div>
