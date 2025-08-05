@@ -37,7 +37,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
       categorias = Object.fromEntries(dataListas.listas.categorias.map(c => [c.id_categoria, c.descripcion]));
       estados = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
       cobradores = Object.fromEntries(dataListas.listas.cobradores.map(c => [c.id_cobrador, c.nombre]));
-      periodos = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre])); // <-- Agregado
+      periodos = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
     }
   } catch (error) {
     console.error("Error obteniendo listas:", error);
@@ -60,7 +60,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           margin: 0;
           padding: 0;
           font-family: Arial, sans-serif;
-          font-size: 7pt;
+          font-size: 8pt;
         }
         .page {
           width: 210mm;
@@ -73,8 +73,9 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           height: 30mm;
           box-sizing: border-box;
           position: absolute;
-          padding: 0;
           border: 1px solid black;
+          padding: .5rem 0 0;
+          font-size: .8rem;
           overflow: hidden;
         }
         .recibo {
@@ -86,24 +87,21 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           box-sizing: border-box;
         }
         .row {
-          padding: 0 0.8rem;
+          padding: 0 0.2rem;
           display: flex;
           width: 100%;
-          min-height: 0;
         }
         .cell {
           margin: 0;
           box-sizing: border-box;
           overflow: hidden;
-          line-height: 1em;
           display: flex;
           flex: 1;
+          white-space: nowrap;
+          text-overflow: ellipsis;
         }
         .cell-full {
           flex: 0 0 100%;
-        }
-        .cell-double {
-          flex: 2;
         }
         .cell-barcode {
           flex: 1;
@@ -121,7 +119,6 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           justify-content: center;
           width: 100%;
           height: 70%;
-          padding: 0;
         }
         .barcode {
           width: 100%;
@@ -159,6 +156,9 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           flex: 1;
           display: flex;
           align-items: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       </style>
     </head>
@@ -191,22 +191,22 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
               <div class="recibo-area" style="top: ${top}mm; left: ${conCodigo ? '5mm' : '110mm'};">
                 <div class="recibo">
                   <div class="row">
-                    <div class="cell cell-full"><strong>Socio:</strong> ${id} - ${apellido} ${nombre}</div>
+                    <div class="cell cell-full"><strong>Socio:</strong>&nbsp;${id} - ${apellido} ${nombre}</div>
                   </div>
                   <div class="row">
-                    <div class="cell cell-full"><strong>Domicilio:</strong> ${domicilio}</div>
+                    <div class="cell cell-full"><strong>Domicilio:</strong>&nbsp;${domicilio}</div>
                   </div>
                   <div class="row">
-                    <div class="cell cell-full"><strong>Domicilio de cobro:</strong> ${cobro}</div>
+                    <div class="cell cell-full"><strong>Domicilio de cobro:</strong>&nbsp;${cobro}</div>
                   </div>
                   <div class="row">
-                    <div class="cell"><strong>Tel:</strong> ${tel}</div>
+                    <div class="cell"><strong>Tel:</strong>&nbsp;${tel}</div>
                     <div class="cell"><div class="importe">Importe: ${importe}</div></div>
                   </div>
                   <div class="row">
                     <div class="cell periodo-grupo">
-                      <div><strong>Período:</strong> ${textoPeriodo} / ${anioActual}</div>
-                      <div><strong>Grupo:</strong> ${categoria} - ${estado}</div>
+                      <div><strong>Período:</strong>&nbsp;${textoPeriodo} / ${anioActual}</div>
+                      <div><strong>Grupo:</strong>&nbsp;${categoria} - ${estado}</div>
                     </div>
                     <div class="cell cell-barcode">
                       ${conCodigo
