@@ -11,6 +11,8 @@
   z-index: 1000;
   backdrop-filter: blur(5px);
   animation: fadeIn 0.3s ease-out;
+  margin: 0;
+  padding: 0;
 }
 
 .modal-container {
@@ -25,22 +27,13 @@
   flex-direction: column;
   animation: slideUp 0.3s ease-out;
   backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid var(--princ-glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   position: relative;
 }
 
+/* Eliminado completamente el pseudo-elemento que causaba el reborde blanco */
 .modal-container::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, 
-    rgba(59, 130, 246, 0.08) 0%, 
-    rgba(255, 255, 255, 0) 70%);
-  z-index: -1;
-  animation: princ-rotate 20s linear infinite;
+  display: none;
 }
 
 .modal-header {
@@ -50,6 +43,11 @@
   padding: 20px 24px;
   background: linear-gradient(90deg, var(--princ-primary), var(--princ-secondary));
   color: white;
+  border-top-left-radius: var(--princ-border-radius-xl);
+  border-top-right-radius: var(--princ-border-radius-xl);
+  /* Asegurar que no hay overflow visual */
+  position: relative;
+  z-index: 1;
 }
 
 .modal-header-content {
@@ -232,24 +230,17 @@
   grid-column: span 2;
 }
 
-/* Estilo especial para comentario largo dentro de la tarjeta */
-.info-item .info-label:has(+ .info-value:only-child) {
-  align-self: flex-start;
-}
-
+/* Estilo modificado para comentario en línea */
 .info-item.comentario {
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
 }
 
 .info-item.comentario .info-label {
-  margin-bottom: 4px;
-  font-weight: 600;
-  color: var(--princ-gray-600);
+  margin-right: 12px;
 }
 
 .info-item.comentario .info-value {
-  max-width: 100%;
   text-align: left;
   word-break: break-word;
   white-space: pre-line;
@@ -286,6 +277,17 @@
   
   .modal-subtitle {
     font-size: 0.8rem;
+  }
+  
+  /* En móvil, comentario en columna para mejor legibilidad */
+  .info-item.comentario {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .info-item.comentario .info-label {
+    margin-bottom: 4px;
+    margin-right: 0;
   }
 }
 

@@ -28,7 +28,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
     }
   }
 
-  let categorias = {}, estados = {}, cobradores = {};
+  let categorias = {}, estados = {}, cobradores = {}, periodos = {};
 
   try {
     const resListas = await fetch(`${BASE_URL}/api.php?action=listas`);
@@ -37,6 +37,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
       categorias = Object.fromEntries(dataListas.listas.categorias.map(c => [c.id_categoria, c.descripcion]));
       estados = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
       cobradores = Object.fromEntries(dataListas.listas.cobradores.map(c => [c.id_cobrador, c.nombre]));
+      periodos = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre])); // <-- Agregado
     }
   } catch (error) {
     console.error("Error obteniendo listas:", error);
@@ -184,6 +185,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
             const importe = '$4000';
             const codigoPeriodo = socio.id_periodo || periodoActual || '0';
             const codigoBarra = `${codigoPeriodo}-${id}`;
+            const textoPeriodo = periodos[codigoPeriodo] || `Período ${codigoPeriodo}`;
 
             const contenidoRecibo = (conCodigo) => `
               <div class="recibo-area" style="top: ${top}mm; left: ${conCodigo ? '5mm' : '110mm'};">
@@ -203,7 +205,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
                   </div>
                   <div class="row">
                     <div class="cell periodo-grupo">
-                      <div><strong>Período:</strong> ${codigoPeriodo} / ${anioActual}</div>
+                      <div><strong>Período:</strong> ${textoPeriodo} / ${anioActual}</div>
                       <div><strong>Grupo:</strong> ${categoria} - ${estado}</div>
                     </div>
                     <div class="cell cell-barcode">

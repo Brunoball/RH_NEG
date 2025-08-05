@@ -52,16 +52,22 @@ try {
 
     if ($socio) {
         $fechaIngreso = $socio['ingreso'];
-        $mesIngreso = (int)date('n', strtotime($fechaIngreso));
 
         $ultimoMesDelPeriodo = obtenerUltimoMesDePeriodo((int)$id_periodo);
+        $anioActual = (int)date('Y');
 
-        if ($mesIngreso > $ultimoMesDelPeriodo) {
-            echo json_encode([
-                'exito' => false,
-                'mensaje' => "⛔ El socio {$socio['nombre']} aún no estaba registrado en ese período"
-            ]);
-            exit;
+        // Si tiene fecha válida y es del año actual, validar el mes
+        if ($fechaIngreso && $fechaIngreso !== '0000-00-00') {
+            $anioIngreso = (int)date('Y', strtotime($fechaIngreso));
+            $mesIngreso = (int)date('n', strtotime($fechaIngreso));
+
+            if ($anioIngreso === $anioActual && $mesIngreso > $ultimoMesDelPeriodo) {
+                echo json_encode([
+                    'exito' => false,
+                    'mensaje' => "⛔ El socio {$socio['nombre']} aún no estaba registrado en ese período"
+                ]);
+                exit;
+            }
         }
 
         $socio['domicilio_completo'] = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));

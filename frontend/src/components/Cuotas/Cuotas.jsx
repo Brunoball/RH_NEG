@@ -26,6 +26,7 @@ import ModalPagos from './modales/ModalPagos';
 import ModalCodigoBarras from './modales/ModalCodigoBarras';
 import ModalEliminarPago from './modales/ModalEliminarPago';
 import { imprimirRecibos } from '../../utils/imprimirRecibos';
+import Toast from '../Global/Toast';
 import './Cuotas.css';
 
 const Cuotas = () => {
@@ -46,6 +47,9 @@ const Cuotas = () => {
   const [socioParaPagar, setSocioParaPagar] = useState(null);
   const [filtrosExpandidos, setFiltrosExpandidos] = useState(true);
   const [orden, setOrden] = useState({ campo: 'nombre', ascendente: true });
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastTipo, setToastTipo] = useState('exito');
+  const [toastMensaje, setToastMensaje] = useState('');
   const navigate = useNavigate();
 
   const obtenerCuotasYListas = async () => {
@@ -161,6 +165,20 @@ const Cuotas = () => {
     }
   };
 
+  const limpiarFiltros = () => {
+    setBusqueda('');
+    setEstadoSocioSeleccionado('');
+    setMedioPagoSeleccionado('');
+
+    setToastTipo('exito');
+    setToastMensaje('Filtros limpiados correctamente');
+    setToastVisible(true);
+  };
+
+  const toggleFiltros = () => {
+    setFiltrosExpandidos(!filtrosExpandidos);
+  };
+
   const Row = ({ index, style, data }) => {
     const cuota = data[index];
     
@@ -238,16 +256,6 @@ const Cuotas = () => {
         </div>
       </div>
     );
-  };
-
-  const limpiarFiltros = () => {
-    setBusqueda('');
-    setEstadoSocioSeleccionado('');
-    setMedioPagoSeleccionado('');
-  };
-
-  const toggleFiltros = () => {
-    setFiltrosExpandidos(!filtrosExpandidos);
   };
 
   const getNombrePeriodo = (id) => {
@@ -426,7 +434,7 @@ const Cuotas = () => {
               </button>
 
               <button
-                className="cuo_boton cuo_boton-warning"
+                className="cuo_boton cuo_boton-primary"
                 onClick={handleImprimirTodos}
                 disabled={loadingPrint || !periodoSeleccionado || cuotasFiltradas.length === 0 || loading}
               >
@@ -469,12 +477,12 @@ const Cuotas = () => {
             </div>
 
             <div className="cuo_list-container">
-              {loading ? (
+              {loading && periodoSeleccionado ? (
                 <div className="cuo_estado-container">
                   <FaSpinner className="cuo_spinner" size={24} />
                   <p className="cuo_estado-mensaje">Cargando cuotas...</p>
                 </div>
-              ) : cuotasFiltradas.length === 0 ? (
+              ) : !loading && cuotasFiltradas.length === 0 ? (
                 <div className="cuo_estado-container">
                   <p className="cuo_estado-mensaje">
                     {periodoSeleccionado 
@@ -527,6 +535,15 @@ const Cuotas = () => {
           periodo={periodoSeleccionado}
           onClose={() => setMostrarModalEliminarPago(false)}
           onEliminado={obtenerCuotasYListas}
+        />
+      )}
+
+      {toastVisible && (
+        <Toast
+          tipo={toastTipo}
+          mensaje={toastMensaje}
+          duracion={3000}
+          onClose={() => setToastVisible(false)}
         />
       )}
     </div>

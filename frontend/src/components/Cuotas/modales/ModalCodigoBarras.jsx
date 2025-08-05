@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FaTimes, FaCheck, FaSpinner, FaBarcode,
-  FaUser, FaHome, FaPhone, FaCalendarAlt, FaMoneyBillWave, FaIdCard
+  FaUser, FaHome, FaPhone, FaCalendarAlt, 
+  FaMoneyBillWave, FaIdCard, FaExclamationTriangle
 } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
+import Toast from '../../Global/Toast';
 import './ModalCodigoBarras.css';
 
 const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
@@ -12,6 +14,9 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState(false);
   const [socioEncontrado, setSocioEncontrado] = useState(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastTipo, setToastTipo] = useState('exito');
+  const [toastMensaje, setToastMensaje] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -38,6 +43,20 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     return () => clearTimeout(delay);
   }, [codigo]);
 
+  const limpiarFormulario = () => {
+    setCodigo('');
+    setSocioEncontrado(null);
+    setMensaje('');
+    setError(false);
+    if (inputRef.current) inputRef.current.focus();
+  };
+
+  const mostrarToast = (tipo, mensaje) => {
+    setToastTipo(tipo);
+    setToastMensaje(mensaje);
+    setToastVisible(true);
+  };
+
   const buscarPorCodigo = async (input) => {
     if (input.length < 2) {
       setMensaje('⛔ El código debe tener al menos 2 dígitos (1 para período y al menos 1 para socio)');
@@ -45,8 +64,8 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       return;
     }
 
-    const id_periodo = parseInt(input.charAt(0), 10); // solo 1 dígito
-    const id_socio = input.slice(1); // el resto
+    const id_periodo = parseInt(input.charAt(0), 10);
+    const id_socio = input.slice(1);
 
     if (!id_socio || isNaN(id_periodo) || id_periodo < 1 || id_periodo > 6) {
       setMensaje('⛔ Código inválido. Formato esperado: [1 dígito periodo] + [ID socio]');
@@ -67,13 +86,16 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         socio.domicilio_completo = [socio.domicilio, socio.numero].filter(Boolean).join(' ');
         setSocioEncontrado({ ...socio, id_periodo });
         setMensaje(`✅ Socio encontrado: ${socio.nombre}`);
+        mostrarToast('exito', `Socio ${socio.nombre} encontrado`);
       } else {
         setMensaje(data.mensaje || 'Socio no encontrado');
         setError(true);
+        mostrarToast('error', data.mensaje || 'Socio no encontrado');
       }
     } catch {
       setMensaje('⛔ Error al conectar con el servidor');
       setError(true);
+      mostrarToast('error', 'Error al conectar con el servidor');
     }
   };
 
@@ -81,6 +103,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     if (!socioEncontrado || !socioEncontrado.id_periodo) {
       setMensaje('⛔ No se puede registrar el pago. Datos incompletos.');
       setError(true);
+      mostrarToast('error', 'Datos incompletos para registrar el pago');
       return;
     }
 
@@ -99,20 +122,21 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       if (data.exito) {
         setMensaje('✅ Pago registrado correctamente');
         setError(false);
+        mostrarToast('exito', 'Pago registrado correctamente');
         onPagoRealizado();
-        setTimeout(() => {
-          setCodigo('');
-          setSocioEncontrado(null);
-          setMensaje('');
-          if (inputRef.current) inputRef.current.focus();
-        }, 2000);
+      } else if (data.mensaje?.includes('ya fue registrado anteriormente')) {
+        setMensaje(data.mensaje);
+        setError(false);
+        mostrarToast('advertencia', data.mensaje);
       } else {
         setMensaje(data.mensaje || '⛔ Error al registrar el pago');
         setError(true);
+        mostrarToast('error', data.mensaje || 'Error al registrar el pago');
       }
     } catch {
       setMensaje('⛔ Error al conectar con el servidor');
       setError(true);
+      mostrarToast('error', 'Error al conectar con el servidor');
     } finally {
       setLoading(false);
     }
@@ -159,13 +183,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                 </div>
               </div>
             </div>
-
-            {mensaje && (
-              <div className={`codb-message-container ${error ? 'codb-error' : 'codb-success'}`}>
-                {mensaje}
-              </div>
-            )}
-
+            
             {socioEncontrado && (
               <div className="codb-member-info">
                 <div className="codb-info-header">
@@ -220,6 +238,20 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
           </div>
         </div>
       </div>
+
+      {toastVisible && (
+        <Toast
+          tipo={toastTipo}
+          mensaje={toastMensaje}
+          duracion={3000}
+          onClose={() => {
+            setToastVisible(false);
+            if (toastTipo === 'exito' && toastMensaje.includes('Pago registrado')) {
+              limpiarFormulario();
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
