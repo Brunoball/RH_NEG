@@ -342,6 +342,28 @@
   }
 }
 
+/* Nuevos estilos para el grupo de domicilio */
+.add-socio-address-group {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.add-socio-address-group .add-socio-input-wrapper {
+  margin-bottom: 0;
+}
+
+/* Estilos para inputs numéricos */
+
+
+.add-socio-input[type="tel"]::-webkit-outer-spin-button,
+.add-socio-input[type="tel"]::-webkit-inner-spin-button,
+.add-socio-input[inputmode="numeric"]::-webkit-outer-spin-button,
+.add-socio-input[inputmode="numeric"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 @media (max-width: 992px) {
   .add-socio-container {
     width: 90vw;
@@ -358,6 +380,11 @@
   
   .add-socio-sections {
     grid-template-columns: 1fr;
+  }
+
+  .add-socio-address-group {
+    flex-direction: column;
+    gap: 1.2rem;
   }
 }
 

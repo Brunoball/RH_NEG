@@ -59,24 +59,8 @@ body {
 }
 
 /* Efecto de fondo animado como Principal */
-.edit-socio-container::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, 
-    rgba(59, 130, 246, 0.08) 0%, 
-    rgba(255, 255, 255, 0) 70%);
-  z-index: -1;
-  animation: edit-rotate 20s linear infinite;
-}
 
-@keyframes edit-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
+
 
 /* Caja del formulario - Ajustar para que quepa dentro del contenedor */
 .edit-socio-box {
@@ -340,6 +324,46 @@ body {
     transform: scale(30, 30) translate(-50%, -50%);
     opacity: 0;
   }
+}
+
+/* Grupo de domicilio y número - estilo en línea */
+.edit-socio-domicilio-group {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Textarea para comentarios */
+.edit-socio-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  border-radius: var(--edit-border-radius);
+  border: 1px solid var(--edit-gray-300);
+  background: rgba(255, 255, 255, 0.8);
+  transition: var(--edit-transition);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--edit-gray-800);
+  resize: vertical;
+}
+
+.edit-socio-textarea:focus {
+  outline: none;
+  border-color: var(--edit-primary-light);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Ajuste para el label del textarea cuando tiene valor */
+.edit-socio-input-wrapper.has-value textarea ~ .edit-socio-label,
+.edit-socio-textarea:focus ~ .edit-socio-label {
+  transform: translateY(-1.4rem) scale(0.85);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+  color: var(--edit-primary);
+  font-weight: 500;
+  padding: 0 0.5rem;
+  left: 0.8rem;
 }
 
 /* Responsive */

@@ -54,12 +54,22 @@ const EditarSocio = () => {
     });
   };
 
+  // Función para validar que solo se ingresen números
+  const handleNumberChange = (e) => {
+    const { name, value } = e.target;
+    // Solo permite números y elimina cualquier carácter no numérico
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Cargar listas primero
         const resListas = await fetch(`${BASE_URL}/api.php?action=listas`);
         const jsonListas = await resListas.json();
         
@@ -72,7 +82,6 @@ const EditarSocio = () => {
           showToast('Error al cargar listas: ' + jsonListas.mensaje, 'error');
         }
 
-        // Luego cargar datos del socio
         const resSocio = await fetch(`${BASE_URL}/api.php?action=editar_socio&id=${id}`);
         const dataSocio = await resSocio.json();
         
@@ -206,6 +215,36 @@ const EditarSocio = () => {
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
+                {/* Grupo de domicilio y número */}
+                <div className="edit-socio-domicilio-group">
+                  <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
+                    <label className="edit-socio-label">Domicilio</label>
+                    <input
+                      name="domicilio"
+                      value={formData.domicilio || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('domicilio')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+
+                  <div className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
+                    <label className="edit-socio-label">Número</label>
+                    <input
+                      name="numero"
+                      value={formData.numero || ''}
+                      onChange={handleNumberChange}  // Usamos la función especial para números
+                      onFocus={() => handleFocus('numero')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      inputMode="numeric"  // Muestra teclado numérico en dispositivos móviles
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+                </div>
+
                 <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Fecha de nacimiento</label>
                   <input
@@ -214,22 +253,6 @@ const EditarSocio = () => {
                     value={formData.nacimiento || ''}
                     onChange={handleChange}
                     onFocus={() => handleFocus('nacimiento')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
-                <div 
-                  className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}
-                  data-field="numero"
-                >
-                  <label className="edit-socio-label">Número de Domicilio</label>
-                  <input
-                    name="numero"
-                    value={formData.numero || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('numero')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
                   />
@@ -255,19 +278,6 @@ const EditarSocio = () => {
             <div className="edit-socio-section">
               <h3 className="edit-socio-section-title">Contacto y Cobro</h3>
               <div className="edit-socio-section-content">
-                <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Domicilio</label>
-                  <input
-                    name="domicilio"
-                    value={formData.domicilio || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('domicilio')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
                 <div className={`edit-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Domicilio de Cobro</label>
                   <input
@@ -370,42 +380,17 @@ const EditarSocio = () => {
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.deuda_2024 || activeField === 'deuda_2024' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Deuda 2024</label>
-                  <input
-                    name="deuda_2024"
-                    value={formData.deuda_2024 || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('deuda_2024')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
-                <div className={`edit-socio-input-wrapper ${formData.id_periodo_adeudado || activeField === 'id_periodo_adeudado' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Periodo Adeudado</label>
-                  <input
-                    name="id_periodo_adeudado"
-                    value={formData.id_periodo_adeudado || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_periodo_adeudado')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
+                {/* Textarea para comentarios */}
                 <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Comentarios</label>
-                  <input
+                  <textarea
                     name="comentario"
                     value={formData.comentario || ''}
                     onChange={handleChange}
                     onFocus={() => handleFocus('comentario')}
                     onBlur={handleBlur}
-                    className="edit-socio-input"
-                    rows="3"
+                    className="edit-socio-textarea"
+                    rows="4"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -417,7 +402,6 @@ const EditarSocio = () => {
             <button 
               type="submit" 
               className="edit-socio-button"
-              disabled={loading}
             >
               <FontAwesomeIcon icon={faSave} className="edit-socio-icon-button" />
               <span className="edit-socio-button-text">

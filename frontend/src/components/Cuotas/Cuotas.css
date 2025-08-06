@@ -41,6 +41,7 @@
   --soc-estado-activo: #10B981;
   --soc-estado-pasivo: #EF4444;
 }
+
 /* Scrollbar general para todo el sitio (WebKit) */
 *::-webkit-scrollbar {
   width: 8px;
@@ -497,6 +498,28 @@ body {
   color: white;
 }
 
+/* Spinner para botones */
+.cuo_boton-spinner {
+  animation: cuo_spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+.cuo_boton-loading {
+  position: relative;
+  opacity: 0.8;
+}
+
+.cuo_boton-loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: var(--soc-border-radius);
+}
+
 /* Estilos Grid para la tabla */
 .cuo_grid-container {
   display: grid;
@@ -507,7 +530,6 @@ body {
     minmax(150px, 1.5fr) 
     minmax(120px, 1fr);
   align-items: center;
-
 }
 
 .cuo_tabla-header {
@@ -550,14 +572,12 @@ body {
   display: flex;
   justify-content: center;
   overflow: hidden;
-
 }
 
 /* Ajustes específicos para columnas */
 .cuo_col-nombre {
   justify-content: flex-start;
   padding-left: 1rem;
-
 }
 .cuo_col-domicilio, .cuo_col-nombre{
     font-size: .8rem;
@@ -610,9 +630,6 @@ body {
   overflow-y: auto;
   position: relative;
 }
-
-
-
 
 .cuo_fila-par {
   background-color: var(--soc-glass);

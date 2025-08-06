@@ -213,6 +213,44 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
+                {/* Grupo de domicilio y número */}
+                <div className="add-socio-address-group">
+                  <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 2}}>
+                    <label className="add-socio-label">Domicilio</label>
+                    <input
+                      name="domicilio"
+                      value={formData.domicilio || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('domicilio')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.domicilio && (
+                      <span className="add-socio-error">{errores.domicilio}</span>
+                    )}
+                  </div>
+
+                  <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
+                    <label className="add-socio-label">Número</label>
+                    <input
+                      name="numero"
+                      value={formData.numero || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('numero')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.numero && (
+                      <span className="add-socio-error">{errores.numero}</span>
+                    )}
+                  </div>
+                </div>
+
                 <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
                   <label className="add-socio-label">DNI</label>
                   <input
@@ -222,6 +260,9 @@ const AgregarSocio = () => {
                     onFocus={() => handleFocus('dni')}
                     onBlur={handleBlur}
                     className="add-socio-input"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                   />
                   <span className="add-socio-input-highlight"></span>
                   {mostrarErrores && errores.dni && (
@@ -242,44 +283,12 @@ const AgregarSocio = () => {
                   />
                   <span className="add-socio-input-highlight"></span>
                 </div>
-
-                <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Número de socio</label>
-                  <input
-                    name="numero"
-                    value={formData.numero || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('numero')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.numero && (
-                    <span className="add-socio-error">{errores.numero}</span>
-                  )}
-                </div>
               </div>
             </div>
 
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
-                <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Domicilio</label>
-                  <input
-                    name="domicilio"
-                    value={formData.domicilio || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('domicilio')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.domicilio && (
-                    <span className="add-socio-error">{errores.domicilio}</span>
-                  )}
-                </div>
-
                 <div className={`add-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
                   <label className="add-socio-label">Domicilio de Cobro</label>
                   <input
@@ -305,6 +314,9 @@ const AgregarSocio = () => {
                     onFocus={() => handleFocus('telefono_movil')}
                     onBlur={handleBlur}
                     className="add-socio-input"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                   />
                   <span className="add-socio-input-highlight"></span>
                   {mostrarErrores && errores.telefono_movil && (
@@ -321,6 +333,9 @@ const AgregarSocio = () => {
                     onFocus={() => handleFocus('telefono_fijo')}
                     onBlur={handleBlur}
                     className="add-socio-input"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                   />
                   <span className="add-socio-input-highlight"></span>
                   {mostrarErrores && errores.telefono_fijo && (
@@ -352,24 +367,24 @@ const AgregarSocio = () => {
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Estado y Comentarios</h3>
               <div className="add-socio-section-content">
-              <div className="add-socio-input-wrapper has-value">
-                <label className="add-socio-label">Categoría</label>
-                <select 
-                  name="id_categoria" 
-                  value={formData.id_categoria || ''} 
-                  onChange={handleChange}
-                  onFocus={() => handleFocus('id_categoria')}
-                  onBlur={handleBlur}
-                  className="add-socio-input"
-                  disabled={loading || !listas.loaded}
-                >
-                  <option value="">Seleccionar categoría</option>
-                  {listas.categorias.map(c => (
-                    <option key={c.id} value={c.id}>{c.descripcion}</option>
-                  ))}
-                </select>
-                <span className="add-socio-input-highlight"></span>
-              </div>
+                <div className="add-socio-input-wrapper has-value">
+                  <label className="add-socio-label">Categoría</label>
+                  <select 
+                    name="id_categoria" 
+                    value={formData.id_categoria || ''} 
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('id_categoria')}
+                    onBlur={handleBlur}
+                    className="add-socio-input"
+                    disabled={loading || !listas.loaded}
+                  >
+                    <option value="">Seleccionar categoría</option>
+                    {listas.categorias.map(c => (
+                      <option key={c.id} value={c.id}>{c.descripcion}</option>
+                    ))}
+                  </select>
+                  <span className="add-socio-input-highlight"></span>
+                </div>
 
                 <div className="add-socio-input-wrapper has-value">
                   <label className="add-socio-label">Estado</label>
@@ -414,10 +429,11 @@ const AgregarSocio = () => {
             <button 
               type="submit" 
               className="add-socio-button"
+              disabled={loading}
             >
               <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
               <span className="add-socio-button-text">
-                {loading ? 'Guardar Socio' : 'Guardar Socio'}
+                {loading ? 'Guardando...' : 'Guardar Socio'}
               </span>
             </button>
           </div>

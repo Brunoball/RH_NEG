@@ -434,13 +434,13 @@ const Cuotas = () => {
               </button>
 
               <button
-                className="cuo_boton cuo_boton-primary"
+                className={`cuo_boton cuo_boton-primary ${loadingPrint ? 'cuo_boton-loading' : ''}`}
                 onClick={handleImprimirTodos}
                 disabled={loadingPrint || !periodoSeleccionado || cuotasFiltradas.length === 0 || loading}
               >
                 {loadingPrint ? (
                   <>
-                    <FaSpinner className="cuo_spinner" /> Imprimiendo...
+                    <FaSpinner className="cuo_boton-spinner" /> Generando cupones...
                   </>
                 ) : (
                   <>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
 import './registro.css';
 import logoRH from '../../imagenes/Logo_rh.jpeg';
+import Toast from '../Global/Toast';
 
 const Registro = () => {
   const [nombre, setNombre] = useState('');
@@ -12,7 +13,13 @@ const Registro = () => {
   const [cargando, setCargando] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [toast, setToast] = useState(null);
   const navigate = useNavigate();
+
+  const mostrarToast = (tipo, mensaje, duracion = 3000) => {
+    setToast({ tipo, mensaje, duracion });
+    setTimeout(() => setToast(null), duracion);
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -29,26 +36,32 @@ const Registro = () => {
 
     if (!nombre || !contrasena || !confirmarContrasena) {
       setMensaje('Por favor, completá todos los campos.');
+      mostrarToast('error', 'Por favor, completá todos los campos.');
       return;
     }
 
     if (nombre.trim().length < 4) {
       setMensaje('El nombre debe tener al menos 4 caracteres.');
+      mostrarToast('error', 'El nombre debe tener al menos 4 caracteres.');
       return;
     }
 
     if (contrasena.length < 6) {
       setMensaje('La contraseña debe tener al menos 6 caracteres.');
+      mostrarToast('error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     if (contrasena !== confirmarContrasena) {
       setMensaje('Las contraseñas no coinciden.');
+      mostrarToast('error', 'Las contraseñas no coinciden.');
       return;
     }
 
     try {
       setCargando(true);
+      mostrarToast('cargando', 'Registrando usuario...', 10000); // Duración larga para que no desaparezca mientras carga
+      
       const respuesta = await fetch(`${BASE_URL}/api.php?action=registro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,19 +73,32 @@ const Registro = () => {
 
       if (data.exito) {
         localStorage.setItem('usuario', JSON.stringify(data.usuario));
-        navigate('/panel');
+        mostrarToast('exito', 'Registro exitoso! Redirigiendo...', 2000);
+        setTimeout(() => navigate('/panel'), 2000);
       } else {
         setMensaje(data.mensaje || 'Error al registrar usuario.');
+        mostrarToast('error', data.mensaje || 'Error al registrar usuario.');
       }
     } catch (err) {
       console.error(err);
       setMensaje('Error del servidor.');
       setCargando(false);
+      mostrarToast('error', 'Error del servidor.');
     }
   };
 
   return (
     <div className="reg_global-container">
+      {/* Mostrar Toast si existe */}
+      {toast && (
+        <Toast
+          tipo={toast.tipo}
+          mensaje={toast.mensaje}
+          duracion={toast.duracion}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className="reg_contenedor">
         <div className="reg_encabezado">
           <img src={logoRH} alt="Logo RH" className="reg_logo" />
