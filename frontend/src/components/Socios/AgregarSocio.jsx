@@ -349,42 +349,45 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Teléfono Móvil</label>
-                  <input
-                    name="telefono_movil"
-                    value={formData.telefono_movil || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('telefono_movil')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.telefono_movil && (
-                    <span className="add-socio-error">{errores.telefono_movil}</span>
-                  )}
-                </div>
+                {/* Grupo de teléfonos móvil y fijo */}
+                <div className="add-socio-group">
+                  <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`} style={{flex: 1}}>
+                    <label className="add-socio-label">Teléfono Móvil</label>
+                    <input
+                      name="telefono_movil"
+                      value={formData.telefono_movil || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('telefono_movil')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.telefono_movil && (
+                      <span className="add-socio-error">{errores.telefono_movil}</span>
+                    )}
+                  </div>
 
-                <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Teléfono Fijo</label>
-                  <input
-                    name="telefono_fijo"
-                    value={formData.telefono_fijo || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('telefono_fijo')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.telefono_fijo && (
-                    <span className="add-socio-error">{errores.telefono_fijo}</span>
-                  )}
+                  <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`} style={{flex: 1}}>
+                    <label className="add-socio-label">Teléfono Fijo</label>
+                    <input
+                      name="telefono_fijo"
+                      value={formData.telefono_fijo || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('telefono_fijo')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.telefono_fijo && (
+                      <span className="add-socio-error">{errores.telefono_fijo}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
