@@ -27,8 +27,7 @@ const AgregarSocio = () => {
     nacimiento: '',
     id_estado: '',
     domicilio_cobro: '',
-    dni: '',
-    fecha_ingreso: ''
+    dni: ''
   });
 
   const [errores, setErrores] = useState({});
@@ -248,20 +247,6 @@ const AgregarSocio = () => {
                     />
                     <span className="add-socio-input-highlight"></span>
                   </div>
-                </div>
-
-                <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Fecha de Ingreso</label>
-                  <input
-                    type="date"
-                    name="fecha_ingreso"
-                    value={formData.fecha_ingreso || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('fecha_ingreso')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                  />
-                  <span className="add-socio-input-highlight"></span>
                 </div>
 
                 {/* Grupo de Categoría y Estado */}
