@@ -417,7 +417,7 @@ const EditarSocio = () => {
               <h3 className="edit-socio-section-title">Cobro y Comentarios</h3>
               <div className="edit-socio-section-content">
                 <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Medios ed Pago</label>
+                  <label className="edit-socio-label">Medios de Pago</label>
                   <select 
                     name="id_cobrador" 
                     value={formData.id_cobrador || ''} 
