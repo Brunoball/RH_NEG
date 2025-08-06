@@ -280,19 +280,19 @@ const EditarSocio = () => {
                   </div>
                 </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.ingreso || activeField === 'ingreso' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Fecha de Ingreso</label>
-                  <input
-                    type="date"
-                    name="ingreso"
-                    value={formData.ingreso || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('ingreso')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
+<div className={`edit-socio-input-wrapper has-value`}> {/* Removida la condición && activeField === 'ingreso' */}
+  <label className="edit-socio-label">Fecha de Ingreso</label>
+  <input
+    type="date"
+    name="ingreso"
+    value={formData.ingreso || ''}
+    onChange={handleChange}
+    onFocus={() => handleFocus('ingreso')}
+    onBlur={handleBlur}
+    className="edit-socio-input"
+  />
+  <span className="edit-socio-input-highlight"></span>
+</div>
 
                 <div className="edit-socio-group-row">
                   <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
@@ -417,7 +417,7 @@ const EditarSocio = () => {
               <h3 className="edit-socio-section-title">Cobro y Comentarios</h3>
               <div className="edit-socio-section-content">
                 <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Medios ed Pago</label>
+                  <label className="edit-socio-label">Medios de Pago</label>
                   <select 
                     name="id_cobrador" 
                     value={formData.id_cobrador || ''} 
