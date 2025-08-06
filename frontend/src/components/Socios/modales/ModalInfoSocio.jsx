@@ -10,7 +10,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
     periodos: []
   });
 
-  const [pestañaActiva, setPestañaActiva] = useState('datos'); // valores: 'datos', 'contacto', 'finanzas'
+  const [pestañaActiva, setPestañaActiva] = useState('datos');
 
   useEffect(() => {
     if (!socio) return;
@@ -40,7 +40,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
   if (!socio) return null;
 
   const formatoFecha = (fecha) => {
-    if (!fecha) return '-';
+    if (!fecha || fecha === '0000-00-00') return '-';
     const [year, month, day] = fecha.split('-');
     return `${day}/${month}/${year}`;
   };
@@ -184,7 +184,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
                   </div>
                   <div className="info-item">
                     <span className="info-label">Periodo Adeudado:</span>
-                    <span className="info-value">{obtenerDescripcion(listas.periodos, socio.id_periodo_adeudado)}</span>
+                    <span className="info-value">{obtenerDescripcion(listas.periodos, socio.id_periodo)}</span>
                   </div>
                 </div>
               </div>

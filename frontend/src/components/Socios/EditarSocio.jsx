@@ -27,13 +27,14 @@ const EditarSocio = () => {
     dni: '',
     ingreso: '',
     deuda_2024: '',
-    id_periodo_adeudado: ''
+    id_periodo: ''
   });
 
   const [listas, setListas] = useState({ 
     categorias: [], 
     cobradores: [], 
     estados: [],
+    periodos: [],
     loaded: false
   });
   
@@ -54,10 +55,44 @@ const EditarSocio = () => {
     });
   };
 
-  // Función para validar que solo se ingresen números
+  const formatFechaISO = (fecha) => {
+    if (!fecha || fecha === '0000-00-00' || fecha === 'NULL') return '';
+
+    // Si ya está en formato YYYY-MM-DD, usarla directamente
+    if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return fecha;
+    }
+
+    // Si es formato tipo Date (de MySQL)
+    if (typeof fecha === 'string' && fecha.includes('T')) {
+      try {
+        const dateObj = new Date(fecha);
+        if (!isNaN(dateObj.getTime())) {
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } catch (e) {
+        console.error("Error al parsear fecha:", e);
+      }
+    }
+
+    // Si es formato DD/MM/YYYY o similar
+    if (typeof fecha === 'string') {
+      const parts = fecha.split(/[\/\-]/);
+      if (parts.length === 3) {
+        let [d, m, y] = parts;
+        if (y.length === 2) y = `20${y}`;
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+    }
+
+    return '';
+  };
+
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
-    // Solo permite números y elimina cualquier carácter no numérico
     const numericValue = value.replace(/[^0-9]/g, '');
     setFormData(prev => ({
       ...prev,
@@ -86,10 +121,19 @@ const EditarSocio = () => {
         const dataSocio = await resSocio.json();
         
         if (dataSocio.exito) {
+          console.log("Datos recibidos del socio:", dataSocio.socio);
+          
           const socioFormateado = {};
           for (const key in formData) {
-            socioFormateado[key] = dataSocio.socio[key] ?? '';
+            if (key === 'nacimiento' || key === 'ingreso') {
+              socioFormateado[key] = formatFechaISO(dataSocio.socio[key]);
+              console.log(`Formateando ${key}:`, dataSocio.socio[key], "->", socioFormateado[key]);
+            } else {
+              socioFormateado[key] = dataSocio.socio[key] ?? '';
+            }
           }
+          
+          console.log("Datos formateados:", socioFormateado);
           setFormData(socioFormateado);
           setDatosOriginales(socioFormateado);
         } else {
@@ -122,10 +166,21 @@ const EditarSocio = () => {
     setActiveField(null);
   };
 
+  const normalizar = (data) => {
+    const copia = { ...data };
+    Object.keys(copia).forEach((key) => {
+      if (copia[key] === '') copia[key] = null;
+    });
+    return copia;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const sinCambios = JSON.stringify(formData) === JSON.stringify(datosOriginales);
+    const formNormalizado = normalizar(formData);
+    const originalNormalizado = normalizar(datosOriginales);
+    const sinCambios = JSON.stringify(formNormalizado) === JSON.stringify(originalNormalizado);
+    
     if (sinCambios) {
       showToast('No se encontraron cambios para realizar', 'advertencia');
       return;
@@ -215,7 +270,6 @@ const EditarSocio = () => {
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
-                {/* Grupo de domicilio y número */}
                 <div className="edit-socio-domicilio-group">
                   <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
                     <label className="edit-socio-label">Domicilio</label>
@@ -235,11 +289,11 @@ const EditarSocio = () => {
                     <input
                       name="numero"
                       value={formData.numero || ''}
-                      onChange={handleNumberChange}  // Usamos la función especial para números
+                      onChange={handleNumberChange}
                       onFocus={() => handleFocus('numero')}
                       onBlur={handleBlur}
                       className="edit-socio-input"
-                      inputMode="numeric"  // Muestra teclado numérico en dispositivos móviles
+                      inputMode="numeric"
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
@@ -262,6 +316,7 @@ const EditarSocio = () => {
                 <div className={`edit-socio-input-wrapper ${formData.ingreso || activeField === 'ingreso' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Fecha de Ingreso</label>
                   <input
+                    type="date"
                     name="ingreso"
                     value={formData.ingreso || ''}
                     onChange={handleChange}
@@ -380,7 +435,6 @@ const EditarSocio = () => {
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
-                {/* Textarea para comentarios */}
                 <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Comentarios</label>
                   <textarea
@@ -402,10 +456,11 @@ const EditarSocio = () => {
             <button 
               type="submit" 
               className="edit-socio-button"
+              disabled={loading}
             >
               <FontAwesomeIcon icon={faSave} className="edit-socio-icon-button" />
               <span className="edit-socio-button-text">
-                {loading ? 'Actualizar Socio' : 'Actualizar Socio'}
+                {loading ? 'Guardando...' : 'Actualizar Socio'}
               </span>
             </button>
           </div>
