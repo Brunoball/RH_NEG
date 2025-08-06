@@ -27,7 +27,8 @@ const AgregarSocio = () => {
     nacimiento: '',
     id_estado: '',
     domicilio_cobro: '',
-    dni: ''
+    dni: '',
+    fecha_ingreso: ''
   });
 
   const [errores, setErrores] = useState({});
@@ -198,7 +199,7 @@ const AgregarSocio = () => {
               <h3 className="add-socio-section-title">Información Básica</h3>
               <div className="add-socio-section-content">
                 <div className={`add-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Nombre completo *</label>
+                  <label className="add-socio-label">Apellido y Nombre *</label>
                   <input
                     name="nombre"
                     value={formData.nombre || ''}
@@ -213,8 +214,104 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
+                {/* Grupo de DNI y Fecha Nacimiento */}
+                <div className="add-socio-group">
+                  <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`} style={{flex: 1}}>
+                    <label className="add-socio-label">DNI</label>
+                    <input
+                      name="dni"
+                      value={formData.dni || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('dni')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.dni && (
+                      <span className="add-socio-error">{errores.dni}</span>
+                    )}
+                  </div>
+
+                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                    <label className="add-socio-label">Fecha Nacimiento</label>
+                    <input
+                      type="date"
+                      name="nacimiento"
+                      value={formData.nacimiento || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('nacimiento')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                  </div>
+                </div>
+
+                <div className="add-socio-input-wrapper has-value">
+                  <label className="add-socio-label">Fecha de Ingreso</label>
+                  <input
+                    type="date"
+                    name="fecha_ingreso"
+                    value={formData.fecha_ingreso || ''}
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('fecha_ingreso')}
+                    onBlur={handleBlur}
+                    className="add-socio-input"
+                  />
+                  <span className="add-socio-input-highlight"></span>
+                </div>
+
+                {/* Grupo de Categoría y Estado */}
+                <div className="add-socio-group">
+                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                    <label className="add-socio-label">Categoría</label>
+                    <select 
+                      name="id_categoria" 
+                      value={formData.id_categoria || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_categoria')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="">Seleccionar categoría</option>
+                      {listas.categorias.map(c => (
+                        <option key={c.id} value={c.id}>{c.descripcion}</option>
+                      ))}
+                    </select>
+                    <span className="add-socio-input-highlight"></span>
+                  </div>
+
+                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                    <label className="add-socio-label">Estado</label>
+                    <select 
+                      name="id_estado" 
+                      value={formData.id_estado || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_estado')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="">Seleccionar estado</option>
+                      {listas.estados.map(e => (
+                        <option key={e.id} value={e.id}>{e.descripcion}</option>
+                      ))}
+                    </select>
+                    <span className="add-socio-input-highlight"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="add-socio-section">
+              <h3 className="add-socio-section-title">Contacto y Cobro</h3>
+              <div className="add-socio-section-content">
                 {/* Grupo de domicilio y número */}
-                <div className="add-socio-address-group">
+                <div className="add-socio-group">
                   <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 2}}>
                     <label className="add-socio-label">Domicilio</label>
                     <input
@@ -251,44 +348,6 @@ const AgregarSocio = () => {
                   </div>
                 </div>
 
-                <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">DNI</label>
-                  <input
-                    name="dni"
-                    value={formData.dni || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('dni')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.dni && (
-                    <span className="add-socio-error">{errores.dni}</span>
-                  )}
-                </div>
-
-                <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Fecha de nacimiento</label>
-                  <input
-                    type="date"
-                    name="nacimiento"
-                    value={formData.nacimiento || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('nacimiento')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="add-socio-section">
-              <h3 className="add-socio-section-title">Contacto y Cobro</h3>
-              <div className="add-socio-section-content">
                 <div className={`add-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
                   <label className="add-socio-label">Domicilio de Cobro</label>
                   <input
@@ -342,9 +401,14 @@ const AgregarSocio = () => {
                     <span className="add-socio-error">{errores.telefono_fijo}</span>
                   )}
                 </div>
+              </div>
+            </div>
 
+            <div className="add-socio-section">
+              <h3 className="add-socio-section-title">Cobro y Comentarios</h3>
+              <div className="add-socio-section-content">
                 <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Cobrador</label>
+                  <label className="add-socio-label">Métodos de Pago</label>
                   <select 
                     name="id_cobrador" 
                     value={formData.id_cobrador || ''} 
@@ -354,52 +418,9 @@ const AgregarSocio = () => {
                     className="add-socio-input"
                     disabled={loading || !listas.loaded}
                   >
-                    <option value="">Seleccionar cobrador</option>
+                    <option value="">Seleccionar método</option>
                     {listas.cobradores.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
-                  </select>
-                  <span className="add-socio-input-highlight"></span>
-                </div>
-              </div>
-            </div>
-
-            <div className="add-socio-section">
-              <h3 className="add-socio-section-title">Estado y Comentarios</h3>
-              <div className="add-socio-section-content">
-                <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Categoría</label>
-                  <select 
-                    name="id_categoria" 
-                    value={formData.id_categoria || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_categoria')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="">Seleccionar categoría</option>
-                    {listas.categorias.map(c => (
-                      <option key={c.id} value={c.id}>{c.descripcion}</option>
-                    ))}
-                  </select>
-                  <span className="add-socio-input-highlight"></span>
-                </div>
-
-                <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Estado</label>
-                  <select 
-                    name="id_estado" 
-                    value={formData.id_estado || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_estado')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="">Seleccionar estado</option>
-                    {listas.estados.map(e => (
-                      <option key={e.id} value={e.id}>{e.descripcion}</option>
                     ))}
                   </select>
                   <span className="add-socio-input-highlight"></span>

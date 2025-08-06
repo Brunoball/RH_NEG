@@ -33,12 +33,18 @@ const BotonesInferiores = React.memo(({
   sociosFiltrados, 
   socios,
   exportarExcel,
-  filtroActivo
+  filtroActivo,
+  setFiltros
 }) => (
   <div className="soc-barra-inferior">
     <button
       className="soc-boton soc-boton-volver"
       onClick={() => {
+        setFiltros({
+          busqueda: '',
+          letraSeleccionada: 'TODOS',
+          filtroActivo: null
+        });
         localStorage.removeItem('filtros_socios');
         navigate('/panel');
       }}
@@ -321,6 +327,26 @@ const Socios = () => {
     };
 
     cargarDatosIniciales();
+
+    // Manejar el evento popstate (navegación atrás/adelante)
+    const handlePopState = () => {
+      // Verificar si estamos en la ruta principal
+      if (window.location.pathname === '/panel') {
+        // Limpiar filtros
+        setFiltros({
+          busqueda: '',
+          letraSeleccionada: 'TODOS',
+          filtroActivo: null
+        });
+        localStorage.removeItem('filtros_socios');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, [mostrarToast]);
 
   useEffect(() => {
@@ -667,6 +693,7 @@ const Socios = () => {
           socios={socios}
           exportarExcel={exportarExcel}
           filtroActivo={filtroActivo}
+          setFiltros={setFiltros}
         />
 
         {ReactDOM.createPortal(

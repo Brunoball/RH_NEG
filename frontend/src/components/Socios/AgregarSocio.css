@@ -238,7 +238,9 @@
 }
 
 .add-socio-input-wrapper textarea.add-socio-input {
+  max-width: 100%;
   min-height: 100px;
+  max-height: 180px;
   resize: vertical;
 }
 
@@ -342,7 +344,18 @@
   }
 }
 
-/* Nuevos estilos para el grupo de domicilio */
+/* Grupo de inputs */
+.add-socio-group {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+.add-socio-group .add-socio-input-wrapper {
+  margin-bottom: 0;
+}
+
+/* Grupo de domicilio */
 .add-socio-address-group {
   display: flex;
   gap: 1rem;
@@ -354,8 +367,8 @@
 }
 
 /* Estilos para inputs numéricos */
-
-
+.add-socio-input[type="number"]::-webkit-outer-spin-button,
+.add-socio-input[type="number"]::-webkit-inner-spin-button,
 .add-socio-input[type="tel"]::-webkit-outer-spin-button,
 .add-socio-input[type="tel"]::-webkit-inner-spin-button,
 .add-socio-input[inputmode="numeric"]::-webkit-outer-spin-button,
@@ -382,6 +395,7 @@
     grid-template-columns: 1fr;
   }
 
+  .add-socio-group,
   .add-socio-address-group {
     flex-direction: column;
     gap: 1.2rem;

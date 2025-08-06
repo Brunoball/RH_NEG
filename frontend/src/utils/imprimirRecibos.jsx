@@ -155,6 +155,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
         .periodo-grupo div {
           flex: 1;
           display: flex;
+          font-size: .7rem;
           align-items: center;
           white-space: nowrap;
           overflow: hidden;

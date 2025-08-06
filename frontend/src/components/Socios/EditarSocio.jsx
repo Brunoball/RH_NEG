@@ -27,7 +27,7 @@ const EditarSocio = () => {
     dni: '',
     ingreso: '',
     deuda_2024: '',
-    id_periodo: ''
+    id_periodo: '',
   });
 
   const [listas, setListas] = useState({ 
@@ -58,12 +58,10 @@ const EditarSocio = () => {
   const formatFechaISO = (fecha) => {
     if (!fecha || fecha === '0000-00-00' || fecha === 'NULL') return '';
 
-    // Si ya está en formato YYYY-MM-DD, usarla directamente
     if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
       return fecha;
     }
 
-    // Si es formato tipo Date (de MySQL)
     if (typeof fecha === 'string' && fecha.includes('T')) {
       try {
         const dateObj = new Date(fecha);
@@ -78,7 +76,6 @@ const EditarSocio = () => {
       }
     }
 
-    // Si es formato DD/MM/YYYY o similar
     if (typeof fecha === 'string') {
       const parts = fecha.split(/[\/\-]/);
       if (parts.length === 3) {
@@ -121,19 +118,15 @@ const EditarSocio = () => {
         const dataSocio = await resSocio.json();
         
         if (dataSocio.exito) {
-          console.log("Datos recibidos del socio:", dataSocio.socio);
-          
           const socioFormateado = {};
           for (const key in formData) {
             if (key === 'nacimiento' || key === 'ingreso') {
               socioFormateado[key] = formatFechaISO(dataSocio.socio[key]);
-              console.log(`Formateando ${key}:`, dataSocio.socio[key], "->", socioFormateado[key]);
             } else {
               socioFormateado[key] = dataSocio.socio[key] ?? '';
             }
           }
           
-          console.log("Datos formateados:", socioFormateado);
           setFormData(socioFormateado);
           setDatosOriginales(socioFormateado);
         } else {
@@ -245,7 +238,7 @@ const EditarSocio = () => {
               <h3 className="edit-socio-section-title">Información Básica</h3>
               <div className="edit-socio-section-content">
                 <div className={`edit-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Nombre completo</label>
+                  <label className="edit-socio-label">Apellido y Nombre</label>
                   <input
                     name="nombre"
                     value={formData.nombre || ''}
@@ -257,19 +250,96 @@ const EditarSocio = () => {
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">DNI</label>
+                <div className="edit-socio-group-row">
+                  <div className={`edit-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">DNI</label>
+                    <input
+                      name="dni"
+                      value={formData.dni || ''}
+                      onChange={handleNumberChange}
+                      onFocus={() => handleFocus('dni')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      inputMode="numeric"
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+
+                  <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Fecha de Nacimiento</label>
+                    <input
+                      type="date"
+                      name="nacimiento"
+                      value={formData.nacimiento || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('nacimiento')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+                </div>
+
+                <div className={`edit-socio-input-wrapper ${formData.ingreso || activeField === 'ingreso' ? 'has-value' : ''}`}>
+                  <label className="edit-socio-label">Fecha de Ingreso</label>
                   <input
-                    name="dni"
-                    value={formData.dni || ''}
+                    type="date"
+                    name="ingreso"
+                    value={formData.ingreso || ''}
                     onChange={handleChange}
-                    onFocus={() => handleFocus('dni')}
+                    onFocus={() => handleFocus('ingreso')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
 
+                <div className="edit-socio-group-row">
+                  <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Categoría</label>
+                    <select 
+                      name="id_categoria" 
+                      value={formData.id_categoria || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_categoria')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="" disabled hidden>Seleccione categoría</option>
+                      {listas.categorias.map(c => (
+                        <option key={c.id} value={c.id}>{c.descripcion}</option>
+                      ))}
+                    </select>
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+
+                  <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Estado</label>
+                    <select 
+                      name="id_estado" 
+                      value={formData.id_estado || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_estado')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="" disabled hidden>Seleccione estado</option>
+                      {listas.estados.map(e => (
+                        <option key={e.id} value={e.id}>{e.descripcion}</option>
+                      ))}
+                    </select>
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección de Contacto y Cobro */}
+            <div className="edit-socio-section">
+              <h3 className="edit-socio-section-title">Contacto y Cobro</h3>
+              <div className="edit-socio-section-content">
                 <div className="edit-socio-domicilio-group">
                   <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
                     <label className="edit-socio-label">Domicilio</label>
@@ -299,40 +369,6 @@ const EditarSocio = () => {
                   </div>
                 </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Fecha de nacimiento</label>
-                  <input
-                    type="date"
-                    name="nacimiento"
-                    value={formData.nacimiento || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('nacimiento')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
-                <div className={`edit-socio-input-wrapper ${formData.ingreso || activeField === 'ingreso' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Fecha de Ingreso</label>
-                  <input
-                    type="date"
-                    name="ingreso"
-                    value={formData.ingreso || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('ingreso')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Sección de Contacto y Cobro */}
-            <div className="edit-socio-section">
-              <h3 className="edit-socio-section-title">Contacto y Cobro</h3>
-              <div className="edit-socio-section-content">
                 <div className={`edit-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Domicilio de Cobro</label>
                   <input
@@ -351,10 +387,11 @@ const EditarSocio = () => {
                   <input
                     name="telefono_movil"
                     value={formData.telefono_movil || ''}
-                    onChange={handleChange}
+                    onChange={handleNumberChange}
                     onFocus={() => handleFocus('telefono_movil')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
+                    inputMode="tel"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
@@ -364,16 +401,23 @@ const EditarSocio = () => {
                   <input
                     name="telefono_fijo"
                     value={formData.telefono_fijo || ''}
-                    onChange={handleChange}
+                    onChange={handleNumberChange}
                     onFocus={() => handleFocus('telefono_fijo')}
                     onBlur={handleBlur}
                     className="edit-socio-input"
+                    inputMode="tel"
                   />
                   <span className="edit-socio-input-highlight"></span>
                 </div>
+              </div>
+            </div>
 
+            {/* Sección de Cobro y Comentarios */}
+            <div className="edit-socio-section">
+              <h3 className="edit-socio-section-title">Cobro y Comentarios</h3>
+              <div className="edit-socio-section-content">
                 <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Cobrador</label>
+                  <label className="edit-socio-label">Medios ed Pago</label>
                   <select 
                     name="id_cobrador" 
                     value={formData.id_cobrador || ''} 
@@ -383,57 +427,15 @@ const EditarSocio = () => {
                     className="edit-socio-input"
                     disabled={loading || !listas.loaded}
                   >
-                    <option value="" disabled hidden>Seleccione un cobrador</option>
+                    <option value="" disabled hidden>Seleccione cobrador</option>
                     {listas.cobradores.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                   </select>
                   <span className="edit-socio-input-highlight"></span>
                 </div>
-              </div>
-            </div>
 
-            {/* Sección de Estado y Comentarios */}
-            <div className="edit-socio-section">
-              <h3 className="edit-socio-section-title">Estado y Comentarios</h3>
-              <div className="edit-socio-section-content">
-                <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Categoría</label>
-                  <select 
-                    name="id_categoria" 
-                    value={formData.id_categoria || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_categoria')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="" disabled hidden>Seleccione una categoría</option>
-                    {listas.categorias.map(c => (
-                      <option key={c.id} value={c.id}>{c.descripcion}</option>
-                    ))}
-                  </select>
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Estado</label>
-                  <select 
-                    name="id_estado" 
-                    value={formData.id_estado || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_estado')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="" disabled hidden>Seleccione un estado</option>
-                    {listas.estados.map(e => (
-                      <option key={e.id} value={e.id}>{e.descripcion}</option>
-                    ))}
-                  </select>
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
 
                 <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                   <label className="edit-socio-label">Comentarios</label>
