@@ -136,7 +136,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           justify-content: center;
         }
         .firma {
-          font-size: 6pt;
+          font-size: 8pt;
           text-align: center;
           width: 100%;
         }
