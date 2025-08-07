@@ -213,9 +213,8 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                {/* Grupo de DNI y Fecha Nacimiento */}
                 <div className="add-socio-group">
-                  <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`} style={{flex: 1}}>
+                  <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">DNI</label>
                     <input
                       name="dni"
@@ -234,7 +233,7 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                  <div className="add-socio-input-wrapper has-value">
                     <label className="add-socio-label">Fecha Nacimiento</label>
                     <input
                       type="date"
@@ -249,9 +248,8 @@ const AgregarSocio = () => {
                   </div>
                 </div>
 
-                {/* Grupo de Categoría y Estado */}
                 <div className="add-socio-group">
-                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                  <div className="add-socio-input-wrapper has-value">
                     <label className="add-socio-label">Categoría</label>
                     <select 
                       name="id_categoria" 
@@ -270,7 +268,7 @@ const AgregarSocio = () => {
                     <span className="add-socio-input-highlight"></span>
                   </div>
 
-                  <div className="add-socio-input-wrapper has-value" style={{flex: 1}}>
+                  <div className="add-socio-input-wrapper has-value">
                     <label className="add-socio-label">Estado</label>
                     <select 
                       name="id_estado" 
@@ -295,9 +293,8 @@ const AgregarSocio = () => {
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
-                {/* Grupo de domicilio y número */}
                 <div className="add-socio-group">
-                  <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 2}}>
+                  <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">Domicilio</label>
                     <input
                       name="domicilio"
@@ -313,7 +310,7 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
+                  <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">Número</label>
                     <input
                       name="numero"
@@ -349,9 +346,8 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                {/* Grupo de teléfonos móvil y fijo */}
                 <div className="add-socio-group">
-                  <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`} style={{flex: 1}}>
+                  <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">Teléfono Móvil</label>
                     <input
                       name="telefono_movil"
@@ -370,7 +366,7 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`} style={{flex: 1}}>
+                  <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">Teléfono Fijo</label>
                     <input
                       name="telefono_fijo"
@@ -423,7 +419,7 @@ const AgregarSocio = () => {
                     onFocus={() => handleFocus('comentario')}
                     onBlur={handleBlur}
                     className="add-socio-input"
-                    rows="3"
+                    rows="4"
                   />
                   <span className="add-socio-input-highlight"></span>
                   {mostrarErrores && errores.comentario && (
