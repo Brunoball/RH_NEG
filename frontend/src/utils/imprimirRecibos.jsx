@@ -207,7 +207,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
                   <div class="row">
                     <div class="cell periodo-grupo">
                       <div><strong>Período:</strong>&nbsp;${textoPeriodo} / ${anioActual}</div>
-                      <div><strong>Grupo:</strong>&nbsp;${categoria} - ${estado}</div>
+                      <div><strong>Grupo:</strong>&nbsp;${categoria}&nbsp;<strong>Estado:</strong>&nbsp;${estado}</div>
                     </div>
                     <div class="cell cell-barcode">
                       ${conCodigo
