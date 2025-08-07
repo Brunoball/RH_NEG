@@ -239,8 +239,8 @@
 
 .add-socio-input-wrapper textarea.add-socio-input {
   max-width: 100%;
-  min-height: 100px;
-  max-height: 180px;
+  min-height: 200px;
+  max-height: 22vh;
   resize: vertical;
 }
 

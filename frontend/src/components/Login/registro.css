@@ -99,12 +99,11 @@
 }
 
 .reg_logo {
-  width: 80px;
-  height: 80px;
+  width: 110px;
   margin-bottom: 15px;
-  border-radius: var(--princ-border-radius);
+  border-radius: 50%;
+  border: 2px solid var(--princ-secondary);
   object-fit: contain;
-  padding: 12px;
   background: var(--princ-glass);
   box-shadow: var(--princ-shadow-sm), inset 0 0 0 1px rgba(0, 0, 0, 0.05);
   transition: var(--princ-transition);
@@ -112,8 +111,7 @@
 
 @media (min-width: 768px) {
   .reg_logo {
-    width: 90px;
-    height: 90px;
+    width: 100px;
     margin-bottom: 20px;
   }
 }

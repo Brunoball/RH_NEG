@@ -330,8 +330,8 @@ body {
 .edit-socio-textarea {
   width: 100%;
   max-width: 100%;
-  min-height: 100px;
-  max-height: 180px;
+  min-height: 200px;
+  max-height: 22vh;
   padding: 0.8rem 1rem;
   font-size: 0.95rem;
   border-radius: var(--edit-border-radius);
