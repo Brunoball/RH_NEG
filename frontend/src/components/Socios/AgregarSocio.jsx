@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faArrowLeft, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSave, faArrowLeft, faUserPlus, faArrowRight, faArrowLeft as faStepBack } from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
 import './AgregarSocio.css';
 
 const AgregarSocio = () => {
   const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
   const [listas, setListas] = useState({ 
     categorias: [], 
     cobradores: [], 
@@ -119,23 +120,49 @@ const AgregarSocio = () => {
     setActiveField(null);
   };
 
+  const validarPasoActual = () => {
+    const nuevosErrores = {};
+    
+    if (currentStep === 1) {
+      ['nombre', 'dni', 'id_categoria', 'id_estado'].forEach(field => {
+        const error = validarCampo(field, formData[field]);
+        if (error) nuevosErrores[field] = error;
+      });
+    } else if (currentStep === 2) {
+      ['domicilio', 'numero', 'domicilio_cobro', 'telefono_movil', 'telefono_fijo'].forEach(field => {
+        const error = validarCampo(field, formData[field]);
+        if (error) nuevosErrores[field] = error;
+      });
+    } else if (currentStep === 3) {
+      ['comentario'].forEach(field => {
+        const error = validarCampo(field, formData[field]);
+        if (error) nuevosErrores[field] = error;
+      });
+    }
+    
+    setErrores(nuevosErrores);
+    setMostrarErrores(true);
+    
+    return Object.keys(nuevosErrores).length === 0;
+  };
+
+  const handleNextStep = () => {
+    if (validarPasoActual()) {
+      setCurrentStep(prev => Math.min(prev + 1, 3));
+      setMostrarErrores(false);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setMostrarErrores(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMostrarErrores(true);
-    const nuevosErrores = {};
-
-    if (!formData.nombre.trim()) nuevosErrores.nombre = 'El nombre es obligatorio';
-
-    Object.entries(formData).forEach(([key, value]) => {
-      const error = validarCampo(key, value);
-      if (error) nuevosErrores[key] = error;
-    });
-
-    if (Object.keys(nuevosErrores).length > 0) {
-      setErrores(nuevosErrores);
-      return;
-    }
-
+    
+    if (!validarPasoActual()) return;
+    
     try {
       setLoading(true);
       const response = await fetch(`${BASE_URL}/api.php?action=agregar_socio`, {
@@ -161,6 +188,31 @@ const AgregarSocio = () => {
       setLoading(false);
     }
   };
+
+  const ProgressSteps = () => (
+    <div className="progress-steps">
+      {[1, 2, 3].map((step) => (
+        <div 
+          key={step}
+          className={`progress-step ${currentStep === step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
+          onClick={() => currentStep > step && setCurrentStep(step)}
+        >
+          <div className="step-number">{step}</div>
+          <div className="step-label">
+            {step === 1 && 'Información'}
+            {step === 2 && 'Contacto'}
+            {step === 3 && 'Cobro'}
+          </div>
+        </div>
+      ))}
+      <div className="progress-bar">
+        <div 
+          className="progress-bar-fill" 
+          style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="add-socio-container">
@@ -192,13 +244,16 @@ const AgregarSocio = () => {
           </button>
         </div>
         
+        <ProgressSteps />
+        
         <form onSubmit={handleSubmit} className="add-socio-form">
-          <div className="add-socio-sections">
+          {/* Paso 1: Información Básica */}
+          {currentStep === 1 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Información Básica</h3>
               <div className="add-socio-section-content">
                 <div className={`add-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Apellido y Nombre *</label>
+                  <label className="add-socio-label">Apellido y Nombre</label>
                   <input
                     name="nombre"
                     value={formData.nombre || ''}
@@ -289,7 +344,10 @@ const AgregarSocio = () => {
                 </div>
               </div>
             </div>
+          )}
 
+          {/* Paso 2: Contacto y Cobro */}
+          {currentStep === 2 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
@@ -387,60 +445,87 @@ const AgregarSocio = () => {
                 </div>
               </div>
             </div>
+          )}
 
+          {/* Paso 3: Cobro y Comentarios */}
+          {currentStep === 3 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Cobro y Comentarios</h3>
               <div className="add-socio-section-content">
                 <div className="add-socio-input-wrapper has-value">
                   <label className="add-socio-label">Métodos de Pago</label>
-                  <select 
-                    name="id_cobrador" 
-                    value={formData.id_cobrador || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_cobrador')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="">Seleccionar método</option>
-                    {listas.cobradores.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
-                  </select>
-                  <span className="add-socio-input-highlight"></span>
-                </div>
+                    <select 
+                      name="id_cobrador" 
+                      value={formData.id_cobrador || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_cobrador')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="">Seleccionar método</option>
+                      {listas.cobradores.map(c => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                      ))}
+                    </select>
+                    <span className="add-socio-input-highlight"></span>
+                  </div>
 
-                <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Comentarios</label>
-                  <textarea
-                    name="comentario"
-                    value={formData.comentario || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('comentario')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    rows="4"
-                  />
-                  <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.comentario && (
-                    <span className="add-socio-error">{errores.comentario}</span>
-                  )}
+                  <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
+                    <label className="add-socio-label">Comentarios</label>
+                    <textarea
+                      name="comentario"
+                      value={formData.comentario || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('comentario')}
+                      onBlur={handleBlur}
+                      className="add-socio-input"
+                      rows="4"
+                    />
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.comentario && (
+                      <span className="add-socio-error">{errores.comentario}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+          )}
 
           <div className="add-socio-buttons-container">
-            <button 
-              type="submit" 
-              className="add-socio-button"
-              disabled={loading}
-            >
-              <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
-              <span className="add-socio-button-text">
-                {loading ? 'Guardando...' : 'Guardar Socio'}
-              </span>
-            </button>
+            {currentStep > 1 && (
+              <button 
+                type="button" 
+                className="add-socio-button prev-step"
+                onClick={handlePrevStep}
+                disabled={loading}
+              >
+                <FontAwesomeIcon icon={faStepBack} className="add-socio-icon-button" />
+                <span className="add-socio-button-text">Anterior</span>
+              </button>
+            )}
+            
+            {currentStep < 3 ? (
+              <button 
+                type="button" 
+                className="add-socio-button next-step"
+                onClick={handleNextStep}
+                disabled={loading}
+              >
+                <span className="add-socio-button-text">Siguiente</span>
+                <FontAwesomeIcon icon={faArrowRight} className="add-socio-icon-button" />
+              </button>
+            ) : (
+              <button 
+                type="submit" 
+                className="add-socio-button"
+                disabled={loading}
+              >
+                <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
+                <span className="add-socio-button-text">
+                  {loading ? 'Guardando...' : 'Guardar Socio'}
+                </span>
+              </button>
+            )}
           </div>
         </form>
       </div>

@@ -11,6 +11,7 @@ const EditarSocio = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const formRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('datos');
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -26,8 +27,6 @@ const EditarSocio = () => {
     domicilio_cobro: '',
     dni: '',
     ingreso: '',
-    deuda_2024: '',
-    id_periodo: '',
   });
 
   const [listas, setListas] = useState({ 
@@ -232,226 +231,249 @@ const EditarSocio = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="edit-socio-form" ref={formRef}>
-          <div className="edit-socio-sections">
-            {/* Sección de Información Básica */}
-            <div className="edit-socio-section">
-              <h3 className="edit-socio-section-title">Información Básica</h3>
-              <div className="edit-socio-section-content">
-                <div className={`edit-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Apellido y Nombre</label>
-                  <input
-                    name="nombre"
-                    value={formData.nombre || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('nombre')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
+          {/* Pestañas de navegación */}
+          <div className="edit-tabs">
+            <div 
+              className={`edit-tab ${activeTab === 'datos' ? 'active' : ''}`}
+              onClick={() => setActiveTab('datos')}
+            >
+              Datos Generales
+            </div>
+            <div 
+              className={`edit-tab ${activeTab === 'contacto' ? 'active' : ''}`}
+              onClick={() => setActiveTab('contacto')}
+            >
+              Contacto
+            </div>
+            <div 
+              className={`edit-tab ${activeTab === 'cobranza' ? 'active' : ''}`}
+              onClick={() => setActiveTab('cobranza')}
+            >
+              Cobranza
+            </div>
+          </div>
 
-                <div className="edit-socio-group-row">
-                  <div className={`edit-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">DNI</label>
+          {/* Contenido de las pestañas */}
+          <div className="edit-tab-content">
+            {/* Pestaña Datos Generales */}
+            {activeTab === 'datos' && (
+              <div className="edit-tab-pane active">
+                <div className="edit-socio-section">
+                  <div className={`edit-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Apellido y Nombre</label>
                     <input
-                      name="dni"
-                      value={formData.dni || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('dni')}
+                      name="nombre"
+                      value={formData.nombre || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('nombre')}
                       onBlur={handleBlur}
                       className="edit-socio-input"
-                      inputMode="numeric"
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
 
-                  <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Fecha de Nacimiento</label>
+                  <div className="edit-socio-group-row">
+                    <div className={`edit-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">DNI</label>
+                      <input
+                        name="dni"
+                        value={formData.dni || ''}
+                        onChange={handleNumberChange}
+                        onFocus={() => handleFocus('dni')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        inputMode="numeric"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+
+                    <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">Fecha de Nacimiento</label>
+                      <input
+                        type="date"
+                        name="nacimiento"
+                        value={formData.nacimiento || ''}
+                        onChange={handleChange}
+                        onFocus={() => handleFocus('nacimiento')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+                  </div>
+
+                  <div className={`edit-socio-input-wrapper has-value`}>
+                    <label className="edit-socio-label">Fecha de Ingreso</label>
                     <input
                       type="date"
-                      name="nacimiento"
-                      value={formData.nacimiento || ''}
+                      name="ingreso"
+                      value={formData.ingreso || ''}
                       onChange={handleChange}
-                      onFocus={() => handleFocus('nacimiento')}
+                      onFocus={() => handleFocus('ingreso')}
                       onBlur={handleBlur}
                       className="edit-socio-input"
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
-                </div>
 
-<div className={`edit-socio-input-wrapper has-value`}> {/* Removida la condición && activeField === 'ingreso' */}
-  <label className="edit-socio-label">Fecha de Ingreso</label>
-  <input
-    type="date"
-    name="ingreso"
-    value={formData.ingreso || ''}
-    onChange={handleChange}
-    onFocus={() => handleFocus('ingreso')}
-    onBlur={handleBlur}
-    className="edit-socio-input"
-  />
-  <span className="edit-socio-input-highlight"></span>
-</div>
+                  <div className="edit-socio-group-row">
+                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">Categoría</label>
+                      <select 
+                        name="id_categoria" 
+                        value={formData.id_categoria || ''} 
+                        onChange={handleChange}
+                        onFocus={() => handleFocus('id_categoria')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        disabled={loading || !listas.loaded}
+                      >
+                        <option value="" disabled hidden>Seleccione categoría</option>
+                        {listas.categorias.map(c => (
+                          <option key={c.id} value={c.id}>{c.descripcion}</option>
+                        ))}
+                      </select>
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
 
-                <div className="edit-socio-group-row">
-                  <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Categoría</label>
-                    <select 
-                      name="id_categoria" 
-                      value={formData.id_categoria || ''} 
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('id_categoria')}
-                      onBlur={handleBlur}
-                      className="edit-socio-input"
-                      disabled={loading || !listas.loaded}
-                    >
-                      <option value="" disabled hidden>Seleccione categoría</option>
-                      {listas.categorias.map(c => (
-                        <option key={c.id} value={c.id}>{c.descripcion}</option>
-                      ))}
-                    </select>
-                    <span className="edit-socio-input-highlight"></span>
-                  </div>
-
-                  <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Estado</label>
-                    <select 
-                      name="id_estado" 
-                      value={formData.id_estado || ''} 
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('id_estado')}
-                      onBlur={handleBlur}
-                      className="edit-socio-input"
-                      disabled={loading || !listas.loaded}
-                    >
-                      <option value="" disabled hidden>Seleccione estado</option>
-                      {listas.estados.map(e => (
-                        <option key={e.id} value={e.id}>{e.descripcion}</option>
-                      ))}
-                    </select>
-                    <span className="edit-socio-input-highlight"></span>
+                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">Estado</label>
+                      <select 
+                        name="id_estado" 
+                        value={formData.id_estado || ''} 
+                        onChange={handleChange}
+                        onFocus={() => handleFocus('id_estado')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        disabled={loading || !listas.loaded}
+                      >
+                        <option value="" disabled hidden>Seleccione estado</option>
+                        {listas.estados.map(e => (
+                          <option key={e.id} value={e.id}>{e.descripcion}</option>
+                        ))}
+                      </select>
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Sección de Contacto y Cobro */}
-            <div className="edit-socio-section">
-              <h3 className="edit-socio-section-title">Contacto y Cobro</h3>
-              <div className="edit-socio-section-content">
-                <div className="edit-socio-domicilio-group">
-                  <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
-                    <label className="edit-socio-label">Domicilio</label>
+            {/* Pestaña Contacto */}
+            {activeTab === 'contacto' && (
+              <div className="edit-tab-pane active">
+                <div className="edit-socio-section">
+                  <div className="edit-socio-domicilio-group">
+                    <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
+                      <label className="edit-socio-label">Domicilio</label>
+                      <input
+                        name="domicilio"
+                        value={formData.domicilio || ''}
+                        onChange={handleChange}
+                        onFocus={() => handleFocus('domicilio')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+                    
+
+                    <div className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
+                      <label className="edit-socio-label">Número</label>
+                      <input
+                        name="numero"
+                        value={formData.numero || ''}
+                        onChange={handleNumberChange}
+                        onFocus={() => handleFocus('numero')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        inputMode="numeric"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+                  </div>
+                  <div className={`edit-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Domicilio de Cobro</label>
                     <input
-                      name="domicilio"
-                      value={formData.domicilio || ''}
+                      name="domicilio_cobro"
+                      value={formData.domicilio_cobro || ''}
                       onChange={handleChange}
-                      onFocus={() => handleFocus('domicilio')}
+                      onFocus={() => handleFocus('domicilio_cobro')}
                       onBlur={handleBlur}
                       className="edit-socio-input"
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
-
-                  <div className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
-                    <label className="edit-socio-label">Número</label>
+                  <div className={`edit-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Teléfono Móvil</label>
                     <input
-                      name="numero"
-                      value={formData.numero || ''}
+                      name="telefono_movil"
+                      value={formData.telefono_movil || ''}
                       onChange={handleNumberChange}
-                      onFocus={() => handleFocus('numero')}
+                      onFocus={() => handleFocus('telefono_movil')}
                       onBlur={handleBlur}
                       className="edit-socio-input"
-                      inputMode="numeric"
+                      inputMode="tel"
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
+
+                  <div className={`edit-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Teléfono Fijo</label>
+                    <input
+                      name="telefono_fijo"
+                      value={formData.telefono_fijo || ''}
+                      onChange={handleNumberChange}
+                      onFocus={() => handleFocus('telefono_fijo')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      inputMode="tel"
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div className={`edit-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Domicilio de Cobro</label>
-                  <input
-                    name="domicilio_cobro"
-                    value={formData.domicilio_cobro || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('domicilio_cobro')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
+            {/* Pestaña Cobranza */}
+            {activeTab === 'cobranza' && (
+              <div className="edit-tab-pane active">
+                <div className="edit-socio-section">
+                  <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Medios de Pago</label>
+                    <select 
+                      name="id_cobrador" 
+                      value={formData.id_cobrador || ''} 
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('id_cobrador')}
+                      onBlur={handleBlur}
+                      className="edit-socio-input"
+                      disabled={loading || !listas.loaded}
+                    >
+                      <option value="" disabled hidden>Seleccione cobrador</option>
+                      {listas.cobradores.map(c => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                      ))}
+                    </select>
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
 
-                <div className={`edit-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Teléfono Móvil</label>
-                  <input
-                    name="telefono_movil"
-                    value={formData.telefono_movil || ''}
-                    onChange={handleNumberChange}
-                    onFocus={() => handleFocus('telefono_movil')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                    inputMode="tel"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
-                <div className={`edit-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Teléfono Fijo</label>
-                  <input
-                    name="telefono_fijo"
-                    value={formData.telefono_fijo || ''}
-                    onChange={handleNumberChange}
-                    onFocus={() => handleFocus('telefono_fijo')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                    inputMode="tel"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
+                  <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
+                    <label className="edit-socio-label">Comentarios</label>
+                    <textarea
+                      name="comentario"
+                      value={formData.comentario || ''}
+                      onChange={handleChange}
+                      onFocus={() => handleFocus('comentario')}
+                      onBlur={handleBlur}
+                      className="edit-socio-textarea"
+                      rows="4"
+                    />
+                    <span className="edit-socio-input-highlight"></span>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Sección de Cobro y Comentarios */}
-            <div className="edit-socio-section">
-              <h3 className="edit-socio-section-title">Cobro y Comentarios</h3>
-              <div className="edit-socio-section-content">
-                <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Medios de Pago</label>
-                  <select 
-                    name="id_cobrador" 
-                    value={formData.id_cobrador || ''} 
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_cobrador')}
-                    onBlur={handleBlur}
-                    className="edit-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
-                    <option value="" disabled hidden>Seleccione cobrador</option>
-                    {listas.cobradores.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
-                  </select>
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-
-
-
-                <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                  <label className="edit-socio-label">Comentarios</label>
-                  <textarea
-                    name="comentario"
-                    value={formData.comentario || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('comentario')}
-                    onBlur={handleBlur}
-                    className="edit-socio-textarea"
-                    rows="4"
-                  />
-                  <span className="edit-socio-input-highlight"></span>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="edit-socio-buttons-container">
