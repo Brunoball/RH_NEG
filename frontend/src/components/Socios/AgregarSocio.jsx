@@ -40,6 +40,7 @@ const AgregarSocio = () => {
   });
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const showToast = (message, type = 'exito') => {
     setToast({
@@ -120,6 +121,15 @@ const AgregarSocio = () => {
     setActiveField(null);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentStep < 3) {
+        handleNextStep();
+      }
+    }
+  };
+
   const validarPasoActual = () => {
     const nuevosErrores = {};
     
@@ -160,6 +170,10 @@ const AgregarSocio = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormSubmitted(true);
+    
+    // Solo permitir submit si estamos en el paso 3 y se hizo clic en el botón
+    if (currentStep !== 3) return;
     
     if (!validarPasoActual()) return;
     
@@ -260,6 +274,7 @@ const AgregarSocio = () => {
                     onChange={handleChange}
                     onFocus={() => handleFocus('nombre')}
                     onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
                     className="add-socio-input"
                   />
                   <span className="add-socio-input-highlight"></span>
@@ -277,6 +292,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('dni')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       type="tel"
                       inputMode="numeric"
@@ -297,6 +313,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('nacimiento')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                     />
                     <span className="add-socio-input-highlight"></span>
@@ -360,6 +377,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('domicilio')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                     />
                     <span className="add-socio-input-highlight"></span>
@@ -376,6 +394,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('numero')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       type="tel"
                       inputMode="numeric"
@@ -396,6 +415,7 @@ const AgregarSocio = () => {
                     onChange={handleChange}
                     onFocus={() => handleFocus('domicilio_cobro')}
                     onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
                     className="add-socio-input"
                   />
                   <span className="add-socio-input-highlight"></span>
@@ -413,6 +433,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('telefono_movil')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       type="tel"
                       inputMode="numeric"
@@ -432,6 +453,7 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('telefono_fijo')}
                       onBlur={handleBlur}
+                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       type="tel"
                       inputMode="numeric"
@@ -481,6 +503,11 @@ const AgregarSocio = () => {
                       onBlur={handleBlur}
                       className="add-socio-input"
                       rows="4"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                        }
+                      }}
                     />
                     <span className="add-socio-input-highlight"></span>
                     {mostrarErrores && errores.comentario && (
@@ -494,7 +521,7 @@ const AgregarSocio = () => {
           <div className="add-socio-buttons-container">
             {currentStep > 1 && (
               <button 
-                type="button" 
+                type="button"
                 className="add-socio-button prev-step"
                 onClick={handlePrevStep}
                 disabled={loading}
@@ -506,7 +533,7 @@ const AgregarSocio = () => {
             
             {currentStep < 3 ? (
               <button 
-                type="button" 
+                type="button"
                 className="add-socio-button next-step"
                 onClick={handleNextStep}
                 disabled={loading}
@@ -516,13 +543,14 @@ const AgregarSocio = () => {
               </button>
             ) : (
               <button 
-                type="submit" 
+                type="button" // Cambiado de "submit" a "button"
                 className="add-socio-button"
+                onClick={handleSubmit} // Manejador de clic explícito
                 disabled={loading}
               >
                 <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
                 <span className="add-socio-button-text">
-                  {loading ? 'Guardando...' : 'Guardar Socio'}
+                  {loading ? 'Guardar Socio' : 'Guardar Socio'}
                 </span>
               </button>
             )}

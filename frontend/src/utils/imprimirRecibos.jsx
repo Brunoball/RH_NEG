@@ -73,7 +73,6 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
           height: 30mm;
           box-sizing: border-box;
           position: absolute;
-          border: 1px solid black;
           padding: .5rem 0 0;
           font-size: .8rem;
           overflow: hidden;
