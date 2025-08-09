@@ -34,6 +34,7 @@ const Cuotas = () => {
   const [loading, setLoading] = useState(true);
   const [loadingPrint, setLoadingPrint] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaId, setBusquedaId] = useState('');
   const [estadoPagoSeleccionado, setEstadoPagoSeleccionado] = useState('deudor');
   const [estadoSocioSeleccionado, setEstadoSocioSeleccionado] = useState('');
   const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState('');
@@ -85,6 +86,20 @@ const Cuotas = () => {
     obtenerCuotasYListas();
   }, [estadoPagoSeleccionado]);
 
+  const getId = (c) => {
+    return String(
+      c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? ''
+    );
+  };
+
+  const equalId = (c, needle) => {
+    if (!needle.trim()) return true;        // si no hay ID, no filtra
+    const a = Number(getId(c));
+    const b = Number(needle);
+    if (Number.isNaN(a) || Number.isNaN(b)) return false;
+    return a === b;
+  };
+
   const cuotasFiltradas = useMemo(() => {
     if (!periodoSeleccionado) return [];
 
@@ -95,11 +110,12 @@ const Cuotas = () => {
           c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
           c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
           c.documento?.toLowerCase().includes(busqueda.toLowerCase());
+        const coincideId = equalId(c, busquedaId);
         const coincideEstadoSocio = estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
         const coincideMedio = medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado;
         const coincideEstadoPago = estadoPagoSeleccionado === '' || c.estado_pago === estadoPagoSeleccionado;
 
-        return coincideBusqueda && coincideEstadoSocio && coincideMedio && coincideEstadoPago;
+        return coincideBusqueda && coincideId && coincideEstadoSocio && coincideMedio && coincideEstadoPago;
       });
 
     return cuotasFiltradas.sort((a, b) => {
@@ -112,7 +128,7 @@ const Cuotas = () => {
         return campoB.localeCompare(campoA);
       }
     });
-  }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado, estadoPagoSeleccionado, orden]);
+  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado, estadoPagoSeleccionado, orden]);
 
   const cantidadFiltradaDeudores = useMemo(() => {
     return cuotas.filter(c => 
@@ -121,11 +137,12 @@ const Cuotas = () => {
         c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
+      equalId(c, busquedaId) &&
       (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
       (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
       c.estado_pago === 'deudor'
     ).length;
-  }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
+  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
   const cantidadFiltradaPagados = useMemo(() => {
     return cuotas.filter(c => 
@@ -134,11 +151,12 @@ const Cuotas = () => {
         c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
+      equalId(c, busquedaId) &&
       (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
       (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
       c.estado_pago === 'pagado'
     ).length;
-  }, [cuotas, busqueda, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
+  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
   const toggleOrden = (campo) => {
     setOrden(prev => ({
@@ -167,6 +185,7 @@ const Cuotas = () => {
 
   const limpiarFiltros = () => {
     setBusqueda('');
+    setBusquedaId('');
     setEstadoSocioSeleccionado('');
     setMedioPagoSeleccionado('');
 
@@ -198,6 +217,7 @@ const Cuotas = () => {
         style={style} 
         className={`cuo_tabla-fila cuo_grid-container ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
       >
+        <div className="cuo_col-id">{getId(cuota) || '-'}</div>
         <div className="cuo_col-nombre">
           <div className="cuo_nombre-socio">{cuota.nombre}</div>
           {cuota.documento && <div className="cuo_documento">Doc: {cuota.documento}</div>}
@@ -424,6 +444,20 @@ const Cuotas = () => {
               />
             </div>
 
+            <div className="cuo_buscador-id-wrapper">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="ID"
+                value={busquedaId}
+                onChange={(e) => setBusquedaId(e.target.value.replace(/\D/g, ''))}
+                className="cuo_buscador-id"
+                disabled={loading}
+                title="Buscar por ID"
+              />
+            </div>
+
             <div className="cuo_content-actions">
               <button
                 className="cuo_boton cuo_boton-success"
@@ -455,6 +489,7 @@ const Cuotas = () => {
         <div className="cuo_tabla-container">
           <div className="cuo_tabla-wrapper">
             <div className="cuo_tabla-header cuo_grid-container">
+              <div className="cuo_col-id">ID</div>
               <div 
                 className="cuo_col-nombre" 
                 onClick={() => toggleOrden('nombre')}

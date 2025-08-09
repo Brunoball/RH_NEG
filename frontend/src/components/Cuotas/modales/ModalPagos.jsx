@@ -177,7 +177,7 @@ const ModalPagos = ({ socio, onClose }) => {
           <div className="modal-body">
             <div className="socio-info-card">
               <div className="socio-info-header">
-                <h3 className="socio-nombre">{socio.nombre}</h3>
+                <h3 className="socio-nombre">{`${socio.id_socio} - ${socio.nombre}`}</h3>
                 {fechaIngreso && (
                   <div className="socio-fecha">
                     <span className="fecha-label">Ingreso:</span>

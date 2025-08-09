@@ -42,6 +42,7 @@ const BotonesInferiores = React.memo(({
       onClick={() => {
         setFiltros({
           busqueda: '',
+          busquedaId: '',
           letraSeleccionada: 'TODOS',
           filtroActivo: null
         });
@@ -79,6 +80,7 @@ const BotonesInferiores = React.memo(({
 const BarraSuperior = React.memo(({ 
   cargando, 
   busqueda, 
+  busquedaId,
   letraSeleccionada, 
   setFiltros, 
   filtrosRef, 
@@ -94,6 +96,7 @@ const BarraSuperior = React.memo(({
       ...prev, 
       letraSeleccionada: letra,
       busqueda: '',
+      busquedaId: '',
       filtroActivo: 'letra'
     }));
     setMostrarFiltros(false);
@@ -106,6 +109,7 @@ const BarraSuperior = React.memo(({
       ...prev, 
       letraSeleccionada: 'TODOS',
       busqueda: '',
+      busquedaId: '',
       filtroActivo: 'todos'
     }));
     setMostrarFiltros(false);
@@ -119,32 +123,72 @@ const BarraSuperior = React.memo(({
         <h2 className="soc-titulo">Gestión de Socios</h2>
       </div>
 
-      <div className="soc-buscador-container">
-        <input
-          type="text"
-          placeholder="Buscar por nombre..."
-          value={busqueda}
-          onChange={(e) => {
-            setFiltros(prev => ({ 
-              ...prev, 
-              busqueda: e.target.value,
-              letraSeleccionada: 'TODOS',
-              filtroActivo: e.target.value ? 'busqueda' : null
-            }));
-            setAnimacionActiva(true);
-            setTimeout(() => setAnimacionActiva(false), 1000);
-          }}
-          className="soc-buscador"
-          disabled={cargando}
-        />
-        <div className="soc-buscador-iconos">
-          {busqueda ? (
-            <FaTimes 
-              className="soc-buscador-icono" 
+      <div className="soc-buscadores-container">
+        <div className="soc-buscador-container">
+          <input
+            type="text"
+            placeholder="Buscar por nombre..."
+            value={busqueda}
+            onChange={(e) => {
+              setFiltros(prev => ({ 
+                ...prev, 
+                busqueda: e.target.value,
+                busquedaId: '',
+                letraSeleccionada: 'TODOS',
+                filtroActivo: e.target.value ? 'busqueda' : null
+              }));
+              setAnimacionActiva(true);
+              setTimeout(() => setAnimacionActiva(false), 1000);
+            }}
+            className="soc-buscador"
+            disabled={cargando}
+          />
+          <div className="soc-buscador-iconos">
+            {busqueda ? (
+              <FaTimes 
+                className="soc-buscador-icono" 
+                onClick={() => {
+                  setFiltros(prev => ({ ...prev, busqueda: '', busquedaId: '', filtroActivo: null }));
+                  setAnimacionActiva(true);
+                  setTimeout(() => setAnimacionActiva(false), 1000);
+                }}
+              />
+            ) : (
+              <FaSearch className="soc-buscador-icono" />
+            )}
+          </div>
+        </div>
+
+        <div className="soc-buscador-container soc-buscador-id-container">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="ID"
+            value={busquedaId}
+            onChange={(e) => {
+              const onlyNums = e.target.value.replace(/\D/g, '');
+              setFiltros(prev => ({
+                ...prev,
+                busquedaId: onlyNums,
+                busqueda: '',
+                letraSeleccionada: 'TODOS',
+                filtroActivo: onlyNums ? 'id' : null
+              }));
+              setAnimacionActiva(true);
+              setTimeout(() => setAnimacionActiva(false), 600);
+            }}
+            className="soc-buscador soc-buscador-id"
+            disabled={cargando}
+            title="Buscar por ID (match exacto)"
+          />
+          {busquedaId ? (
+            <FaTimes
+              className="soc-buscador-icono"
               onClick={() => {
-                setFiltros(prev => ({ ...prev, busqueda: '', filtroActivo: null }));
+                setFiltros(prev => ({ ...prev, busquedaId: '', filtroActivo: null }));
                 setAnimacionActiva(true);
-                setTimeout(() => setAnimacionActiva(false), 1000);
+                setTimeout(() => setAnimacionActiva(false), 600);
               }}
             />
           ) : (
@@ -172,6 +216,10 @@ const BarraSuperior = React.memo(({
                 <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
                 {busqueda.length > 3 ? `${busqueda.substring(0, 3)}...` : busqueda}
               </span>
+            </div>
+          ) : busquedaId ? (
+            <div className="soc-filtro-activo">
+              <span className="soc-filtro-activo-id">ID: {busquedaId}</span>
             </div>
           ) : (filtroActivo === 'letra' && letraSeleccionada !== 'TODOS') ? (
             <div className="soc-filtro-activo">
@@ -242,15 +290,32 @@ const Socios = () => {
     const saved = localStorage.getItem('filtros_socios');
     return saved ? JSON.parse(saved) : {
       busqueda: '',
+      busquedaId: '',
       letraSeleccionada: 'TODOS',
       filtroActivo: null
     };
   });
 
-  const { busqueda, letraSeleccionada, filtroActivo } = filtros;
+  const { busqueda, busquedaId, letraSeleccionada, filtroActivo } = filtros;
+
+  // Helpers para manejo de IDs
+  const getId = (s) => String(s?.id_socio ?? s?.id ?? '');
+  const equalId = (s, needle) => {
+    if (!needle?.trim()) return true;
+    const a = Number(getId(s));
+    const b = Number(needle);
+    if (Number.isNaN(a) || Number.isNaN(b)) return false;
+    return a === b;
+  };
 
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
+
+    // Filtro por ID exacto (si hay valor)
+    if (busquedaId && filtroActivo === 'id') {
+      resultados = resultados.filter((s) => equalId(s, busquedaId));
+      return resultados;
+    }
 
     if (filtroActivo === 'busqueda' && busqueda) {
       resultados = resultados.filter((s) =>
@@ -265,7 +330,7 @@ const Socios = () => {
     }
 
     return resultados;
-  }, [socios, busqueda, letraSeleccionada, filtroActivo]);
+  }, [socios, busqueda, busquedaId, letraSeleccionada, filtroActivo]);
 
   useEffect(() => {
     if (sociosFiltrados.length > 0) {
@@ -328,13 +393,11 @@ const Socios = () => {
 
     cargarDatosIniciales();
 
-    // Manejar el evento popstate (navegación atrás/adelante)
     const handlePopState = () => {
-      // Verificar si estamos en la ruta principal
       if (window.location.pathname === '/panel') {
-        // Limpiar filtros
         setFiltros({
           busqueda: '',
+          busquedaId: '',
           letraSeleccionada: 'TODOS',
           filtroActivo: null
         });
@@ -462,6 +525,7 @@ const Socios = () => {
   const handleMostrarTodos = useCallback(() => {
     setFiltros({
       busqueda: '',
+      busquedaId: '',
       letraSeleccionada: 'TODOS',
       filtroActivo: 'todos'
     });
@@ -616,6 +680,7 @@ const Socios = () => {
         <BarraSuperior
           cargando={cargando}
           busqueda={busqueda}
+          busquedaId={busquedaId}
           letraSeleccionada={letraSeleccionada}
           setFiltros={setFiltros}
           filtrosRef={filtrosRef}
@@ -679,7 +744,7 @@ const Socios = () => {
               width="100%"
               itemData={sociosFiltrados}
               overscanCount={10}
-              key={`list-${busqueda}-${letraSeleccionada}`}
+              key={`list-${busqueda}-${letraSeleccionada}-${busquedaId}`}
             >
               {Row}
             </List>
