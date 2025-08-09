@@ -87,7 +87,8 @@ const BarraSuperior = React.memo(({
   mostrarFiltros, 
   setMostrarFiltros,
   filtroActivo,
-  setAnimacionActiva
+  setAnimacionActiva,
+  ultimoFiltroActivo
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -175,8 +176,11 @@ const BarraSuperior = React.memo(({
                 letraSeleccionada: 'TODOS',
                 filtroActivo: onlyNums ? 'id' : null
               }));
-              setAnimacionActiva(true);
-              setTimeout(() => setAnimacionActiva(false), 600);
+              
+              if ((onlyNums && filtroActivo !== 'id') || (!onlyNums && filtroActivo !== null)) {
+                setAnimacionActiva(true);
+                setTimeout(() => setAnimacionActiva(false), 300);
+              }
             }}
             className="soc-buscador soc-buscador-id"
             disabled={cargando}
@@ -184,7 +188,7 @@ const BarraSuperior = React.memo(({
           />
           {busquedaId ? (
             <FaTimes
-              className="soc-buscador-icono"
+              className="soc-buscador-icono" 
               onClick={() => {
                 setFiltros(prev => ({ ...prev, busquedaId: '', filtroActivo: null }));
                 setAnimacionActiva(true);
@@ -210,22 +214,27 @@ const BarraSuperior = React.memo(({
         </button>
         
         <div className="soc-filtros-activos-container">
-          {busqueda ? (
-            <div className="soc-filtro-activo">
+          {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && busqueda && (
+            <div className="soc-filtro-activo" key="busqueda">
               <span className="soc-filtro-activo-busqueda">
                 <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
                 {busqueda.length > 3 ? `${busqueda.substring(0, 3)}...` : busqueda}
               </span>
             </div>
-          ) : busquedaId ? (
-            <div className="soc-filtro-activo">
-              <span className="soc-filtro-activo-id">ID: {busquedaId}</span>
+          )}
+          {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
+            <div className="soc-filtro-activo" key="id">
+              <span className="soc-filtro-activo-id">
+                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
+                ID: {busquedaId}
+              </span>
             </div>
-          ) : (filtroActivo === 'letra' && letraSeleccionada !== 'TODOS') ? (
-            <div className="soc-filtro-activo">
+          )}
+          {(filtroActivo === 'letra' || ultimoFiltroActivo === 'letra') && letraSeleccionada !== 'TODOS' && (
+            <div className="soc-filtro-activo" key="letra">
               <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
             </div>
-          ) : null}
+          )}
         </div>
         
         {mostrarFiltros && (
@@ -277,6 +286,7 @@ const Socios = () => {
   const [bloquearInteraccion, setBloquearInteraccion] = useState(true);
   const [animacionActiva, setAnimacionActiva] = useState(false);
   const [tooltipVisible, setTooltipVisible] = useState(null);
+  const [ultimoFiltroActivo, setUltimoFiltroActivo] = useState(null);
   const filtrosRef = useRef(null);
   const navigate = useNavigate();
 
@@ -307,6 +317,28 @@ const Socios = () => {
     if (Number.isNaN(a) || Number.isNaN(b)) return false;
     return a === b;
   };
+
+  // Debounce para búsqueda por ID
+  const debounce = (func, wait) => {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  };
+
+  const handleIdSearch = debounce((value) => {
+    const onlyNums = value.replace(/\D/g, '');
+    setFiltros(prev => ({
+      ...prev,
+      busquedaId: onlyNums,
+      busqueda: '',
+      letraSeleccionada: 'TODOS',
+      filtroActivo: onlyNums ? 'id' : null
+    }));
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 300);
+  }, 300);
 
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
@@ -415,6 +447,12 @@ const Socios = () => {
   useEffect(() => {
     localStorage.setItem('filtros_socios', JSON.stringify(filtros));
   }, [filtros]);
+
+  useEffect(() => {
+    if (filtroActivo !== null) {
+      setUltimoFiltroActivo(filtroActivo);
+    }
+  }, [filtroActivo]);
 
   const manejarSeleccion = useCallback((socio) => {
     if (bloquearInteraccion || animacionActiva) return;
@@ -688,6 +726,7 @@ const Socios = () => {
           setMostrarFiltros={setMostrarFiltros}
           filtroActivo={filtroActivo}
           setAnimacionActiva={setAnimacionActiva}
+          ultimoFiltroActivo={ultimoFiltroActivo}
         />
 
         <div className="soc-tabla-container">

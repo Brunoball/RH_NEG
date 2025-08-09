@@ -99,6 +99,15 @@
   color: transparent;
 }
 
+/* Contenedor de los buscadores */
+.soc-buscadores-container {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Buscadores - Ajustes para las lupas */
 .soc-buscador-container {
   position: relative;
   width: 350px;
@@ -125,19 +134,49 @@
 
 .soc-buscador-iconos {
   position: absolute;
-  left: 1rem;
-  top: 55%;
+  left: 0;
+  top: 0;
   transform: translateY(-50%);
   color: var(--soc-gray-400);
+  display: flex;
+  align-items: center;
+  pointer-events: none; /* Permite hacer clic a través del icono */
 }
 
 .soc-buscador-icono {
+  left: 1rem;
+  top: .9rem;
   cursor: pointer;
+  position: absolute;
+    color: var(--soc-gray-400);
   transition: var(--soc-transition);
+  pointer-events: auto; /* Permite hacer clic solo en el icono */
 }
 
 .soc-buscador-icono:hover {
   color: var(--soc-primary);
+}
+
+/* Estilos específicos para el buscador de ID */
+.soc-buscador-id-container {
+  width: 120px;
+}
+
+.soc-buscador-id {
+  padding-left: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  color: var(--soc-primary-dark);
+}
+
+.soc-buscador-id::placeholder {
+  color: var(--soc-gray-400);
+  font-weight: normal;
+}
+
+.soc-buscador-id:focus {
+  border-color: var(--soc-primary-dark);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.2);
 }
 
 .soc-filtros-container {
@@ -336,7 +375,7 @@
 }
 
 .soc-filtros-container:not(:has(.soc-filtro-activo-busqueda, .soc-filtro-activo-letra)) .soc-filtro-activo {
-  opacity: 0;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -850,6 +889,16 @@
     min-width: auto;
   }
   
+  .soc-buscadores-container {
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 100%;
+  }
+  
+  .soc-buscador-id-container {
+    width: 100%;
+  }
+  
   .soc-tabla-header {
     display: none;
   }
@@ -949,6 +998,16 @@
     text-align: center;
   }
   
+  .soc-buscador,
+  .soc-buscador-id {
+    padding-left: 2.2rem;
+    font-size: 0.85rem;
+  }
+  
+  .soc-buscador-iconos {
+    left: 0.8rem;
+  }
+  
   .soc-mensaje-inicial {
     font-size: 0.85rem;
   }
@@ -1004,3 +1063,12 @@
 .soc-tabla-container ::-webkit-scrollbar-button {
   display: none;
 }
+.otrobuscador{
+  position: absolute !;
+}
+.soc-filtro-activo-id {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+

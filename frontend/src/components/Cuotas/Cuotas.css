@@ -918,3 +918,66 @@ body {
     max-width: none;
   }
 }
+/* Buscador ID */
+.cuo_buscador-id-wrapper {
+  position: relative;
+  width: 80px;
+  margin-left: 0.5rem;
+}
+
+.cuo_buscador-id {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2rem;
+  border: 1px solid var(--soc-gray-300);
+  border-radius: var(--soc-border-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--soc-transition);
+  background-color: white;
+  text-align: center;
+  color: var(--soc-gray-700);
+}
+
+.cuo_buscador-id::placeholder {
+  color: var(--soc-gray-400);
+  font-weight: normal;
+}
+
+.cuo_buscador-id:focus {
+  outline: none;
+  border-color: var(--soc-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* ID badge */
+.cuo_buscador-id-wrapper::before {
+  content: "ID";
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--soc-gray-500);
+  background-color: var(--soc-gray-100);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cuo_buscador-id-wrapper {
+    width: 70px;
+  }
+  
+  .cuo_buscador-id {
+    padding-left: 1.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .cuo_buscador-id-wrapper::before {
+    font-size: 0.65rem;
+    left: 0.6rem;
+  }
+}
