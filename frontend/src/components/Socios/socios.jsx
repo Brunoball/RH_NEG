@@ -318,7 +318,7 @@ const Socios = () => {
     return a === b;
   };
 
-  // Debounce para búsqueda por ID
+  // Debounce (por si luego lo querés usar)
   const debounce = (func, wait) => {
     let timeout;
     return (...args) => {
@@ -343,7 +343,6 @@ const Socios = () => {
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
 
-    // Filtro por ID exacto (si hay valor)
     if (busquedaId && filtroActivo === 'id') {
       resultados = resultados.filter((s) => equalId(s, busquedaId));
       return resultados;
@@ -369,7 +368,6 @@ const Socios = () => {
       const timer = setTimeout(() => {
         setBloquearInteraccion(false);
       }, 300);
-      
       return () => clearTimeout(timer);
     }
   }, [sociosFiltrados]);
@@ -456,7 +454,6 @@ const Socios = () => {
 
   const manejarSeleccion = useCallback((socio) => {
     if (bloquearInteraccion || animacionActiva) return;
-    
     setSocioSeleccionado(prev => 
       prev?.id_socio !== socio.id_socio ? socio : null
     );
@@ -490,12 +487,13 @@ const Socios = () => {
     }
   }, [mostrarToast]);
 
-  const darDeBajaSocio = useCallback(async (id) => {
+  // ⬇️ AHORA recibe (id, motivo) y lo envía al backend
+  const darDeBajaSocio = useCallback(async (id, motivo) => {
     try {
       const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_socio: id }),
+        body: JSON.stringify({ id_socio: id, motivo }),
       });
       const data = await response.json();
       if (data.exito) {
@@ -547,8 +545,8 @@ const Socios = () => {
       Comentario: s.comentario,
       Fecha_Nacimiento: s.nacimiento,
       Ingreso: s.ingreso,
-      Periodo_Adeudado: s.id_periodo_adeudado,
-      Deuda_2024: s.deuda_2024
+      // Si quisieras, podés incluir Motivo solo para inactivos si el backend lo devuelve en la lista:
+      // Motivo: s.motivo ?? ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -568,7 +566,6 @@ const Socios = () => {
       filtroActivo: 'todos'
     });
     setAnimacionActiva(true);
-    
     setTimeout(() => {
       setAnimacionActiva(false);
     }, 500);
@@ -638,7 +635,6 @@ const Socios = () => {
                       top: '50%',
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
-                      
                     }}
                   >
                     {socio.comentario}
@@ -833,7 +829,7 @@ const Socios = () => {
               setMostrarModalDarBaja(false);
               setSocioDarBaja(null);
             }}
-            onDarBaja={darDeBajaSocio}
+            onDarBaja={darDeBajaSocio} // ⬅️ ahora recibe (id, motivo)
           />,
           document.body
         )}

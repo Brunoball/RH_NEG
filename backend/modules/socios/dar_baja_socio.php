@@ -1,23 +1,52 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
-// Leer datos recibidos
-$data = json_decode(file_get_contents('php://input'), true);
-$id = $data['id_socio'] ?? null;
+// CORS (ajusta si corresponde)
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-// Validar ID
-if (!$id) {
-    echo json_encode(['exito' => false, 'mensaje' => 'ID de socio no proporcionado']);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
     exit;
 }
 
 try {
-    // Marcar como inactivo (activo = 0)
-    $stmt = $pdo->prepare('UPDATE socios SET activo = 0 WHERE id_socio = ?');
-    $stmt->execute([$id]);
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+
+    $id     = isset($data['id_socio']) ? (int)$data['id_socio'] : 0;
+    $motivo = isset($data['motivo']) ? trim((string)$data['motivo']) : '';
+
+    if ($id <= 0) {
+        echo json_encode(['exito' => false, 'mensaje' => 'ID de socio no proporcionado o inválido']);
+        exit;
+    }
+
+    if ($motivo === '') {
+        echo json_encode(['exito' => false, 'mensaje' => 'Debés ingresar un motivo para dar de baja']);
+        exit;
+    }
+
+    // Convertir a mayúsculas antes de guardar
+    $motivo = mb_strtoupper($motivo, 'UTF-8');
+
+    // Marcar inactivo, guardar motivo y registrar fecha de baja en 'ingreso' (hoy)
+    $sql = "UPDATE socios
+            SET activo = 0,
+                motivo = :motivo,
+                ingreso = CURDATE()
+            WHERE id_socio = :id";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':motivo' => $motivo,
+        ':id'     => $id
+    ]);
 
     echo json_encode(['exito' => true, 'mensaje' => 'Socio dado de baja correctamente']);
-} catch (PDOException $e) {
+} catch (Throwable $e) {
+    http_response_code(500);
     echo json_encode(['exito' => false, 'mensaje' => 'Error al dar de baja: ' . $e->getMessage()]);
 }

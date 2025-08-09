@@ -21,7 +21,7 @@ const SociosBaja = () => {
 
   useEffect(() => {
     const filtrados = socios.filter((s) =>
-      s.nombre.toLowerCase().includes(busqueda.toLowerCase())
+      (s.nombre || '').toLowerCase().includes(busqueda.toLowerCase())
     );
     setSociosFiltrados(filtrados);
   }, [busqueda, socios]);
@@ -32,8 +32,8 @@ const SociosBaja = () => {
       const response = await fetch(`${BASE_URL}/api.php?action=socios&baja=1`);
       const data = await response.json();
       if (data.exito) {
-        setSocios(data.socios);
-        setSociosFiltrados(data.socios);
+        setSocios(data.socios || []);
+        setSociosFiltrados(data.socios || []);
       } else {
         console.error('Error al obtener socios dados de baja:', data.mensaje);
         setToast({
@@ -93,6 +93,15 @@ const SociosBaja = () => {
     setToast({ ...toast, show: false });
   };
 
+  // (Opcional) Formateo simple de fecha a DD/MM/AAAA
+  const formatearFecha = (yyyy_mm_dd) => {
+    if (!yyyy_mm_dd) return '';
+    const [y, m, d] = yyyy_mm_dd.split('-');
+    if (!y || !m || !d) return yyyy_mm_dd;
+    return `${d}/${m}/${y}`;
+    // Si preferís la fecha “como viene”, devolvé directamente `yyyy_mm_dd`
+  };
+
   return (
     <div className="soc-container-baja">
       <div className="soc-glass-effect-baja"></div>
@@ -139,8 +148,8 @@ const SociosBaja = () => {
             <div className="soc-tabla-header-baja">
               <div className="soc-col-id-baja">ID</div>
               <div className="soc-col-nombre-baja">Nombre</div>
-              <div className="soc-col-domicilio-baja">Domicilio</div>
-              <div className="soc-col-comentario-baja">Comentario</div>
+              <div className="soc-col-domicilio-baja">Fecha de baja</div>
+              <div className="soc-col-comentario-baja">Motivo</div>
               <div className="soc-col-acciones-baja">Acciones</div>
             </div>
           </div>
@@ -158,8 +167,15 @@ const SociosBaja = () => {
                 <div className="soc-tabla-fila-baja" key={s.id_socio}>
                   <div className="soc-col-id-baja">{s.id_socio}</div>
                   <div className="soc-col-nombre-baja">{s.nombre}</div>
-                  <div className="soc-col-domicilio-baja">{`${s.domicilio ?? ''} ${s.numero ?? ''}`}</div>
-                  <div className="soc-col-comentario-baja">{s.comentario}</div>
+                  {/* Reutilizo clases existentes para no tocar CSS:
+                      - domicilio => ahora “Fecha de baja”
+                      - comentario => ahora “Motivo” */}
+                  <div className="soc-col-domicilio-baja">
+                    {formatearFecha(s.ingreso)}
+                  </div>
+                  <div className="soc-col-comentario-baja">
+                    {s.motivo || ''}
+                  </div>
                   <div className="soc-col-acciones-baja">
                     <div className="soc-iconos-acciones-baja">
                       <FaUserCheck
