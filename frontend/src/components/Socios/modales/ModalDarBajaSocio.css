@@ -189,3 +189,61 @@
     transform: none;
   }
 }
+/* Textarea Motivo de Baja */
+#motivo-baja {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--soc-dark);
+  background-color: white;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#motivo-baja::placeholder {
+  color: #9CA3AF;
+  opacity: 1;
+}
+
+#motivo-baja:focus {
+  outline: none;
+  border-color: var(--soc-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Estado hover */
+#motivo-baja:hover {
+  border-color: #D1D5DB;
+}
+
+/* Estado error */
+#motivo-baja.error {
+  border-color: #EF4444;
+}
+
+/* Label */
+.modal-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #004cff;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+/* Mensaje de error */
+.modal-error {
+  color: #EF4444;
+  font-size: 13px;
+  margin: -8px 0 16px 0;
+  padding: 0;
+  line-height: 1.5;
+}
+.modal-textarea{
+  max-height: 315px;
+}

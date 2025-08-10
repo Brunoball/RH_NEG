@@ -290,6 +290,53 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
+/* Buscador ID */
+.cuo_buscador-id-wrapper {
+  position: relative;
+  width: 80px;
+  margin-left: 0.5rem;
+}
+
+.cuo_buscador-id {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2rem;
+  border: 1px solid var(--soc-gray-300);
+  border-radius: var(--soc-border-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--soc-transition);
+  background-color: white;
+  text-align: center;
+  color: var(--soc-gray-700);
+}
+
+.cuo_buscador-id::placeholder {
+  color: var(--soc-gray-400);
+  font-weight: normal;
+}
+
+.cuo_buscador-id:focus {
+  outline: none;
+  border-color: var(--soc-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+/* ID badge */
+.cuo_buscador-id-wrapper::before {
+  content: "ID";
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--soc-gray-500);
+  background-color: var(--soc-gray-100);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
 /* Acciones */
 .cuo_content-actions {
   display: flex;
@@ -524,12 +571,21 @@ body {
 .cuo_grid-container {
   display: grid;
   grid-template-columns: 
-    minmax(220px, 3fr) 
-    minmax(180px, 2fr) 
-    minmax(120px, 1fr) 
-    minmax(150px, 1.5fr) 
-    minmax(120px, 1fr);
+    80px  /* ID */
+    minmax(220px, 3fr)  /* Nombre */
+    minmax(180px, 2fr)  /* Domicilio */
+    minmax(120px, 1fr)  /* Estado */
+    minmax(150px, 1.5fr)  /* Medio de Pago */
+    180px;  /* Acciones */
   align-items: center;
+}
+
+.cuo_col-id {
+  justify-content: center;
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--soc-gray-700);
 }
 
 .cuo_tabla-header {
@@ -588,12 +644,14 @@ body {
 }
 
 .cuo_col-estado,
-.cuo_col-medio-pago,
-.cuo_col-acciones {
+.cuo_col-medio-pago {
   justify-content: center;
 }
+
 .cuo_col-acciones {
-  margin-right: .5rem;
+  justify-content: flex-end;
+  padding-right: 1rem;
+  min-width: 180px;
 }
 
 .cuo_acciones-cell {
@@ -790,10 +848,11 @@ body {
   
   .cuo_grid-container {
     grid-template-columns: 
-      minmax(220px, 3fr) 
-      minmax(120px, 1fr) 
-      minmax(150px, 1.5fr) 
-      minmax(120px, 1fr);
+      80px  /* ID */
+      minmax(220px, 3fr)  /* Nombre */
+      minmax(120px, 1fr)  /* Estado */
+      minmax(150px, 1.5fr)  /* Medio de Pago */
+      180px;  /* Acciones */
   }
 }
 
@@ -917,56 +976,7 @@ body {
   .cuo_buscador-container {
     max-width: none;
   }
-}
-/* Buscador ID */
-.cuo_buscador-id-wrapper {
-  position: relative;
-  width: 80px;
-  margin-left: 0.5rem;
-}
-
-.cuo_buscador-id {
-  width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2rem;
-  border: 1px solid var(--soc-gray-300);
-  border-radius: var(--soc-border-radius);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: var(--soc-transition);
-  background-color: white;
-  text-align: center;
-  color: var(--soc-gray-700);
-}
-
-.cuo_buscador-id::placeholder {
-  color: var(--soc-gray-400);
-  font-weight: normal;
-}
-
-.cuo_buscador-id:focus {
-  outline: none;
-  border-color: var(--soc-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-}
-
-/* ID badge */
-.cuo_buscador-id-wrapper::before {
-  content: "ID";
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--soc-gray-500);
-  background-color: var(--soc-gray-100);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  pointer-events: none;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
+  
   .cuo_buscador-id-wrapper {
     width: 70px;
   }
