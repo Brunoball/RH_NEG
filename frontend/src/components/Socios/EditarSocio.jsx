@@ -302,22 +302,22 @@ const EditarSocio = () => {
                     </div>
                   </div>
 
-                  <div className={`edit-socio-input-wrapper has-value`}>
-                    <label className="edit-socio-label">Fecha de Ingreso</label>
-                    <input
-                      type="date"
-                      name="ingreso"
-                      value={formData.ingreso || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('ingreso')}
-                      onBlur={handleBlur}
-                      className="edit-socio-input"
-                    />
-                    <span className="edit-socio-input-highlight"></span>
-                  </div>
-
                   <div className="edit-socio-group-row">
-                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                    <div className={`edit-socio-input-wrapper has-value`} style={{flex: 1}}>
+                      <label className="edit-socio-label">Fecha de Ingreso</label>
+                      <input
+                        type="date"
+                        name="ingreso"
+                        value={formData.ingreso || ''}
+                        onChange={handleChange}
+                        onFocus={() => handleFocus('ingreso')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+
+                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`} style={{flex: 1}}>
                       <label className="edit-socio-label">Categoría</label>
                       <select 
                         name="id_categoria" 
@@ -336,7 +336,7 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`} style={{flex: 1}}>
                       <label className="edit-socio-label">Estado</label>
                       <select 
                         name="id_estado" 

@@ -225,7 +225,7 @@ const BarraSuperior = React.memo(({
           {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
             <div className="soc-filtro-activo" key="id">
               <span className="soc-filtro-activo-id">
-                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
+                
                 ID: {busquedaId}
               </span>
             </div>
