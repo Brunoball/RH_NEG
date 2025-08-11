@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $campos = [
             'nombre', 'id_cobrador', 'id_categoria', 'domicilio', 'numero',
             'telefono_movil', 'telefono_fijo', 'comentario', 'nacimiento', 'id_estado',
-            'domicilio_cobro', 'dni', 'ingreso', 'deuda_2024', 'id_periodo' // <- cambiado aquí
+            'domicilio_cobro', 'dni', 'ingreso'
         ];
 
         $set = [];

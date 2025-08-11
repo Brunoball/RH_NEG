@@ -6,8 +6,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
   const [listas, setListas] = useState({
     categorias: [],
     cobradores: [],
-    estados: [],
-    periodos: []
+    estados: []
   });
 
   const [pestañaActiva, setPestañaActiva] = useState('datos');
@@ -23,8 +22,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
           setListas({
             categorias: data.listas.categorias || [],
             cobradores: data.listas.cobradores || [],
-            estados: data.listas.estados || [],
-            periodos: data.listas.periodos || []
+            estados: data.listas.estados || []
           });
         } else {
           console.error('Error al obtener listas:', data.mensaje);
@@ -84,12 +82,6 @@ const ModalInfoSocio = ({ socio, onClose }) => {
               onClick={() => setPestañaActiva('contacto')}
             >
               Contacto
-            </div>
-            <div 
-              className={`tab ${pestañaActiva === 'finanzas' ? 'active' : ''}`} 
-              onClick={() => setPestañaActiva('finanzas')}
-            >
-              Finanzas
             </div>
           </div>
 
@@ -173,23 +165,6 @@ const ModalInfoSocio = ({ socio, onClose }) => {
             </div>
           )}
 
-          {pestañaActiva === 'finanzas' && (
-            <div className="tab-content active">
-              <div className="info-grid">
-                <div className="info-card">
-                  <h3 className="info-card-title">Estado Financiero</h3>
-                  <div className="info-item">
-                    <span className="info-label">Deuda 2024:</span>
-                    <span className="info-value">{socio.deuda_2024 || '0'}</span>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Periodo Adeudado:</span>
-                    <span className="info-value">{obtenerDescripcion(listas.periodos, socio.id_periodo)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
