@@ -40,14 +40,9 @@ const AgregarSocio = () => {
   });
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
-  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const showToast = (message, type = 'exito') => {
-    setToast({
-      show: true,
-      message,
-      type
-    });
+    setToast({ show: true, message, type });
   };
 
   useEffect(() => {
@@ -56,7 +51,6 @@ const AgregarSocio = () => {
         setLoading(true);
         const res = await fetch(`${BASE_URL}/api.php?action=listas`);
         const json = await res.json();
-        
         if (json.exito) {
           setListas({
             ...json.listas,
@@ -71,36 +65,51 @@ const AgregarSocio = () => {
         setLoading(false);
       }
     };
-    
     fetchListas();
   }, []);
 
-  const validarCampo = (name, value) => {
-    const soloNumeros = /^[0-9]+$/;
-    const textoValido = /^[A-ZÑa-zñáéíóúÁÉÍÓÚ0-9\s.,-]*$/;
+  // Regex Unicode alineado con backend
+  const soloNumeros = /^[0-9]+$/;
+  const textoValido = /^[\p{L}\p{N}\s.,-]*$/u; // letras (incluye acentos/ñ), números, espacio, . , -
 
+  const validarCampo = (name, value) => {
     switch (name) {
       case 'dni':
       case 'numero':
       case 'telefono_movil':
       case 'telefono_fijo':
         if (value && !soloNumeros.test(value)) return 'Solo se permiten números';
-        if (value.length > 20) return 'Máximo 20 caracteres';
+        if (value && value.length > 20) return 'Máximo 20 caracteres';
         break;
+
       case 'nombre':
       case 'domicilio':
         if (value && !textoValido.test(value)) {
-          return 'Solo se permiten letras, números, espacios, puntos, comas, guiones y Ñ';
+          return 'Solo letras/números, espacios y . , -';
         }
-        if (value.length > 100) return 'Máximo 100 caracteres';
+        if (value && value.length > 100) return 'Máximo 100 caracteres';
         break;
+
       case 'comentario':
-      case 'domicilio_cobro':
         if (value && !textoValido.test(value)) {
-          return 'Solo se permiten letras, números, espacios, puntos, comas, guiones y Ñ';
+          return 'Solo letras/números, espacios y . , -';
         }
-        if (value.length > 100) return 'Máximo 100 caracteres';
+        if (value && value.length > 1000) return 'Máximo 1000 caracteres';
         break;
+
+      case 'domicilio_cobro':
+        // ✅ Acepta cualquier caracter, solo limita longitud
+        if (value && value.length > 150) return 'Máximo 150 caracteres';
+        break;
+
+      case 'id_categoria':
+        if (!value) return 'Seleccioná una categoría';
+        break;
+
+      case 'id_estado':
+        if (!value) return 'Seleccioná un estado';
+        break;
+
       default:
         return null;
     }
@@ -113,26 +122,18 @@ const AgregarSocio = () => {
     setFormData(prev => ({ ...prev, [name]: valor }));
   };
 
-  const handleFocus = (fieldName) => {
-    setActiveField(fieldName);
-  };
-
-  const handleBlur = () => {
-    setActiveField(null);
-  };
+  const handleFocus = (fieldName) => setActiveField(fieldName);
+  const handleBlur = () => setActiveField(null);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (currentStep < 3) {
-        handleNextStep();
-      }
+      if (currentStep < 3) handleNextStep();
     }
   };
 
   const validarPasoActual = () => {
     const nuevosErrores = {};
-    
     if (currentStep === 1) {
       ['nombre', 'dni', 'id_categoria', 'id_estado'].forEach(field => {
         const error = validarCampo(field, formData[field]);
@@ -144,15 +145,13 @@ const AgregarSocio = () => {
         if (error) nuevosErrores[field] = error;
       });
     } else if (currentStep === 3) {
-      ['comentario'].forEach(field => {
+      ['comentario', 'id_cobrador'].forEach(field => {
         const error = validarCampo(field, formData[field]);
         if (error) nuevosErrores[field] = error;
       });
     }
-    
     setErrores(nuevosErrores);
     setMostrarErrores(true);
-    
     return Object.keys(nuevosErrores).length === 0;
   };
 
@@ -168,15 +167,23 @@ const AgregarSocio = () => {
     setMostrarErrores(false);
   };
 
+  const goToStepWithError = (errs) => {
+    const step1 = ['nombre', 'dni', 'id_categoria', 'id_estado'];
+    const step2 = ['domicilio', 'numero', 'domicilio_cobro', 'telefono_movil', 'telefono_fijo'];
+    const step3 = ['comentario', 'id_cobrador'];
+
+    const keys = Object.keys(errs || {});
+    if (keys.some(k => step1.includes(k))) return 1;
+    if (keys.some(k => step2.includes(k))) return 2;
+    if (keys.some(k => step3.includes(k))) return 3;
+    return currentStep;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormSubmitted(true);
-    
-    // Solo permitir submit si estamos en el paso 3 y se hizo clic en el botón
     if (currentStep !== 3) return;
-    
     if (!validarPasoActual()) return;
-    
+
     try {
       setLoading(true);
       const response = await fetch(`${BASE_URL}/api.php?action=agregar_socio`, {
@@ -188,12 +195,14 @@ const AgregarSocio = () => {
       const data = await response.json();
       if (data.exito) {
         showToast('Socio agregado correctamente', 'exito');
-        setTimeout(() => navigate('/socios'), 2500);
+        setTimeout(() => navigate('/socios'), 1500);
       } else {
         if (data.errores) {
           setErrores(data.errores);
+          setMostrarErrores(true);
+          setCurrentStep(goToStepWithError(data.errores));
         } else {
-          showToast('Error: ' + data.mensaje, 'error');
+          showToast('Error: ' + (data.mensaje || 'Desconocido'), 'error');
         }
       }
     } catch (error) {
@@ -338,6 +347,9 @@ const AgregarSocio = () => {
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.id_categoria && (
+                      <span className="add-socio-error">{errores.id_categoria}</span>
+                    )}
                   </div>
 
                   <div className="add-socio-input-wrapper has-value">
@@ -357,6 +369,9 @@ const AgregarSocio = () => {
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.id_estado && (
+                      <span className="add-socio-error">{errores.id_estado}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -476,46 +491,47 @@ const AgregarSocio = () => {
               <div className="add-socio-section-content">
                 <div className="add-socio-input-wrapper has-value">
                   <label className="add-socio-label">Métodos de Pago</label>
-                    <select 
-                      name="id_cobrador" 
-                      value={formData.id_cobrador || ''} 
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('id_cobrador')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      disabled={loading || !listas.loaded}
-                    >
-                      <option value="">Seleccionar método</option>
-                      {listas.cobradores.map(c => (
-                        <option key={c.id} value={c.id}>{c.nombre}</option>
-                      ))}
-                    </select>
-                    <span className="add-socio-input-highlight"></span>
-                  </div>
+                  <select 
+                    name="id_cobrador" 
+                    value={formData.id_cobrador || ''} 
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('id_cobrador')}
+                    onBlur={handleBlur}
+                    className="add-socio-input"
+                    disabled={loading || !listas.loaded}
+                  >
+                    <option value="">Seleccionar método</option>
+                    {listas.cobradores.map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                  <span className="add-socio-input-highlight"></span>
+                  {mostrarErrores && errores.id_cobrador && (
+                    <span className="add-socio-error">{errores.id_cobrador}</span>
+                  )}
+                </div>
 
-                  <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">Comentarios</label>
-                    <textarea
-                      name="comentario"
-                      value={formData.comentario || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('comentario')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      rows="4"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                        }
-                      }}
-                    />
-                    <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.comentario && (
-                      <span className="add-socio-error">{errores.comentario}</span>
-                    )}
-                  </div>
+                <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
+                  <label className="add-socio-label">Comentarios</label>
+                  <textarea
+                    name="comentario"
+                    value={formData.comentario || ''}
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('comentario')}
+                    onBlur={handleBlur}
+                    className="add-socio-input"
+                    rows="4"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault();
+                    }}
+                  />
+                  <span className="add-socio-input-highlight"></span>
+                  {mostrarErrores && errores.comentario && (
+                    <span className="add-socio-error">{errores.comentario}</span>
+                  )}
                 </div>
               </div>
+            </div>
           )}
 
           <div className="add-socio-buttons-container">
@@ -543,14 +559,14 @@ const AgregarSocio = () => {
               </button>
             ) : (
               <button 
-                type="button" // Cambiado de "submit" a "button"
+                type="button"
                 className="add-socio-button"
-                onClick={handleSubmit} // Manejador de clic explícito
+                onClick={handleSubmit}
                 disabled={loading}
               >
                 <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
                 <span className="add-socio-button-text">
-                  {loading ? 'Guardar Socio' : 'Guardar Socio'}
+                  {loading ? 'Guardando...' : 'Guardar Socio'}
                 </span>
               </button>
             )}
