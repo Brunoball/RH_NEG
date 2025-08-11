@@ -262,7 +262,7 @@ body {
 .cuo_buscador-container {
   position: relative;
   flex: 1;
-  max-width: 400px;
+  width: 400px;
 }
 
 .cuo_buscador-icono {
@@ -295,6 +295,10 @@ body {
   position: relative;
   width: 80px;
   margin-left: 0.5rem;
+}
+.conteiner-buscador {
+  display: flex;
+  flex-wrap: nowrap;
 }
 
 .cuo_buscador-id {

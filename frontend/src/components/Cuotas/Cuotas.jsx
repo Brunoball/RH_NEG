@@ -432,7 +432,8 @@ const Cuotas = () => {
           </div>
 
           <div className="cuo_header-bottom">
-            <div className="cuo_buscador-container">
+<div className='conteiner-buscador'>
+           <div className="cuo_buscador-container">
               <FaSearch className="cuo_buscador-icono" />
               <input
                 type="text"
@@ -457,7 +458,7 @@ const Cuotas = () => {
                 title="Buscar por ID"
               />
             </div>
-
+</div>
             <div className="cuo_content-actions">
               <button
                 className="cuo_boton cuo_boton-success"
