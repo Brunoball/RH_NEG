@@ -746,17 +746,7 @@ const Socios = () => {
             </div>
           </div>
           
-          {cargando ? (
-            <div className="soc-skeleton-rows">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="soc-skeleton-row"></div>
-              ))}
-            </div>
-          ) : socios.length === 0 ? (
-            <div className="soc-sin-resultados">
-              No hay socios registrados
-            </div>
-          ) : filtroActivo === null ? (
+          {filtroActivo === null ? (
             <div className="soc-boton-mostrar-container">
               <div className="soc-mensaje-inicial">
                 Por favor aplique al menos un filtro para ver los socios
@@ -767,6 +757,16 @@ const Socios = () => {
               >
                 Mostrar todos los socios
               </button>
+            </div>
+          ) : cargando ? (
+            <div className="soc-skeleton-rows">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="soc-skeleton-row"></div>
+              ))}
+            </div>
+          ) : socios.length === 0 ? (
+            <div className="soc-sin-resultados">
+              No hay socios registrados
             </div>
           ) : sociosFiltrados.length === 0 ? (
             <div className="soc-sin-resultados">
@@ -780,7 +780,7 @@ const Socios = () => {
               width="100%"
               itemData={sociosFiltrados}
               overscanCount={10}
-              key={`list-${busqueda}-${letraSeleccionada}-${busquedaId}`}
+              itemKey={(index, data) => data[index].id_socio}
             >
               {Row}
             </List>
