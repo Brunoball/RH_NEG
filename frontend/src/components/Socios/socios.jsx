@@ -169,15 +169,17 @@ const BarraSuperior = React.memo(({
             value={busquedaId}
             onChange={(e) => {
               const onlyNums = e.target.value.replace(/\D/g, '');
+              const limited = onlyNums.slice(0, 10); // Límite de 10 dígitos
               setFiltros(prev => ({
                 ...prev,
-                busquedaId: onlyNums,
+                busquedaId: limited,
                 busqueda: '',
                 letraSeleccionada: 'TODOS',
-                filtroActivo: onlyNums ? 'id' : null
+                // Activar filtro por ID sólo si hay 3+ dígitos
+                filtroActivo: limited.length >= 3 ? 'id' : null
               }));
               
-              if ((onlyNums && filtroActivo !== 'id') || (!onlyNums && filtroActivo !== null)) {
+              if ((limited && filtroActivo !== 'id') || (!limited && filtroActivo !== null)) {
                 setAnimacionActiva(true);
                 setTimeout(() => setAnimacionActiva(false), 300);
               }
@@ -185,6 +187,7 @@ const BarraSuperior = React.memo(({
             className="soc-buscador soc-buscador-id"
             disabled={cargando}
             title="Buscar por ID (match exacto)"
+            maxLength={10} // Límite de longitud en el input
           />
           {busquedaId ? (
             <FaTimes
@@ -224,9 +227,11 @@ const BarraSuperior = React.memo(({
           )}
           {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
             <div className="soc-filtro-activo" key="id">
-              <span className="soc-filtro-activo-id">
-                
-                ID: {busquedaId}
+              <span
+                className="soc-filtro-activo-id"
+                title={`ID: ${busquedaId}`} // Tooltip con el ID completo
+              >
+                ID: {busquedaId.length > 3 ? `${busquedaId.slice(0, 3)}...` : busquedaId}
               </span>
             </div>
           )}
@@ -487,7 +492,6 @@ const Socios = () => {
     }
   }, [mostrarToast]);
 
-  // ⬇️ AHORA recibe (id, motivo) y lo envía al backend
   const darDeBajaSocio = useCallback(async (id, motivo) => {
     try {
       const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
@@ -545,8 +549,6 @@ const Socios = () => {
       Comentario: s.comentario,
       Fecha_Nacimiento: s.nacimiento,
       Ingreso: s.ingreso,
-      // Si quisieras, podés incluir Motivo solo para inactivos si el backend lo devuelve en la lista:
-      // Motivo: s.motivo ?? ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -828,7 +830,7 @@ const Socios = () => {
               setMostrarModalDarBaja(false);
               setSocioDarBaja(null);
             }}
-            onDarBaja={darDeBajaSocio} // ⬅️ ahora recibe (id, motivo)
+            onDarBaja={darDeBajaSocio}
           />,
           document.body
         )}

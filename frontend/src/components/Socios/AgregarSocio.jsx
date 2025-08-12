@@ -110,6 +110,7 @@ const AgregarSocio = () => {
 
       case 'nombre':
       case 'domicilio':
+        if (!value && name === 'nombre') return 'El nombre es obligatorio';
         if (value && !textoValido.test(value)) {
           return 'Solo letras/números, espacios y . , -';
         }
@@ -127,14 +128,6 @@ const AgregarSocio = () => {
         if (value && value.length > 150) return 'Máximo 150 caracteres';
         break;
 
-      case 'id_categoria':
-        if (!value) return 'Seleccioná una categoría';
-        break;
-
-      case 'id_estado':
-        if (!value) return 'Seleccioná un estado';
-        break;
-
       default:
         return null;
     }
@@ -150,41 +143,28 @@ const AgregarSocio = () => {
   const handleFocus = (fieldName) => setActiveField(fieldName);
   const handleBlur = () => setActiveField(null);
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (currentStep < 3) handleNextStep();
-    }
-  };
-
   const validarPasoActual = () => {
     const nuevosErrores = {};
-    if (currentStep === 1) {
-      ['nombre', 'dni', 'id_categoria', 'id_estado'].forEach(field => {
-        const error = validarCampo(field, formData[field]);
-        if (error) nuevosErrores[field] = error;
-      });
-    } else if (currentStep === 2) {
-      ['domicilio', 'numero', 'domicilio_cobro', 'telefono_movil', 'telefono_fijo'].forEach(field => {
-        const error = validarCampo(field, formData[field]);
-        if (error) nuevosErrores[field] = error;
-      });
-    } else if (currentStep === 3) {
-      ['comentario', 'id_cobrador'].forEach(field => {
-        const error = validarCampo(field, formData[field]);
-        if (error) nuevosErrores[field] = error;
-      });
+
+    // Solo validamos "nombre" en cualquier paso
+    if (!formData.nombre.trim()) {
+      nuevosErrores.nombre = 'El nombre es obligatorio';
     }
+
     setErrores(nuevosErrores);
     setMostrarErrores(true);
     return Object.keys(nuevosErrores).length === 0;
   };
 
   const handleNextStep = () => {
-    if (validarPasoActual()) {
-      setCurrentStep(prev => Math.min(prev + 1, 3));
-      setMostrarErrores(false);
+    if (!formData.nombre.trim()) {
+      setErrores({ nombre: 'El nombre es obligatorio' });
+      setMostrarErrores(true);
+      return;
     }
+
+    setCurrentStep(prev => Math.min(prev + 1, 3));
+    setMostrarErrores(false);
   };
 
   const handlePrevStep = () => {
@@ -192,22 +172,13 @@ const AgregarSocio = () => {
     setMostrarErrores(false);
   };
 
-  const goToStepWithError = (errs) => {
-    const step1 = ['nombre', 'dni', 'id_categoria', 'id_estado'];
-    const step2 = ['domicilio', 'numero', 'domicilio_cobro', 'telefono_movil', 'telefono_fijo'];
-    const step3 = ['comentario', 'id_cobrador'];
-
-    const keys = Object.keys(errs || {});
-    if (keys.some(k => step1.includes(k))) return 1;
-    if (keys.some(k => step2.includes(k))) return 2;
-    if (keys.some(k => step3.includes(k))) return 3;
-    return currentStep;
-  };
-
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (currentStep !== 3) return;
-    if (!validarPasoActual()) return;
+    e?.preventDefault();
+    if (!formData.nombre.trim()) {
+      setErrores({ nombre: 'El nombre es obligatorio' });
+      setMostrarErrores(true);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -222,18 +193,21 @@ const AgregarSocio = () => {
         showToast('Socio agregado correctamente', 'exito');
         setTimeout(() => navigate('/socios'), 1500);
       } else {
-        if (data.errores) {
-          setErrores(data.errores);
-          setMostrarErrores(true);
-          setCurrentStep(goToStepWithError(data.errores));
-        } else {
-          showToast('Error: ' + (data.mensaje || 'Desconocido'), 'error');
-        }
+        showToast('Error: ' + (data.mensaje || 'Desconocido'), 'error');
       }
     } catch (error) {
       showToast('Error de conexión con el servidor', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFormKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentStep < 3) {
+        handleNextStep();
+      }
     }
   };
 
@@ -294,7 +268,11 @@ const AgregarSocio = () => {
         
         <ProgressSteps />
         
-        <form onSubmit={handleSubmit} className="add-socio-form">
+        <form 
+          onSubmit={(e) => e.preventDefault()}
+          onKeyDown={handleFormKeyDown} 
+          className="add-socio-form"
+        >
           {/* Paso 1: Información Básica */}
           {currentStep === 1 && (
             <div className="add-socio-section">
@@ -311,7 +289,6 @@ const AgregarSocio = () => {
                     onChange={handleChange}
                     onFocus={() => handleFocus('nombre')}
                     onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
                     className="add-socio-input"
                   />
                   <span className="add-socio-input-highlight"></span>
@@ -332,7 +309,6 @@ const AgregarSocio = () => {
                       onChange={handleNumberChange}
                       onFocus={() => handleFocus('dni')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       inputMode="numeric"
                     />
@@ -342,7 +318,7 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-<div className="add-socio-input-wrapper always-active">
+                  <div className="add-socio-input-wrapper always-active">
                     <label className="add-socio-label">
                       <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
                       Fecha Nacimiento
@@ -354,7 +330,6 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('nacimiento')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                     />
                     <span className="add-socio-input-highlight"></span>
@@ -382,9 +357,6 @@ const AgregarSocio = () => {
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_categoria && (
-                      <span className="add-socio-error">{errores.id_categoria}</span>
-                    )}
                   </div>
 
                   <div className={`add-socio-input-wrapper always-active ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
@@ -407,9 +379,6 @@ const AgregarSocio = () => {
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_estado && (
-                      <span className="add-socio-error">{errores.id_estado}</span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -433,13 +402,9 @@ const AgregarSocio = () => {
                       onChange={handleChange}
                       onFocus={() => handleFocus('domicilio')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                     />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.domicilio && (
-                      <span className="add-socio-error">{errores.domicilio}</span>
-                    )}
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
@@ -453,14 +418,10 @@ const AgregarSocio = () => {
                       onChange={handleNumberChange}
                       onFocus={() => handleFocus('numero')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       inputMode="numeric"
                     />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.numero && (
-                      <span className="add-socio-error">{errores.numero}</span>
-                    )}
                   </div>
                 </div>
 
@@ -475,13 +436,9 @@ const AgregarSocio = () => {
                     onChange={handleChange}
                     onFocus={() => handleFocus('domicilio_cobro')}
                     onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
                     className="add-socio-input"
                   />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.domicilio_cobro && (
-                    <span className="add-socio-error">{errores.domicilio_cobro}</span>
-                  )}
                 </div>
 
                 <div className="add-socio-group-row">
@@ -496,14 +453,10 @@ const AgregarSocio = () => {
                       onChange={handleNumberChange}
                       onFocus={() => handleFocus('telefono_movil')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       inputMode="tel"
                     />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_movil && (
-                      <span className="add-socio-error">{errores.telefono_movil}</span>
-                    )}
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
@@ -517,14 +470,10 @@ const AgregarSocio = () => {
                       onChange={handleNumberChange}
                       onFocus={() => handleFocus('telefono_fijo')}
                       onBlur={handleBlur}
-                      onKeyDown={handleKeyDown}
                       className="add-socio-input"
                       inputMode="tel"
                     />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_fijo && (
-                      <span className="add-socio-error">{errores.telefono_fijo}</span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -536,7 +485,7 @@ const AgregarSocio = () => {
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Cobro y Comentarios</h3>
               <div className="add-socio-section-content">
-                <div className={`add-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
+                <div className={`add-socio-input-wrapper always-active ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
                   <label className="add-socio-label">
                     <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
                     Métodos de Pago
@@ -556,9 +505,6 @@ const AgregarSocio = () => {
                     ))}
                   </select>
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.id_cobrador && (
-                    <span className="add-socio-error">{errores.id_cobrador}</span>
-                  )}
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
@@ -574,14 +520,8 @@ const AgregarSocio = () => {
                     onBlur={handleBlur}
                     className="add-socio-textarea"
                     rows="4"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.preventDefault();
-                    }}
                   />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.comentario && (
-                    <span className="add-socio-error">{errores.comentario}</span>
-                  )}
                 </div>
               </div>
             </div>
@@ -612,8 +552,9 @@ const AgregarSocio = () => {
               </button>
             ) : (
               <button 
-                type="submit"
+                type="button"
                 className="add-socio-button"
+                onClick={handleSubmit}
                 disabled={loading}
               >
                 <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
