@@ -27,6 +27,8 @@ const EditarSocio = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const formRef = useRef(null);
+  const nacimientoRef = useRef(null);
+  const ingresoRef = useRef(null);
   const [activeTab, setActiveTab] = useState('datos');
 
   const [formData, setFormData] = useState({
@@ -68,6 +70,20 @@ const EditarSocio = () => {
       message,
       type
     });
+  };
+
+  const openDateWithGesture = (ref) => (e) => {
+    const el = ref.current;
+    if (!el) return;
+    // Evita que el label haga focus primero y rompa el gesto
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    if (typeof el.showPicker === 'function') {
+      try { el.showPicker(); } catch { /* ignoramos si no deja */ }
+    } else {
+      // Fallback navegadores sin showPicker
+      el.click();
+    }
   };
 
   const formatFechaISO = (fecha) => {
@@ -309,18 +325,37 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
-                      <label className="edit-socio-label">
+                    <div 
+                      className={`edit-socio-input-wrapper always-active ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}
+                      onMouseDown={openDateWithGesture(nacimientoRef)}
+                      onTouchStart={openDateWithGesture(nacimientoRef)}
+                    >
+                      <label
+                        htmlFor="nacimiento"
+                        className="edit-socio-label"
+                        onMouseDown={openDateWithGesture(nacimientoRef)}
+                        onTouchStart={openDateWithGesture(nacimientoRef)}
+                      >
                         <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
                         Fecha de Nacimiento
                       </label>
+
                       <input
+                        id="nacimiento"
+                        ref={nacimientoRef}
                         type="date"
                         name="nacimiento"
                         value={formData.nacimiento || ''}
                         onChange={handleChange}
-                        onFocus={() => handleFocus('nacimiento')}
+                        onFocus={() => setActiveField('nacimiento')}
                         onBlur={handleBlur}
+                        onClick={openDateWithGesture(nacimientoRef)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openDateWithGesture(nacimientoRef)(e);
+                          }
+                        }}
                         className="edit-socio-input"
                       />
                       <span className="edit-socio-input-highlight"></span>
@@ -328,24 +363,43 @@ const EditarSocio = () => {
                   </div>
 
                   <div className="edit-socio-group-row">
-                    <div className={`edit-socio-input-wrapper has-value`}>
-                      <label className="edit-socio-label">
+                    <div 
+                      className={`edit-socio-input-wrapper always-active ${formData.ingreso || activeField === 'ingreso' ? 'has-value' : ''}`}
+                      onMouseDown={openDateWithGesture(ingresoRef)}
+                      onTouchStart={openDateWithGesture(ingresoRef)}
+                    >
+                      <label
+                        htmlFor="ingreso"
+                        className="edit-socio-label"
+                        onMouseDown={openDateWithGesture(ingresoRef)}
+                        onTouchStart={openDateWithGesture(ingresoRef)}
+                      >
                         <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
                         Fecha de Ingreso
                       </label>
+
                       <input
+                        id="ingreso"
+                        ref={ingresoRef}
                         type="date"
                         name="ingreso"
                         value={formData.ingreso || ''}
                         onChange={handleChange}
-                        onFocus={() => handleFocus('ingreso')}
+                        onFocus={() => setActiveField('ingreso')}
                         onBlur={handleBlur}
+                        onClick={openDateWithGesture(ingresoRef)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openDateWithGesture(ingresoRef)(e);
+                          }
+                        }}
                         className="edit-socio-input"
                       />
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                    <div className={`edit-socio-input-wrapper always-active ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
                       <label className="edit-socio-label">
                         <FontAwesomeIcon icon={faUserTag} className="input-icon" />
                         Categoría
@@ -367,7 +421,7 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                    <div className={`edit-socio-input-wrapper always-active ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
                       <label className="edit-socio-label">
                         <FontAwesomeIcon icon={faCircleInfo} className="input-icon" />
                         Estado
@@ -487,7 +541,7 @@ const EditarSocio = () => {
             {activeTab === 'cobranza' && (
               <div className="edit-tab-pane active">
                 <div className="edit-socio-section">
-                  <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
+                  <div className={`edit-socio-input-wrapper always-active ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
                     <label className="edit-socio-label">
                       <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
                       Medios de Pago

@@ -383,7 +383,10 @@
   position: sticky;
   bottom: 0;
 }
-
+.add-socio-textarea{
+  max-height: 22vh;
+  min-width: 100%;
+}
 .add-socio-button {
   display: inline-flex;
   align-items: center;
