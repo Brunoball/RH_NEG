@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faArrowLeft, faUserPlus, faArrowRight, faArrowLeft as faStepBack } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faSave, 
+  faArrowLeft, 
+  faUserPlus, 
+  faArrowRight, 
+  faArrowLeft as faStepBack,
+  faUser,
+  faIdCard,
+  faUserTag,
+  faCircleInfo,
+  faCalendarDays,
+  faHome,
+  faHashtag,
+  faMapMarkerAlt,
+  faMobileScreen,
+  faPhone,
+  faMoneyBillWave,
+  faComment
+} from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
 import './AgregarSocio.css';
@@ -68,9 +86,17 @@ const AgregarSocio = () => {
     fetchListas();
   }, []);
 
-  // Regex Unicode alineado con backend
+  const handleNumberChange = (e) => {
+    const { name, value } = e.target;
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  };
+
   const soloNumeros = /^[0-9]+$/;
-  const textoValido = /^[\p{L}\p{N}\s.,-]*$/u; // letras (incluye acentos/ñ), números, espacio, . , -
+  const textoValido = /^[\p{L}\p{N}\s.,-]*$/u;
 
   const validarCampo = (name, value) => {
     switch (name) {
@@ -98,7 +124,6 @@ const AgregarSocio = () => {
         break;
 
       case 'domicilio_cobro':
-        // ✅ Acepta cualquier caracter, solo limita longitud
         if (value && value.length > 150) return 'Máximo 150 caracteres';
         break;
 
@@ -276,7 +301,10 @@ const AgregarSocio = () => {
               <h3 className="add-socio-section-title">Información Básica</h3>
               <div className="add-socio-section-content">
                 <div className={`add-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Apellido y Nombre</label>
+                  <label className="add-socio-label">
+                    <FontAwesomeIcon icon={faUser} className="input-icon" />
+                    Apellido y Nombre
+                  </label>
                   <input
                     name="nombre"
                     value={formData.nombre || ''}
@@ -292,20 +320,21 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                <div className="add-socio-group">
+                <div className="add-socio-group-row">
                   <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">DNI</label>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faIdCard} className="input-icon" />
+                      DNI
+                    </label>
                     <input
                       name="dni"
                       value={formData.dni || ''}
-                      onChange={handleChange}
+                      onChange={handleNumberChange}
                       onFocus={() => handleFocus('dni')}
                       onBlur={handleBlur}
                       onKeyDown={handleKeyDown}
                       className="add-socio-input"
-                      type="tel"
                       inputMode="numeric"
-                      pattern="[0-9]*"
                     />
                     <span className="add-socio-input-highlight"></span>
                     {mostrarErrores && errores.dni && (
@@ -313,8 +342,11 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className="add-socio-input-wrapper has-value">
-                    <label className="add-socio-label">Fecha Nacimiento</label>
+<div className="add-socio-input-wrapper always-active">
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
+                      Fecha Nacimiento
+                    </label>
                     <input
                       type="date"
                       name="nacimiento"
@@ -329,9 +361,12 @@ const AgregarSocio = () => {
                   </div>
                 </div>
 
-                <div className="add-socio-group">
-                  <div className="add-socio-input-wrapper has-value">
-                    <label className="add-socio-label">Categoría</label>
+                <div className="add-socio-group-row">
+                  <div className={`add-socio-input-wrapper always-active ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faUserTag} className="input-icon" />
+                      Categoría
+                    </label>
                     <select 
                       name="id_categoria" 
                       value={formData.id_categoria || ''} 
@@ -341,7 +376,7 @@ const AgregarSocio = () => {
                       className="add-socio-input"
                       disabled={loading || !listas.loaded}
                     >
-                      <option value="">Seleccionar categoría</option>
+                      <option value="" disabled hidden>Seleccione categoría</option>
                       {listas.categorias.map(c => (
                         <option key={c.id} value={c.id}>{c.descripcion}</option>
                       ))}
@@ -352,8 +387,11 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className="add-socio-input-wrapper has-value">
-                    <label className="add-socio-label">Estado</label>
+                  <div className={`add-socio-input-wrapper always-active ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faCircleInfo} className="input-icon" />
+                      Estado
+                    </label>
                     <select 
                       name="id_estado" 
                       value={formData.id_estado || ''} 
@@ -363,7 +401,7 @@ const AgregarSocio = () => {
                       className="add-socio-input"
                       disabled={loading || !listas.loaded}
                     >
-                      <option value="">Seleccionar estado</option>
+                      <option value="" disabled hidden>Seleccione estado</option>
                       {listas.estados.map(e => (
                         <option key={e.id} value={e.id}>{e.descripcion}</option>
                       ))}
@@ -383,9 +421,12 @@ const AgregarSocio = () => {
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
-                <div className="add-socio-group">
+                <div className="add-socio-domicilio-group">
                   <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">Domicilio</label>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faHome} className="input-icon" />
+                      Domicilio
+                    </label>
                     <input
                       name="domicilio"
                       value={formData.domicilio || ''}
@@ -402,18 +443,19 @@ const AgregarSocio = () => {
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">Número</label>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faHashtag} className="input-icon" />
+                      Número
+                    </label>
                     <input
                       name="numero"
                       value={formData.numero || ''}
-                      onChange={handleChange}
+                      onChange={handleNumberChange}
                       onFocus={() => handleFocus('numero')}
                       onBlur={handleBlur}
                       onKeyDown={handleKeyDown}
                       className="add-socio-input"
-                      type="tel"
                       inputMode="numeric"
-                      pattern="[0-9]*"
                     />
                     <span className="add-socio-input-highlight"></span>
                     {mostrarErrores && errores.numero && (
@@ -423,7 +465,10 @@ const AgregarSocio = () => {
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Domicilio de Cobro</label>
+                  <label className="add-socio-label">
+                    <FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />
+                    Domicilio de Cobro
+                  </label>
                   <input
                     name="domicilio_cobro"
                     value={formData.domicilio_cobro || ''}
@@ -439,20 +484,21 @@ const AgregarSocio = () => {
                   )}
                 </div>
 
-                <div className="add-socio-group">
+                <div className="add-socio-group-row">
                   <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">Teléfono Móvil</label>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faMobileScreen} className="input-icon" />
+                      Teléfono Móvil
+                    </label>
                     <input
                       name="telefono_movil"
                       value={formData.telefono_movil || ''}
-                      onChange={handleChange}
+                      onChange={handleNumberChange}
                       onFocus={() => handleFocus('telefono_movil')}
                       onBlur={handleBlur}
                       onKeyDown={handleKeyDown}
                       className="add-socio-input"
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
+                      inputMode="tel"
                     />
                     <span className="add-socio-input-highlight"></span>
                     {mostrarErrores && errores.telefono_movil && (
@@ -461,18 +507,19 @@ const AgregarSocio = () => {
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">Teléfono Fijo</label>
+                    <label className="add-socio-label">
+                      <FontAwesomeIcon icon={faPhone} className="input-icon" />
+                      Teléfono Fijo
+                    </label>
                     <input
                       name="telefono_fijo"
                       value={formData.telefono_fijo || ''}
-                      onChange={handleChange}
+                      onChange={handleNumberChange}
                       onFocus={() => handleFocus('telefono_fijo')}
                       onBlur={handleBlur}
                       onKeyDown={handleKeyDown}
                       className="add-socio-input"
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
+                      inputMode="tel"
                     />
                     <span className="add-socio-input-highlight"></span>
                     {mostrarErrores && errores.telefono_fijo && (
@@ -489,8 +536,11 @@ const AgregarSocio = () => {
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Cobro y Comentarios</h3>
               <div className="add-socio-section-content">
-                <div className="add-socio-input-wrapper has-value">
-                  <label className="add-socio-label">Métodos de Pago</label>
+                <div className={`add-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
+                  <label className="add-socio-label">
+                    <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
+                    Métodos de Pago
+                  </label>
                   <select 
                     name="id_cobrador" 
                     value={formData.id_cobrador || ''} 
@@ -500,7 +550,7 @@ const AgregarSocio = () => {
                     className="add-socio-input"
                     disabled={loading || !listas.loaded}
                   >
-                    <option value="">Seleccionar método</option>
+                    <option value="" disabled hidden>Seleccione método</option>
                     {listas.cobradores.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
@@ -512,14 +562,17 @@ const AgregarSocio = () => {
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">Comentarios</label>
+                  <label className="add-socio-label">
+                    <FontAwesomeIcon icon={faComment} className="input-icon" />
+                    Comentarios
+                  </label>
                   <textarea
                     name="comentario"
                     value={formData.comentario || ''}
                     onChange={handleChange}
                     onFocus={() => handleFocus('comentario')}
                     onBlur={handleBlur}
-                    className="add-socio-input"
+                    className="add-socio-textarea"
                     rows="4"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') e.preventDefault();
@@ -559,9 +612,8 @@ const AgregarSocio = () => {
               </button>
             ) : (
               <button 
-                type="button"
+                type="submit"
                 className="add-socio-button"
-                onClick={handleSubmit}
                 disabled={loading}
               >
                 <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />

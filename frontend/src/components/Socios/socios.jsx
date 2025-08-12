@@ -762,7 +762,6 @@ const Socios = () => {
               <button
                 className="soc-boton-mostrar-todos"
                 onClick={handleMostrarTodos}
-                disabled={cargando}
               >
                 Mostrar todos los socios
               </button>

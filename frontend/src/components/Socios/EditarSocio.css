@@ -235,6 +235,21 @@ body {
   background: transparent;
   padding: 0 0.3rem;
   transform-origin: left center;
+  display: flex;
+  align-items: center;
+}
+
+/* Estilos para los íconos en los inputs */
+.input-icon {
+  margin-right: 0.5rem;
+  width: 1rem;
+  color: var(--edit-gray-500);
+  transition: var(--edit-transition);
+}
+
+.edit-socio-input-wrapper.has-value .input-icon,
+.edit-socio-input:focus ~ .edit-socio-label .input-icon {
+  color: var(--edit-primary);
 }
 
 .edit-socio-input {
@@ -280,6 +295,7 @@ body {
   font-weight: 500;
   padding: 0 0.5rem;
   left: 0.8rem;
+  z-index: 999999;
 }
 
 .edit-socio-input-wrapper textarea.edit-socio-input {
@@ -417,7 +433,45 @@ body {
   left: 0.8rem;
 }
 
-/* MODIFICACIONES IMPLEMENTADAS */
+/* Estilos minimalistas para inputs de fecha */
+.edit-socio-input[type="date"] {
+  position: relative;
+  padding-right: 2.5rem; /* Espacio para el icono */
+}
+
+.edit-socio-input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  color: transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Estilo para el icono de calendario */
+.edit-calendar-icon {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--edit-gray-400);
+  pointer-events: none;
+  font-size: 0.9rem;
+  transition: var(--edit-transition);
+}
+
+.edit-socio-input-wrapper:focus-within .edit-calendar-icon {
+  color: var(--edit-primary);
+}
+
+.edit-socio-input-wrapper.has-value .edit-calendar-icon {
+  color: var(--edit-primary-dark);
+}
+
 /* Grupo de inputs en fila */
 .edit-socio-group-row {
   display: flex;

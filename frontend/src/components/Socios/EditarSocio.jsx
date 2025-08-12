@@ -1,7 +1,23 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faArrowLeft, faUserEdit } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faSave, 
+  faArrowLeft, 
+  faUserEdit,
+  faUser,
+  faIdCard,
+  faUserTag,
+  faCircleInfo,
+  faCalendarDays,
+  faHome,
+  faHashtag,
+  faMapMarkerAlt,
+  faMobileScreen,
+  faPhone,
+  faMoneyBillWave,
+  faComment
+} from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
 import './EditarSocio.css';
@@ -260,7 +276,10 @@ const EditarSocio = () => {
               <div className="edit-tab-pane active">
                 <div className="edit-socio-section">
                   <div className={`edit-socio-input-wrapper ${formData.nombre || activeField === 'nombre' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Apellido y Nombre</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faUser} className="input-icon" />
+                      Apellido y Nombre
+                    </label>
                     <input
                       name="nombre"
                       value={formData.nombre || ''}
@@ -274,7 +293,10 @@ const EditarSocio = () => {
 
                   <div className="edit-socio-group-row">
                     <div className={`edit-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                      <label className="edit-socio-label">DNI</label>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faIdCard} className="input-icon" />
+                        DNI
+                      </label>
                       <input
                         name="dni"
                         value={formData.dni || ''}
@@ -288,7 +310,10 @@ const EditarSocio = () => {
                     </div>
 
                     <div className={`edit-socio-input-wrapper ${formData.nacimiento || activeField === 'nacimiento' ? 'has-value' : ''}`}>
-                      <label className="edit-socio-label">Fecha de Nacimiento</label>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
+                        Fecha de Nacimiento
+                      </label>
                       <input
                         type="date"
                         name="nacimiento"
@@ -303,8 +328,11 @@ const EditarSocio = () => {
                   </div>
 
                   <div className="edit-socio-group-row">
-                    <div className={`edit-socio-input-wrapper has-value`} style={{flex: 1}}>
-                      <label className="edit-socio-label">Fecha de Ingreso</label>
+                    <div className={`edit-socio-input-wrapper has-value`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
+                        Fecha de Ingreso
+                      </label>
                       <input
                         type="date"
                         name="ingreso"
@@ -317,8 +345,11 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`} style={{flex: 1}}>
-                      <label className="edit-socio-label">Categoría</label>
+                    <div className={`edit-socio-input-wrapper ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faUserTag} className="input-icon" />
+                        Categoría
+                      </label>
                       <select 
                         name="id_categoria" 
                         value={formData.id_categoria || ''} 
@@ -336,8 +367,11 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`} style={{flex: 1}}>
-                      <label className="edit-socio-label">Estado</label>
+                    <div className={`edit-socio-input-wrapper ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faCircleInfo} className="input-icon" />
+                        Estado
+                      </label>
                       <select 
                         name="id_estado" 
                         value={formData.id_estado || ''} 
@@ -364,8 +398,11 @@ const EditarSocio = () => {
               <div className="edit-tab-pane active">
                 <div className="edit-socio-section">
                   <div className="edit-socio-domicilio-group">
-                    <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`} style={{flex: 3}}>
-                      <label className="edit-socio-label">Domicilio</label>
+                    <div className={`edit-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faHome} className="input-icon" />
+                        Domicilio
+                      </label>
                       <input
                         name="domicilio"
                         value={formData.domicilio || ''}
@@ -377,9 +414,11 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
                     
-
-                    <div className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`} style={{flex: 1}}>
-                      <label className="edit-socio-label">Número</label>
+                    <div className={`edit-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faHashtag} className="input-icon" />
+                        Número
+                      </label>
                       <input
                         name="numero"
                         value={formData.numero || ''}
@@ -393,7 +432,10 @@ const EditarSocio = () => {
                     </div>
                   </div>
                   <div className={`edit-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Domicilio de Cobro</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />
+                      Domicilio de Cobro
+                    </label>
                     <input
                       name="domicilio_cobro"
                       value={formData.domicilio_cobro || ''}
@@ -405,7 +447,10 @@ const EditarSocio = () => {
                     <span className="edit-socio-input-highlight"></span>
                   </div>
                   <div className={`edit-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Teléfono Móvil</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faMobileScreen} className="input-icon" />
+                      Teléfono Móvil
+                    </label>
                     <input
                       name="telefono_movil"
                       value={formData.telefono_movil || ''}
@@ -419,7 +464,10 @@ const EditarSocio = () => {
                   </div>
 
                   <div className={`edit-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Teléfono Fijo</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faPhone} className="input-icon" />
+                      Teléfono Fijo
+                    </label>
                     <input
                       name="telefono_fijo"
                       value={formData.telefono_fijo || ''}
@@ -440,7 +488,10 @@ const EditarSocio = () => {
               <div className="edit-tab-pane active">
                 <div className="edit-socio-section">
                   <div className={`edit-socio-input-wrapper ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Medios de Pago</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
+                      Medios de Pago
+                    </label>
                     <select 
                       name="id_cobrador" 
                       value={formData.id_cobrador || ''} 
@@ -459,7 +510,10 @@ const EditarSocio = () => {
                   </div>
 
                   <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">Comentarios</label>
+                    <label className="edit-socio-label">
+                      <FontAwesomeIcon icon={faComment} className="input-icon" />
+                      Comentarios
+                    </label>
                     <textarea
                       name="comentario"
                       value={formData.comentario || ''}
