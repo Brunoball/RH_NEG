@@ -384,9 +384,14 @@
   bottom: 0;
 }
 .add-socio-textarea{
+  height: 120px;
   max-height: 22vh;
   min-width: 100%;
+  outline: none;
+  border: 2px solid var(--add-gray-300);
+  border-radius: var(--add-border-radius);
 }
+
 .add-socio-button {
   display: inline-flex;
   align-items: center;
@@ -624,5 +629,72 @@
 }
 
 .add-socio-input-wrapper.always-active .input-icon {
+  color: var(--add-primary);
+}
+
+
+
+/* Añade estas reglas a tu CSS existente */
+
+/* Estilo base del textarea (similar al input) */
+.add-socio-textarea {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-size: 0.95rem;
+  border-radius: var(--add-border-radius);
+  border: 1px solid var(--add-gray-300);
+  background: rgba(255, 255, 255, 0.8);
+  transition: var(--add-transition);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--add-gray-800);
+  min-height: 100px;
+  max-height: 22vh;
+  resize: vertical;
+}
+
+/* Estilo cuando el textarea tiene foco */
+.add-socio-textarea:focus {
+  outline: none;
+  border-color: var(--add-primary-light);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Contenedor del textarea con label flotante */
+.add-socio-input-wrapper.has-value textarea.add-socio-textarea,
+.add-socio-input-wrapper textarea.add-socio-textarea:focus {
+  padding-top: 1.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Estilo para el wrapper del textarea cuando tiene contenido */
+.add-socio-input-wrapper.has-value textarea.add-socio-textarea ~ .add-socio-label,
+.add-socio-input-wrapper textarea.add-socio-textarea:focus ~ .add-socio-label {
+  transform: translateY(-1.4rem) scale(0.85);
+  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%);
+  color: var(--add-primary);
+  font-weight: 500;
+  padding: 0 0.5rem;
+  left: 0.8rem;
+}
+
+/* Efecto de highlight para el textarea */
+.add-socio-input-wrapper textarea.add-socio-textarea ~ .add-socio-input-highlight {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--add-primary), var(--add-secondary));
+  transition: var(--add-transition);
+}
+
+.add-socio-input-wrapper textarea.add-socio-textarea:focus ~ .add-socio-input-highlight {
+  width: 100%;
+}
+
+/* Estilo para el icono del textarea */
+.add-socio-input-wrapper.has-value textarea.add-socio-textarea ~ .add-socio-label .input-icon,
+.add-socio-input-wrapper textarea.add-socio-textarea:focus ~ .add-socio-label .input-icon {
   color: var(--add-primary);
 }

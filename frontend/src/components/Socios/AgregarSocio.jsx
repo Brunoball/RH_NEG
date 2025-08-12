@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -58,6 +58,19 @@ const AgregarSocio = () => {
   });
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
+  const nacimientoRef = useRef(null);
+
+  const openDateWithGesture = (ref) => (e) => {
+    const el = ref.current;
+    if (!el) return;
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    if (typeof el.showPicker === 'function') {
+      try { el.showPicker(); } catch {}
+    } else {
+      el.click();
+    }
+  };
 
   const showToast = (message, type = 'exito') => {
     setToast({ show: true, message, type });
@@ -318,18 +331,37 @@ const AgregarSocio = () => {
                     )}
                   </div>
 
-                  <div className="add-socio-input-wrapper always-active">
-                    <label className="add-socio-label">
+                  <div
+                    className="add-socio-input-wrapper always-active"
+                    onMouseDown={openDateWithGesture(nacimientoRef)}
+                    onTouchStart={openDateWithGesture(nacimientoRef)}
+                  >
+                    <label
+                      htmlFor="nacimiento"
+                      className="add-socio-label"
+                      onMouseDown={openDateWithGesture(nacimientoRef)}
+                      onTouchStart={openDateWithGesture(nacimientoRef)}
+                    >
                       <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
                       Fecha Nacimiento
                     </label>
+
                     <input
+                      id="nacimiento"
+                      ref={nacimientoRef}
                       type="date"
                       name="nacimiento"
                       value={formData.nacimiento || ''}
                       onChange={handleChange}
                       onFocus={() => handleFocus('nacimiento')}
                       onBlur={handleBlur}
+                      onClick={openDateWithGesture(nacimientoRef)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openDateWithGesture(nacimientoRef)(e);
+                        }
+                      }}
                       className="add-socio-input"
                     />
                     <span className="add-socio-input-highlight"></span>

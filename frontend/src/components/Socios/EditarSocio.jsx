@@ -500,38 +500,42 @@ const EditarSocio = () => {
                     />
                     <span className="edit-socio-input-highlight"></span>
                   </div>
-                  <div className={`edit-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">
-                      <FontAwesomeIcon icon={faMobileScreen} className="input-icon" />
-                      Teléfono Móvil
-                    </label>
-                    <input
-                      name="telefono_movil"
-                      value={formData.telefono_movil || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('telefono_movil')}
-                      onBlur={handleBlur}
-                      className="edit-socio-input"
-                      inputMode="tel"
-                    />
-                    <span className="edit-socio-input-highlight"></span>
-                  </div>
+                  
+                  {/* Grupo de teléfonos en fila */}
+                  <div className="edit-socio-group-row">
+                    <div className={`edit-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faMobileScreen} className="input-icon" />
+                        Teléfono Móvil
+                      </label>
+                      <input
+                        name="telefono_movil"
+                        value={formData.telefono_movil || ''}
+                        onChange={handleNumberChange}
+                        onFocus={() => handleFocus('telefono_movil')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        inputMode="tel"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
 
-                  <div className={`edit-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                    <label className="edit-socio-label">
-                      <FontAwesomeIcon icon={faPhone} className="input-icon" />
-                      Teléfono Fijo
-                    </label>
-                    <input
-                      name="telefono_fijo"
-                      value={formData.telefono_fijo || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('telefono_fijo')}
-                      onBlur={handleBlur}
-                      className="edit-socio-input"
-                      inputMode="tel"
-                    />
-                    <span className="edit-socio-input-highlight"></span>
+                    <div className={`edit-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faPhone} className="input-icon" />
+                        Teléfono Fijo
+                      </label>
+                      <input
+                        name="telefono_fijo"
+                        value={formData.telefono_fijo || ''}
+                        onChange={handleNumberChange}
+                        onFocus={() => handleFocus('telefono_fijo')}
+                        onBlur={handleBlur}
+                        className="edit-socio-input"
+                        inputMode="tel"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -563,7 +567,7 @@ const EditarSocio = () => {
                     <span className="edit-socio-input-highlight"></span>
                   </div>
 
-                  <div className={`edit-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
+                  <div className={`edit-socio-input-wrapper cometarios-e ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                     <label className="edit-socio-label">
                       <FontAwesomeIcon icon={faComment} className="input-icon" />
                       Comentarios
