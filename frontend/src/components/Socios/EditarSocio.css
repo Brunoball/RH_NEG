@@ -217,7 +217,7 @@ html {
   flex: 1;
   min-height: 0;       /* ← permite que se achique y habilite scroll */
   overflow: hidden;    /* ← acá vive el scroll del contenido */
-  padding: 0 24px;
+  padding: 0 2.5rem;
 }
 
 .edit-tab-pane {
@@ -406,8 +406,6 @@ html {
   position: sticky;
   bottom: 0;
   padding: .5rem 2rem 1rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-top: 1px solid var(--edit-gray-200);
 }
 
 .edit-socio-button {
