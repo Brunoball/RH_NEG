@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import { FaUserCheck } from 'react-icons/fa';
+import { FaUserCheck, FaTrash, FaInfoCircle } from 'react-icons/fa';
 import Toast from '../Global/Toast';
 import './SociosBaja.css';
 
@@ -11,6 +11,9 @@ const SociosBaja = () => {
   const [loading, setLoading] = useState(true);
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] = useState(false);
+  const [mostrarModalMotivo, setMostrarModalMotivo] = useState(false);
+  const [motivoCompleto, setMotivoCompleto] = useState('');
   const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
   const navigate = useNavigate();
@@ -54,6 +57,11 @@ const SociosBaja = () => {
     }
   };
 
+  const mostrarMotivoCompleto = (motivo) => {
+    setMotivoCompleto(motivo || 'No hay motivo especificado');
+    setMostrarModalMotivo(true);
+  };
+
   const darAltaSocio = async (id) => {
     try {
       const response = await fetch(`${BASE_URL}/api.php?action=dar_alta_socio`, {
@@ -89,17 +97,50 @@ const SociosBaja = () => {
     }
   };
 
+  const eliminarSocio = async (id) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_socio: id })
+      });
+
+      const data = await response.json();
+      if (data.exito) {
+        setSocios(prev => prev.filter(s => s.id_socio !== id));
+        setSociosFiltrados(prev => prev.filter(s => s.id_socio !== id));
+        setMostrarConfirmacionEliminar(false);
+        setSocioSeleccionado(null);
+        setToast({
+          show: true,
+          tipo: 'exito',
+          mensaje: 'Socio eliminado permanentemente',
+        });
+      } else {
+        setToast({
+          show: true,
+          tipo: 'error',
+          mensaje: 'Error al eliminar: ' + data.mensaje,
+        });
+      }
+    } catch (error) {
+      setToast({
+        show: true,
+        tipo: 'error',
+        mensaje: 'Error de red al intentar eliminar',
+      });
+    }
+  };
+
   const closeToast = () => {
     setToast({ ...toast, show: false });
   };
 
-  // (Opcional) Formateo simple de fecha a DD/MM/AAAA
   const formatearFecha = (yyyy_mm_dd) => {
     if (!yyyy_mm_dd) return '';
     const [y, m, d] = yyyy_mm_dd.split('-');
     if (!y || !m || !d) return yyyy_mm_dd;
     return `${d}/${m}/${y}`;
-    // Si preferís la fecha “como viene”, devolvé directamente `yyyy_mm_dd`
   };
 
   return (
@@ -167,14 +208,23 @@ const SociosBaja = () => {
                 <div className="soc-tabla-fila-baja" key={s.id_socio}>
                   <div className="soc-col-id-baja">{s.id_socio}</div>
                   <div className="soc-col-nombre-baja">{s.nombre}</div>
-                  {/* Reutilizo clases existentes para no tocar CSS:
-                      - domicilio => ahora “Fecha de baja”
-                      - comentario => ahora “Motivo” */}
                   <div className="soc-col-domicilio-baja">
                     {formatearFecha(s.ingreso)}
                   </div>
-                  <div className="soc-col-comentario-baja">
-                    {s.motivo || ''}
+                  <div 
+                    className="soc-col-comentario-baja"
+                    onClick={() => mostrarMotivoCompleto(s.motivo)}
+                  >
+                    <div className="soc-motivo-contenedor">
+                      {s.motivo ? (
+                        <>
+                          {s.motivo.length > 30 ? `${s.motivo.substring(0, 30)}...` : s.motivo}
+                          <FaInfoCircle className="soc-icono-info-motivo" />
+                        </>
+                      ) : (
+                        'Sin motivo'
+                      )}
+                    </div>
                   </div>
                   <div className="soc-col-acciones-baja">
                     <div className="soc-iconos-acciones-baja">
@@ -184,6 +234,14 @@ const SociosBaja = () => {
                         onClick={() => {
                           setSocioSeleccionado(s);
                           setMostrarConfirmacion(true);
+                        }}
+                      />
+                      <FaTrash
+                        title="Eliminar permanentemente"
+                        className="soc-icono-baja"
+                        onClick={() => {
+                          setSocioSeleccionado(s);
+                          setMostrarConfirmacionEliminar(true);
                         }}
                       />
                     </div>
@@ -197,23 +255,82 @@ const SociosBaja = () => {
 
       {mostrarConfirmacion && socioSeleccionado && (
         <div className="soc-modal-overlay-baja">
-          <div className="soc-modal-contenido-baja">
-            <h3>¿Deseás dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?</h3>
-            <div className="soc-modal-botones-baja">
+          <div className="soc-modal-contenido-alta">
+            <div className="soc-modal-icono-alta">
+              <FaUserCheck />
+            </div>
+            <h3 className="soc-modal-titulo-alta">Reactivar Socio</h3>
+            <p className="soc-modal-texto-alta">
+              ¿Deseas dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?
+            </p>
+            <div className="soc-modal-botones-alta">
               <button
-                className="soc-boton-confirmar-baja"
+                className="soc-boton-confirmar-alta"
                 onClick={() => darAltaSocio(socioSeleccionado.id_socio)}
               >
-                 Sí, dar de alta
+                Confirmar
               </button>
               <button
-                className="soc-boton-cancelar-baja"
+                className="soc-boton-cancelar-alta"
                 onClick={() => {
                   setMostrarConfirmacion(false);
                   setSocioSeleccionado(null);
                 }}
               >
-                 Cancelar
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarConfirmacionEliminar && socioSeleccionado && (
+        <div className="soc-modal-overlay-baja">
+          <div className="soc-modal-contenido-eliminar">
+            <div className="soc-modal-icono-eliminar">
+              <FaTrash />
+            </div>
+            <h3 className="soc-modal-titulo-eliminar">Eliminar Permanentemente</h3>
+            <p className="soc-modal-texto-eliminar">
+              ¿Estás seguro que deseas eliminar permanentemente al socio <strong>{socioSeleccionado.nombre}</strong>?
+            </p>
+            <div className="soc-modal-botones-eliminar">
+              <button
+                className="soc-boton-confirmar-eliminar"
+                onClick={() => eliminarSocio(socioSeleccionado.id_socio)}
+              >
+                Eliminar
+              </button>
+              <button
+                className="soc-boton-cancelar-eliminar"
+                onClick={() => {
+                  setMostrarConfirmacionEliminar(false);
+                  setSocioSeleccionado(null);
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarModalMotivo && (
+        <div className="soc-modal-overlay-baja">
+          <div className="soc-modal-contenido-motivo">
+            <div className="soc-modal-icono-motivo">
+              <FaInfoCircle />
+            </div>
+            <h3 className="soc-modal-titulo-motivo">Motivo de la baja</h3>
+            <div className="soc-modal-texto-motivo">
+              {motivoCompleto}
+            </div>
+            <div className="soc-modal-botones-motivo">
+              <button
+                className="soc-boton-cerrar-motivo"
+                onClick={() => setMostrarModalMotivo(false)}
+              >
+                Cerrar
               </button>
             </div>
           </div>

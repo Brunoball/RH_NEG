@@ -4,6 +4,8 @@ import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalPagos.css';
 
+const PRECIO_MENSUAL = 4000;
+
 const obtenerPrimerMesDesdeNombre = (nombre) => {
   const match = nombre.match(/\d+/);
   return match ? parseInt(match[0], 10) : 1;
@@ -99,7 +101,6 @@ const ModalPagos = ({ socio, onClose }) => {
     } else {
       setSeleccionados(disponibles);
     }
-
     setTodosSeleccionados(!todosSeleccionados);
   };
 
@@ -144,6 +145,11 @@ const ModalPagos = ({ socio, onClose }) => {
     const anio = fecha.getFullYear();
     return `${dia}/${mes}/${anio}`;
   };
+
+  const formatearARS = (monto) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
+
+  const total = seleccionados.length * PRECIO_MENSUAL;
 
   if (!socio) return null;
 
@@ -250,27 +256,34 @@ const ModalPagos = ({ socio, onClose }) => {
             </div>
           </div>
 
+          {/* FOOTER con Total a la izquierda y botones a la derecha */}
           <div className="modal-footer">
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => onClose(false)}
-              disabled={cargando}
-            >
-              Cancelar
-            </button>
-            <button 
-              className="btn btn-primary" 
-              onClick={confirmarPago}
-              disabled={seleccionados.length === 0 || cargando}
-            >
-              {cargando ? (
-                <>
-                  <span className="spinner-btn"></span> Procesando...
-                </>
-              ) : (
-                'Confirmar Pago'
-              )}
-            </button>
+            <div className="footer-left">
+              <span className="total-badge">Total: {formatearARS(total)}</span>
+            </div>
+
+            <div className="footer-actions">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => onClose(false)}
+                disabled={cargando}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={confirmarPago}
+                disabled={seleccionados.length === 0 || cargando}
+              >
+                {cargando ? (
+                  <>
+                    <span className="spinner-btn"></span> Procesando...
+                  </>
+                ) : (
+                  'Confirmar Pago'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

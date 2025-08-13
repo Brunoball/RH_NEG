@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
 import './inicio.css';
@@ -10,11 +10,21 @@ const Inicio = () => {
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [recordar, setRecordar] = useState(() => localStorage.getItem('recordarCuenta') === '1');
+
   const navigate = useNavigate();
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  // Prefill si estaba recordado
+  useEffect(() => {
+    if (recordar) {
+      const u = localStorage.getItem('usuarioRecordado') || '';
+      const p = localStorage.getItem('passRecordada') || '';
+      if (u) setNombre(u);
+      if (p) setContrasena(p);
+    }
+  }, [recordar]);
+
+  const togglePasswordVisibility = () => setShowPassword(v => !v);
 
   const manejarEnvio = async (e) => {
     e.preventDefault();
@@ -37,8 +47,21 @@ const Inicio = () => {
       const data = await respuesta.json();
 
       if (data.exito) {
+        // Guardado de sesión
         localStorage.setItem('usuario', JSON.stringify(data.usuario));
         localStorage.setItem('token', data.token);
+
+        // Manejo de "Recordar cuenta"
+        if (recordar) {
+          localStorage.setItem('recordarCuenta', '1');
+          localStorage.setItem('usuarioRecordado', nombre);
+          localStorage.setItem('passRecordada', contrasena);
+        } else {
+          localStorage.removeItem('recordarCuenta');
+          localStorage.removeItem('usuarioRecordado');
+          localStorage.removeItem('passRecordada');
+        }
+
         navigate('/panel');
       } else {
         setMensaje(data.mensaje || 'Credenciales incorrectas');
@@ -65,29 +88,33 @@ const Inicio = () => {
 
         <form onSubmit={manejarEnvio} className="ini_formulario">
           <div className="ini_campo">
-            <input 
-              type="text" 
-              placeholder="Usuario" 
-              value={nombre} 
-              onChange={(e) => setNombre(e.target.value)} 
+            <input
+              type="text"
+              placeholder="Usuario"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
               required
               className="ini_input"
+              autoComplete="username"
             />
           </div>
 
           <div className="ini_campo ini_campo-password">
             <input
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               className="ini_input"
               placeholder="Contraseña"
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
               required
+              autoComplete="current-password"
             />
-            <button 
-              type="button" 
-              className="ini_toggle-password" 
+            <button
+              type="button"
+              className="ini_toggle-password"
               onClick={togglePasswordVisibility}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 {showPassword ? (
@@ -103,6 +130,18 @@ const Inicio = () => {
                 )}
               </svg>
             </button>
+          </div>
+
+          {/* ✅ Bloque "Recordar cuenta" justo debajo del campo de contraseña */}
+          <div className="ini_recordar">
+            <label className="ini_check">
+              <input
+                type="checkbox"
+                checked={recordar}
+                onChange={(e) => setRecordar(e.target.checked)}
+              />
+              <span>Recordar cuenta</span>
+            </label>
           </div>
 
           <div className="ini_footer">

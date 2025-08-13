@@ -355,13 +355,40 @@
   white-space: nowrap;
 }
 
+/* ===== FOOTER ===== */
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between; /* total a la izquierda, botones a la derecha */
+  align-items: center;
   gap: 0.75rem;
   padding: 1.5rem;
   background-color: var(--white);
   border-top: 1px solid var(--gray-200);
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+}
+
+.total-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  /* Globo azul */
+  background-color: #2563EB; /* azul */
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .btn {
@@ -438,6 +465,7 @@
   margin-right: 0.5rem;
 }
 
+/* ===== RESPONSIVE ===== */
 @media (max-width: 600px) {
   .modal-header {
     padding: 1.25rem;
@@ -449,18 +477,23 @@
   
   .modal-footer {
     padding: 1.25rem;
+    flex-direction: column;          /* total arriba, botones abajo */
+    align-items: stretch;
+    gap: 0.75rem;
   }
-  
-  .periodos-grid {
-    grid-template-columns: 1fr;
+
+  .footer-actions {
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
   }
-  
-  .modal-footer {
-    flex-direction: column-reverse;
-  }
-  
+
   .btn {
     width: 100%;
+  }
+
+  .periodos-grid {
+    grid-template-columns: 1fr;
   }
 
   .section-header-actions {

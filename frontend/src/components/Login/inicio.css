@@ -409,3 +409,77 @@ html, body {
     opacity: 0;
   }
 }
+
+/* ===== Recordar cuenta ===== */
+.ini_recordar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -6px auto 6px;
+  width: 100%;
+  max-width: 400px;
+  padding: 0 2px;
+}
+
+.ini_check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--princ-gray-700);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.ini_check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--princ-gray-300);
+  border-radius: 6px;
+  appearance: none;
+  background: #fff;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: var(--princ-transition);
+  box-shadow: var(--princ-shadow-sm);
+}
+
+.ini_check input[type="checkbox"]:hover {
+  border-color: var(--princ-primary-light); /* azul claro */
+}
+
+.ini_check input[type="checkbox"]:checked {
+  border-color: var(--princ-primary); /* azul principal */
+  background: var(--princ-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); /* sombra azul */
+}
+
+.ini_check input[type="checkbox"]:checked::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E") center/contain no-repeat;
+  background: #fff;
+}
+
+.ini_check input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.ini_recordar_hint {
+  color: var(--princ-gray-500);
+  font-size: 0.8rem;
+}
+
+/* Ajuste responsive */
+@media (max-width: 400px) {
+  .ini_recordar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
