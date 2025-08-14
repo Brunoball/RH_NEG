@@ -118,6 +118,21 @@ const BarraSuperior = React.memo(({
     setTimeout(() => setAnimacionActiva(false), 1000);
   }, [setFiltros, setMostrarFiltros, setAnimacionActiva]);
 
+  const limpiarFiltro = useCallback((tipo) => {
+    setFiltros(prev => {
+      if (tipo === 'busqueda') {
+        return { ...prev, busqueda: '', filtroActivo: null };
+      } else if (tipo === 'id') {
+        return { ...prev, busquedaId: '', filtroActivo: null };
+      } else if (tipo === 'letra') {
+        return { ...prev, letraSeleccionada: 'TODOS', filtroActivo: null };
+      }
+      return prev;
+    });
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 300);
+  }, [setFiltros, setAnimacionActiva]);
+
   return (
     <div className="soc-barra-superior">
       <div className="soc-titulo-container">
@@ -169,14 +184,13 @@ const BarraSuperior = React.memo(({
             value={busquedaId}
             onChange={(e) => {
               const onlyNums = e.target.value.replace(/\D/g, '');
-              const limited = onlyNums.slice(0, 10); // Límite de 10 dígitos
+              const limited = onlyNums.slice(0, 10);
               setFiltros(prev => ({
                 ...prev,
                 busquedaId: limited,
                 busqueda: '',
                 letraSeleccionada: 'TODOS',
-                // Activar filtro por ID sólo si hay 3+ dígitos
-                filtroActivo: limited.length >= 3 ? 'id' : null
+                filtroActivo: limited.length >= 1 ? 'id' : null
               }));
               
               if ((limited && filtroActivo !== 'id') || (!limited && filtroActivo !== null)) {
@@ -187,7 +201,7 @@ const BarraSuperior = React.memo(({
             className="soc-buscador soc-buscador-id"
             disabled={cargando}
             title="Buscar por ID (match exacto)"
-            maxLength={10} // Límite de longitud en el input
+            maxLength={10}
           />
           {busquedaId ? (
             <FaTimes
@@ -223,21 +237,48 @@ const BarraSuperior = React.memo(({
                 <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
                 {busqueda.length > 3 ? `${busqueda.substring(0, 3)}...` : busqueda}
               </span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  limpiarFiltro('busqueda');
+                }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
             </div>
           )}
           {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
             <div className="soc-filtro-activo" key="id">
-              <span
-                className="soc-filtro-activo-id"
-                title={`ID: ${busquedaId}`} // Tooltip con el ID completo
-              >
+              <span className="soc-filtro-activo-id">
                 ID: {busquedaId.length > 3 ? `${busquedaId.slice(0, 3)}...` : busquedaId}
               </span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  limpiarFiltro('id');
+                }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
             </div>
           )}
           {(filtroActivo === 'letra' || ultimoFiltroActivo === 'letra') && letraSeleccionada !== 'TODOS' && (
             <div className="soc-filtro-activo" key="letra">
               <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  limpiarFiltro('letra');
+                }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
             </div>
           )}
         </div>
@@ -313,7 +354,6 @@ const Socios = () => {
 
   const { busqueda, busquedaId, letraSeleccionada, filtroActivo } = filtros;
 
-  // Helpers para manejo de IDs
   const getId = (s) => String(s?.id_socio ?? s?.id ?? '');
   const equalId = (s, needle) => {
     if (!needle?.trim()) return true;
@@ -323,7 +363,6 @@ const Socios = () => {
     return a === b;
   };
 
-  // Debounce (por si luego lo querés usar)
   const debounce = (func, wait) => {
     let timeout;
     return (...args) => {

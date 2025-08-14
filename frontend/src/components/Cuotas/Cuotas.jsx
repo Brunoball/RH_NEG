@@ -381,7 +381,7 @@ const Cuotas = () => {
               </select>
             </div>
 
-            <div className="cuo_filtro-acciones" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div className="cuo_filtro-acciones" >
               <button 
                 className="cuo_boton cuo_boton-light cuo_boton-limpiar"
                 onClick={limpiarFiltros}
@@ -432,33 +432,77 @@ const Cuotas = () => {
           </div>
 
           <div className="cuo_header-bottom">
-<div className='conteiner-buscador'>
-           <div className="cuo_buscador-container">
-              <FaSearch className="cuo_buscador-icono" />
-              <input
-                type="text"
-                placeholder="Buscar socio por nombre, documento o dirección..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="cuo_buscador-input"
-                disabled={loading}
-              />
+            <div className='conteiner-buscador'>
+              {/* Buscador principal */}
+              <div className="cuo_buscador-container">
+                {busqueda ? (
+                  <button 
+                    className="cuo_buscador-clear" 
+                    onClick={() => {
+                      setBusqueda('');
+                      // Opcional: mantener el ID como esté al limpiar texto
+                      // Si querés también limpiar el ID al apretar la X, descomentá:
+                      // setBusquedaId('');
+                    }}
+                    title="Limpiar búsqueda"
+                  >
+                    <FaTimes />
+                  </button>
+                ) : (
+                  <FaSearch className="cuo_buscador-icono" />
+                )}
+                <input
+                  type="text"
+                  placeholder="Buscar socio por nombre, documento o dirección..."
+                  value={busqueda}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBusqueda(val);
+                    // Si estoy escribiendo texto, limpio el ID
+                    if (val !== '') setBusquedaId('');
+                  }}
+                  className="cuo_buscador-input"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Buscador ID */}
+              <div className="cuo_buscador-id-wrapper">
+                {busquedaId ? (
+                  <button 
+                    className="cuo_buscador-clear" 
+                    onClick={() => {
+                      setBusquedaId('');
+                      // Opcional: mantener el texto como esté al limpiar ID
+                      // Si querés también limpiar el texto al apretar la X, descomentá:
+                      // setBusqueda('');
+                    }}
+                    title="Limpiar ID"
+                  >
+                    <FaTimes />
+                  </button>
+                ) : (
+                  <FaSearch className="cuo_buscador-id-icono" />
+                )}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="ID"
+                  value={busquedaId}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setBusquedaId(val);
+                    // Si estoy escribiendo un ID, limpio el texto
+                    if (val !== '') setBusqueda('');
+                  }}
+                  className="cuo_buscador-id"
+                  disabled={loading}
+                  title="Buscar por ID"
+                />
+              </div>
             </div>
 
-            <div className="cuo_buscador-id-wrapper">
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="ID"
-                value={busquedaId}
-                onChange={(e) => setBusquedaId(e.target.value.replace(/\D/g, ''))}
-                className="cuo_buscador-id"
-                disabled={loading}
-                title="Buscar por ID"
-              />
-            </div>
-</div>
             <div className="cuo_content-actions">
               <button
                 className="cuo_boton cuo_boton-success"
@@ -528,17 +572,27 @@ const Cuotas = () => {
                 </div>
               ) : (
                 <AutoSizer>
-                  {({ height, width }) => (
-                    <List
-                      height={height}
-                      itemCount={cuotasFiltradas.length}
-                      itemSize={60}
-                      width={width}
-                      itemData={cuotasFiltradas}
-                    >
-                      {Row}
-                    </List>
-                  )}
+                  {({ height, width }) => {
+                    const OuterElement = React.forwardRef((props, ref) => (
+                      <div
+                        ref={ref}
+                        {...props}
+                        style={{ ...props.style, overflowX: 'hidden' }}
+                      />
+                    ));
+                    return (
+                      <List
+                        height={height}
+                        itemCount={cuotasFiltradas.length}
+                        itemSize={60}
+                        width={width}
+                        itemData={cuotasFiltradas}
+                        outerElementType={OuterElement}
+                      >
+                        {Row}
+                      </List>
+                    );
+                  }}
                 </AutoSizer>
               )}
             </div>

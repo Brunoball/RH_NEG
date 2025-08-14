@@ -174,7 +174,10 @@
   box-shadow: var(--princ-shadow-md);
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  max-height: 160px;
+  /* Cambio aplicado */
+  min-height: 160px;
+  height: auto;
+  overflow: hidden;
 }
 
 .princ-opcion::before {
@@ -242,6 +245,12 @@
   margin-top: 0.25rem;
   font-weight: 400;
   transition: var(--princ-transition);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .princ-opcion:hover .princ-opcion-texto {
@@ -445,6 +454,7 @@
   
   .princ-contenedor {
     padding: 1.2rem;
+    width: 90%;
   }
   
   .princ-grid-opciones {
