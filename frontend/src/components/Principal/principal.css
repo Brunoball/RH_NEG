@@ -240,6 +240,7 @@
 }
 
 .princ-opcion-desc {
+  height: 30px;
   font-size: 0.85rem;
   color: var(--princ-gray-500);
   margin-top: 0.25rem;
