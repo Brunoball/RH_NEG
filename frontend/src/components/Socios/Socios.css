@@ -295,6 +295,7 @@
 }
 
 .soc-filtros-activos-container {
+  transform: scale(.9);
   display: flex;
   gap: 8px;
   margin: 0;
