@@ -252,7 +252,7 @@ body {
 }
 .cuo_buscador-id {
   width: 100%;
-  padding: 0.75rem 2rem 0.75rem 2rem; /* icono izq + X der */
+  padding: 0.75rem 1rem 0.75rem 2rem; /* icono izq + X der */
   border: 1px solid var(--soc-gray-300);
   border-radius: var(--soc-border-radius);
   font-size: 0.875rem;
@@ -287,9 +287,9 @@ body {
   z-index: 2; /* evita solaparse con el input */
 }
 /* En el buscador principal la X va a la derecha */
-.cuo_buscador-container .cuo_buscador-clear { right: 1rem; left: auto; }
+.cuo_buscador-container .cuo_buscador-clear { left: 1rem; right: auto; }
 /* En el buscador ID la X va a la derecha */
-.cuo_buscador-id-wrapper .cuo_buscador-clear { right: 0.5rem; left: auto; }
+.cuo_buscador-id-wrapper .cuo_buscador-clear { left: 0.5rem; right: auto; }
 
 .cuo_buscador-clear:hover { color: var(--soc-gray-600); }
 
