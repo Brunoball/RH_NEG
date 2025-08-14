@@ -20,13 +20,13 @@ const ModalEliminarSocio = ({ socio, onClose, onEliminar }) => {
             className="soc-boton-cancelar-eliminar"
             onClick={onClose}
           >
-            <FaTimes /> Cancelar
+             Cancelar
           </button>
           <button
             className="soc-boton-confirmar-eliminar"
             onClick={() => onEliminar(socio.id_socio)}
           >
-            <FaTrash /> Eliminar
+             Eliminar
           </button>
         </div>
       </div>
