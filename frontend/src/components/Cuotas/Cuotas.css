@@ -293,7 +293,7 @@ body {
 /* Buscador ID */
 .cuo_buscador-id-wrapper {
   position: relative;
-  width: 90px;
+  width: 120px;
   margin-left: 0.5rem;
 }
 .conteiner-buscador {
@@ -303,7 +303,7 @@ body {
 
 .cuo_buscador-id {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2rem;
+  padding: 0.75rem 1.5rem 0.75rem ;
   border: 1px solid var(--soc-gray-300);
   border-radius: var(--soc-border-radius);
   font-size: 0.875rem;
@@ -326,20 +326,7 @@ body {
 }
 
 /* ID badge */
-.cuo_buscador-id-wrapper::before {
-  content: "ID";
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--soc-gray-500);
-  background-color: var(--soc-gray-100);
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  pointer-events: none;
-}
+
 
 /* Acciones */
 .cuo_content-actions {
@@ -406,7 +393,7 @@ body {
 .cuo_tab {
   width: 100%;
   text-align: center;
-  padding: 0.75rem;
+  padding: 0.75rem 0;
   border: none;
   background-color: transparent;
   color: var(--soc-gray-400);
@@ -994,4 +981,111 @@ body {
     font-size: 0.65rem;
     left: 0.6rem;
   }
+}
+
+/* ==================== */
+/* NUEVAS MODIFICACIONES (implementadas) */
+/* ==================== */
+
+/* Icono de lupa dentro del buscador de ID */
+.cuo_buscador-id-icono {
+  position: absolute;
+  left: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--soc-gray-400);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+/* Botones "X" para limpiar (aplica a ambos buscadores) */
+.cuo_buscador-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--soc-gray-400);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.25rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cuo_buscador-clear:hover {
+  color: var(--soc-gray-600);
+}
+
+/* Buscador principal: icono y clear correctamente posicionados */
+.cuo_buscador-container {
+  position: relative;
+  flex: 1;
+  width: 400px;
+}
+
+.cuo_buscador-icono, 
+.cuo_buscador-container .cuo_buscador-clear {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--soc-gray-400);
+  font-size: 0.9rem;
+}
+
+.cuo_buscador-container .cuo_buscador-clear {
+  left: 1rem;
+  right: auto;
+  cursor: pointer;
+}
+
+.cuo_buscador-input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 1px solid var(--soc-gray-300);
+  border-radius: var(--soc-border-radius);
+  font-size: 0.875rem;
+  transition: var(--soc-transition);
+  background-color: white;
+}
+
+/* Buscador ID: icono y clear correctamente posicionados */
+.cuo_buscador-id-wrapper {
+  position: relative;
+  width: 120px;
+  margin-left: 0.5rem;
+}
+
+.cuo_buscador-id-icono,
+.cuo_buscador-id-wrapper .cuo_buscador-clear {
+  position: absolute;
+  left: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--soc-gray-400);
+  font-size: 0.9rem;
+}
+
+.cuo_buscador-id-wrapper .cuo_buscador-clear {
+  right:  auto;
+  left: 0.5rem;
+  cursor: pointer;
+}
+
+/* Aumentar padding-left del input de ID para dejar espacio a la lupa */
+.cuo_buscador-id {
+  width: 100%;
+  padding: 0.75rem 1.5rem 0.75rem 2rem;
+  border: 1px solid var(--soc-gray-300);
+  border-radius: var(--soc-border-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: var(--soc-transition);
+  background-color: white;
+  text-align: center;
+  color: var(--soc-gray-700);
 }

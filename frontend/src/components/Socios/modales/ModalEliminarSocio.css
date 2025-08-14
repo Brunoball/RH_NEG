@@ -1,6 +1,5 @@
-/* styles/ModalEliminarSocio.css */
-
-.modal-overlay {
+/* Utiliza las mismas variables CSS que el resto de la aplicación */
+.soc-modal-overlay-eliminar {
   position: fixed;
   top: 0;
   left: 0;
@@ -10,75 +9,113 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 9999;
-  backdrop-filter: blur(4px);
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  animation: soc-fadeIn 0.3s ease-out;
 }
 
-.modal-contenido {
-  background-color: var(--soc-glass);
+.soc-modal-contenido-eliminar {
+  background-color: white;
   padding: 2rem;
-  border-radius: var(--soc-border-radius);
-  box-shadow: var(--soc-shadow-lg);
+  border-radius: var(--soc-border-radius-lg);
+  box-shadow: var(--soc-shadow-xl);
+  max-width: 450px;
   width: 90%;
-  max-width: 500px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: modalFadeIn 0.3s ease-out;
+  text-align: center;
+  position: relative;
+  border-top: 4px solid var(--soc-danger);
+  animation: soc-modalSlideIn 0.3s ease-out;
 }
 
-.modal-contenido h3 {
-  color: var(--soc-dark);
+.soc-modal-icono-eliminar {
+  font-size: 2.5rem;
+  color: var(--soc-danger);
+  margin-bottom: 1rem;
+}
+
+.soc-modal-titulo-eliminar {
+  color: var(--soc-danger);
   margin-bottom: 1rem;
   font-size: 1.5rem;
   font-weight: 600;
 }
 
-.modal-contenido p {
-  color: var(--soc-gray);
-  margin-bottom: 2rem;
-  font-size: 1rem;
+.soc-modal-texto-eliminar {
+  color: var(--soc-gray-700);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
 }
 
-.botones-modal {
+.soc-modal-texto-eliminar strong {
+  color: var(--soc-dark);
+  font-weight: 600;
+}
+
+.soc-modal-botones-eliminar {
   display: flex;
   justify-content: center;
   gap: 1rem;
+  margin-top: 1.5rem;
 }
 
-.btn-cancelar {
+.soc-boton-confirmar-eliminar {
+  padding: 0.75rem 1.5rem;
   border-radius: var(--soc-border-radius);
-  border: 1px solid var(--soc-gray);
-  background-color: transparent;
-  color: var(--soc-gray);
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--soc-transition);
-  font-weight: 500;
-}
-
-.btn-cancelar:hover {
-  background-color: rgba(107, 114, 128, 0.1);
-}
-
-.btn-aceptar {
-  border-radius: var(--soc-border-radius);
   border: none;
   background-color: var(--soc-danger);
   color: white;
-  cursor: pointer;
-  transition: var(--soc-transition);
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 200px;
+  justify-content: center;
 }
 
-.btn-aceptar:hover {
+.soc-boton-confirmar-eliminar:hover {
   background-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
 }
-.btn-cancelar, .btn-aceptar{
-    width: 200px;
-    padding: 1rem;
+
+.soc-boton-cancelar-eliminar {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--soc-border-radius);
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--soc-transition);
+  border: 1px solid var(--soc-gray-300);
+  background-color: white;
+  color: var(--soc-gray-700);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 200px;
+  justify-content: center;
 }
-@keyframes modalFadeIn {
+
+.soc-boton-cancelar-eliminar:hover {
+  background-color: var(--soc-gray-100);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(203, 213, 225, 0.3);
+}
+
+/* Animaciones */
+@keyframes soc-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes soc-modalSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -87,18 +124,22 @@
 }
 
 /* Responsive */
-@media (max-width: 480px) {
-  .modal-contenido {
-    width: 95%;
-    padding: 1.5rem;
-  }
-  
-  .botones-modal {
+@media (max-width: 576px) {
+  .soc-modal-botones-eliminar {
     flex-direction: column;
   }
   
-  .btn-cancelar,
-  .btn-aceptar {
+  .soc-boton-confirmar-eliminar,
+  .soc-boton-cancelar-eliminar {
+    max-width: 100%;
     width: 100%;
+  }
+  
+  .soc-modal-contenido-eliminar {
+    padding: 1.5rem;
+  }
+  
+  .soc-modal-titulo-eliminar {
+    font-size: 1.3rem;
   }
 }

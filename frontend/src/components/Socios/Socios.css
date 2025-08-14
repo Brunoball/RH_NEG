@@ -148,7 +148,7 @@
   top: .9rem;
   cursor: pointer;
   position: absolute;
-    color: var(--soc-gray-400);
+  color: var(--soc-gray-400);
   transition: var(--soc-transition);
   pointer-events: auto; /* Permite hacer clic solo en el icono */
 }
@@ -304,13 +304,13 @@
   position: relative;
 }
 
+/* ---------- PILLS DE FILTRO ACTIVO + BOTÓN OVERLAY ---------- */
 .soc-filtro-activo {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: space-between;
   background: rgba(255, 255, 255, 0.8);
-  padding: 6px 12px;
+  padding: 6px 10px 6px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -323,10 +323,9 @@
   max-width: 180px;
   height: 32px;
   box-sizing: border-box;
-  position: absolute;
+  position: absolute; /* se mantiene absoluto como en tu código */
   opacity: 1;
   transition: opacity 0.3s ease;
-  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -374,10 +373,45 @@
   overflow: hidden;
 }
 
+/* Cuando no hay etiquetas internas, deshabilitar interacciones pero mantener visibilidad */
 .soc-filtros-container:not(:has(.soc-filtro-activo-busqueda, .soc-filtro-activo-letra)) .soc-filtro-activo {
   opacity: 1;
-  pointer-events: none;
 }
+
+/* Botón de cierre ABSOLUTE superpuesto (overlay) */
+.soc-filtro-activo-cerrar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-50%);
+  background: var(--soc-danger);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: background 0.2s ease, transform 0.2s ease;
+  /* aseguramos que no crezca el layout */
+  padding: 0;
+}
+
+.soc-filtro-activo-cerrar:hover {
+  background: #b91c1c;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.soc-filtro-activo-id {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* ----------------------------------------------------------- */
 
 /* Tabla de socios */
 .soc-tabla-container {
@@ -537,7 +571,7 @@
   min-width: 200px;
 }
 .soc-col-nombre, .soc-col-domicilio, .soc-col-comentario{
-    justify-content: start !important;
+  justify-content: start !important;
 }
 
 .soc-col-comentario {
@@ -583,9 +617,9 @@
   color: var(--soc-primary);
 }
 .soc-iconos-acciones svg{
-    padding: 5px;
-    border-radius: 8px;
-    transition: all .3s ;
+  padding: 5px;
+  border-radius: 8px;
+  transition: all .3s ;
 }
 .soc-iconos-acciones > svg:hover{
   color: white;
@@ -1026,6 +1060,7 @@
     font-size: 0.75rem;
     padding: 4px 8px;
     min-width: 80px;
+    padding-right: 26px; /* leve ajuste en móviles */
   }
 
   .soc-filtro-activo::before {
@@ -1063,12 +1098,8 @@
 .soc-tabla-container ::-webkit-scrollbar-button {
   display: none;
 }
-.otrobuscador{
-  position: absolute !;
-}
-.soc-filtro-activo-id {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
 
+/* util */
+.otrobuscador{
+  position: absolute !important;
+}
