@@ -2,6 +2,7 @@
 // backend/config/db.php
 // Configuración de la base de datos
 //brunoball516
+//php -c "C:\php\php.ini" -S localhost:3001
 //Gastex2233
 //php -S localhost:3001 -c "C:\PHP\php1\php.ini"
 
