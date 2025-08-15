@@ -14,7 +14,6 @@ import {
   FaUserSlash,
   FaSearch,
   FaTimes,
-  FaSync,
   FaUsers,
   FaEllipsisH
 } from 'react-icons/fa';
@@ -140,6 +139,7 @@ const BarraSuperior = React.memo(({
       </div>
 
       <div className="soc-buscadores-container">
+        {/* Buscador por nombre */}
         <div className="soc-buscador-container">
           <input
             type="text"
@@ -175,6 +175,7 @@ const BarraSuperior = React.memo(({
           </div>
         </div>
 
+        {/* Buscador por ID (desde 1 dígito) */}
         <div className="soc-buscador-container soc-buscador-id-container">
           <input
             type="text"
@@ -184,19 +185,16 @@ const BarraSuperior = React.memo(({
             value={busquedaId}
             onChange={(e) => {
               const onlyNums = e.target.value.replace(/\D/g, '');
-              const limited = onlyNums.slice(0, 10);
               setFiltros(prev => ({
                 ...prev,
-                busquedaId: limited,
+                busquedaId: onlyNums,
                 busqueda: '',
                 letraSeleccionada: 'TODOS',
-                filtroActivo: limited.length >= 1 ? 'id' : null
+                // Activa el filtro si hay al menos 1 dígito
+                filtroActivo: onlyNums.length >= 1 ? 'id' : null
               }));
-              
-              if ((limited && filtroActivo !== 'id') || (!limited && filtroActivo !== null)) {
-                setAnimacionActiva(true);
-                setTimeout(() => setAnimacionActiva(false), 300);
-              }
+              setAnimacionActiva(true);
+              setTimeout(() => setAnimacionActiva(false), 300);
             }}
             className="soc-buscador soc-buscador-id"
             disabled={cargando}
@@ -354,40 +352,21 @@ const Socios = () => {
 
   const { busqueda, busquedaId, letraSeleccionada, filtroActivo } = filtros;
 
-  const getId = (s) => String(s?.id_socio ?? s?.id ?? '');
+  // Normalización y comparación de ID robusta (funciona con 1 dígito)
+  const getId = (s) => String(s?.id_socio ?? s?.id ?? '').trim();
+  const normalizeId = (v) => String(v ?? '').replace(/\D/g, '');
   const equalId = (s, needle) => {
-    if (!needle?.trim()) return true;
-    const a = Number(getId(s));
-    const b = Number(needle);
-    if (Number.isNaN(a) || Number.isNaN(b)) return false;
+    const a = normalizeId(getId(s));
+    const b = normalizeId(needle);
+    if (!b) return true; // si no hay needle, no filtra
     return a === b;
   };
-
-  const debounce = (func, wait) => {
-    let timeout;
-    return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-  };
-
-  const handleIdSearch = debounce((value) => {
-    const onlyNums = value.replace(/\D/g, '');
-    setFiltros(prev => ({
-      ...prev,
-      busquedaId: onlyNums,
-      busqueda: '',
-      letraSeleccionada: 'TODOS',
-      filtroActivo: onlyNums ? 'id' : null
-    }));
-    setAnimacionActiva(true);
-    setTimeout(() => setAnimacionActiva(false), 300);
-  }, 300);
 
   const sociosFiltrados = useMemo(() => {
     let resultados = [...socios];
 
-    if (busquedaId && filtroActivo === 'id') {
+    // Filtra por ID si hay al menos 1 dígito y el filtro activo es 'id'
+    if (filtroActivo === 'id' && busquedaId !== '') {
       resultados = resultados.filter((s) => equalId(s, busquedaId));
       return resultados;
     }
@@ -792,7 +771,16 @@ const Socios = () => {
               </div>
               <button
                 className="soc-boton-mostrar-todos"
-                onClick={handleMostrarTodos}
+                onClick={() => {
+                  setFiltros({
+                    busqueda: '',
+                    busquedaId: '',
+                    letraSeleccionada: 'TODOS',
+                    filtroActivo: 'todos'
+                  });
+                  setAnimacionActiva(true);
+                  setTimeout(() => setAnimacionActiva(false), 500);
+                }}
               >
                 Mostrar todos los socios
               </button>

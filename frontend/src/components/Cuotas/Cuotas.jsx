@@ -1,3 +1,4 @@
+// src/components/Cuotas/Cuotas.jsx
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
@@ -92,6 +93,11 @@ const Cuotas = () => {
     );
   };
 
+  const getIdNumber = (c) => {
+    const n = Number(getId(c));
+    return Number.isFinite(n) ? n : null;
+  };
+
   const equalId = (c, needle) => {
     if (!needle.trim()) return true;        // si no hay ID, no filtra
     const a = Number(getId(c));
@@ -103,7 +109,7 @@ const Cuotas = () => {
   const cuotasFiltradas = useMemo(() => {
     if (!periodoSeleccionado) return [];
 
-    const cuotasFiltradas = cuotas
+    const lista = cuotas
       .filter((c) => String(c.id_periodo) === String(periodoSeleccionado))
       .filter((c) => {
         const coincideBusqueda = busqueda === '' || 
@@ -118,17 +124,39 @@ const Cuotas = () => {
         return coincideBusqueda && coincideId && coincideEstadoSocio && coincideMedio && coincideEstadoPago;
       });
 
-    return cuotasFiltradas.sort((a, b) => {
-      const campoA = orden.campo === 'nombre' ? a.nombre : a.domicilio || '';
-      const campoB = orden.campo === 'nombre' ? b.nombre : b.domicilio || '';
-      
-      if (orden.ascendente) {
-        return campoA.localeCompare(campoB);
-      } else {
-        return campoB.localeCompare(campoA);
+    // ORDEN
+    return lista.sort((a, b) => {
+      if (orden.campo === 'id') {
+        const ida = getIdNumber(a);
+        const idb = getIdNumber(b);
+        // sin ID quedan al final
+        if (ida === null && idb === null) return 0;
+        if (ida === null) return 1;
+        if (idb === null) return -1;
+        return orden.ascendente ? ida - idb : idb - ida;
       }
+
+      if (orden.campo === 'domicilio') {
+        const A = a.domicilio || '';
+        const B = b.domicilio || '';
+        return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
+      }
+
+      // Por defecto, ordenar alfabéticamente por nombre (suele contener "Apellido Nombre")
+      const A = a.nombre || '';
+      const B = b.nombre || '';
+      return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
     });
-  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado, estadoPagoSeleccionado, orden]);
+  }, [
+    cuotas,
+    busqueda,
+    busquedaId,
+    estadoSocioSeleccionado,
+    medioPagoSeleccionado,
+    periodoSeleccionado,
+    estadoPagoSeleccionado,
+    orden
+  ]);
 
   const cantidadFiltradaDeudores = useMemo(() => {
     return cuotas.filter(c => 
@@ -440,9 +468,7 @@ const Cuotas = () => {
                     className="cuo_buscador-clear" 
                     onClick={() => {
                       setBusqueda('');
-                      // Opcional: mantener el ID como esté al limpiar texto
-                      // Si querés también limpiar el ID al apretar la X, descomentá:
-                      // setBusquedaId('');
+                      // setBusquedaId(''); // opcional
                     }}
                     title="Limpiar búsqueda"
                   >
@@ -458,7 +484,6 @@ const Cuotas = () => {
                   onChange={(e) => {
                     const val = e.target.value;
                     setBusqueda(val);
-                    // Si estoy escribiendo texto, limpio el ID
                     if (val !== '') setBusquedaId('');
                   }}
                   className="cuo_buscador-input"
@@ -473,9 +498,7 @@ const Cuotas = () => {
                     className="cuo_buscador-clear" 
                     onClick={() => {
                       setBusquedaId('');
-                      // Opcional: mantener el texto como esté al limpiar ID
-                      // Si querés también limpiar el texto al apretar la X, descomentá:
-                      // setBusqueda('');
+                      // setBusqueda(''); // opcional
                     }}
                     title="Limpiar ID"
                   >
@@ -493,7 +516,6 @@ const Cuotas = () => {
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
                     setBusquedaId(val);
-                    // Si estoy escribiendo un ID, limpio el texto
                     if (val !== '') setBusqueda('');
                   }}
                   className="cuo_buscador-id"
@@ -534,23 +556,37 @@ const Cuotas = () => {
         <div className="cuo_tabla-container">
           <div className="cuo_tabla-wrapper">
             <div className="cuo_tabla-header cuo_grid-container">
-              <div className="cuo_col-id">ID</div>
+              {/* Encabezado ID con orden y flecha */}
+              <div
+                className="cuo_col-id cuo_col-clickable"
+                onClick={() => toggleOrden('id')}
+                title="Ordenar por ID"
+              >
+                ID
+                <FaSort className={`cuo_icono-orden ${orden.campo === 'id' ? 'cuo_icono-orden-activo' : ''}`} />
+                {orden.campo === 'id' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
+              </div>
+
               <div 
-                className="cuo_col-nombre" 
+                className="cuo_col-nombre cuo_col-clickable" 
                 onClick={() => toggleOrden('nombre')}
+                title="Ordenar por nombre"
               >
                 Socio 
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'nombre' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'nombre' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
+
               <div 
-                className="cuo_col-domicilio"
+                className="cuo_col-domicilio cuo_col-clickable"
                 onClick={() => toggleOrden('domicilio')}
+                title="Ordenar por dirección"
               >
                 Dirección
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'domicilio' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'domicilio' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
+
               <div className="cuo_col-estado">Estado</div>
               <div className="cuo_col-medio-pago">Medio de Pago</div>
               <div className="cuo_col-acciones">Acciones</div>

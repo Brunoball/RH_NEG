@@ -1,20 +1,45 @@
+// src/utils/imprimirRecibos.jsx
 import BASE_URL from '../config/config';
 
 export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) => {
+  // Normaliza el ID de socio desde distintas claves y lo devuelve como número o null
+  const getIdSocio = (obj) => {
+    const raw = obj?.id_socio ?? obj?.idSocio ?? obj?.idsocio ?? obj?.id ?? null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
   const sociosCompletos = [];
 
+  // Enriquecer datos de cada socio con la API (si hay ID válido)
   for (let socio of listaSocios) {
+    const idNorm = getIdSocio(socio);
+
+    if (idNorm === null) {
+      // Sin ID válido: usar tal cual con fallback
+      sociosCompletos.push({
+        ...socio,
+        id_socio: socio.id_socio ?? socio.idSocio ?? socio.idsocio ?? socio.id ?? '',
+        nombre_cobrador: socio.medio_pago || '',
+        id_periodo: socio.id_periodo || periodoActual || ''
+      });
+      continue;
+    }
+
     try {
-      const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${socio.id_socio}`);
+      const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${idNorm}`);
       const data = await res.json();
       if (data.exito) {
         sociosCompletos.push({
           ...data.socio,
-          nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || ''
+          id_socio: data.socio.id_socio ?? idNorm, // aseguro consistencia
+          nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || '',
+          id_periodo: data.socio.id_periodo || socio.id_periodo || periodoActual || ''
         });
       } else {
         sociosCompletos.push({
           ...socio,
+          id_socio: idNorm,
           nombre_cobrador: socio.medio_pago || '',
           id_periodo: socio.id_periodo || periodoActual || ''
         });
@@ -22,12 +47,24 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
     } catch {
       sociosCompletos.push({
         ...socio,
+        id_socio: idNorm,
         nombre_cobrador: socio.medio_pago || '',
         id_periodo: socio.id_periodo || periodoActual || ''
       });
     }
   }
 
+  // === ORDENAR ASCENDENTE POR ID DE SOCIO ===
+  sociosCompletos.sort((a, b) => {
+    const ida = getIdSocio(a);
+    const idb = getIdSocio(b);
+    if (ida === null && idb === null) return 0;
+    if (ida === null) return 1;  // los sin ID al final
+    if (idb === null) return -1;
+    return ida - idb;            // ascendente
+  });
+
+  // Catálogos
   let categorias = {}, estados = {}, cobradores = {}, periodos = {};
 
   try {
@@ -35,9 +72,9 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
     const dataListas = await resListas.json();
     if (dataListas.exito) {
       categorias = Object.fromEntries(dataListas.listas.categorias.map(c => [c.id_categoria, c.descripcion]));
-      estados = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
+      estados    = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
       cobradores = Object.fromEntries(dataListas.listas.cobradores.map(c => [c.id_cobrador, c.nombre]));
-      periodos = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
+      periodos   = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
     }
   } catch (error) {
     console.error("Error obteniendo listas:", error);
@@ -48,6 +85,14 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
 
   const anioActual = new Date().getFullYear();
   const posicionesTop = [20, 68, 117, 166, 216, 264];
+
+  // Precomputo los códigos de barras para el <script> embebido (evita JSON.stringify raros)
+  const codigosBarra = sociosCompletos.map((s) => {
+    const idn = getIdSocio(s);
+    const idStr = Number.isFinite(idn) ? String(idn) : '-';
+    const cp = s.id_periodo || periodoActual || '0';
+    return `${cp}-${idStr}`;
+  });
 
   const html = `
   <html>
@@ -171,13 +216,14 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
 
           for (let i = 0; i < pageSocios.length; i++) {
             const socio = pageSocios[i];
-            const indexGlobal = p * 6 + i;
+            const indexGlobal = p * 6 + i; // índice global = índice en sociosCompletos
             const top = posicionesTop[i];
 
+            const idNorm = getIdSocio(socio);
             const nombre = socio.nombre?.toUpperCase() || '';
             const apellido = socio.apellido?.toUpperCase() || '';
             const domicilio = [socio.domicilio, socio.numero].filter(Boolean).join(' ').trim() || '';
-            const id = socio.id_socio || '';
+            const id = idNorm ?? '';
             const categoria = categorias[socio.id_categoria] || socio.nombre_categoria || '';
             const estado = estados[socio.id_estado] || socio.nombre_estado || '';
             const tel = typeof socio.telefono === 'string' && socio.telefono.trim() !== '' ? socio.telefono.trim() : '';
@@ -191,7 +237,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
               <div class="recibo-area" style="top: ${top}mm; left: ${conCodigo ? '5mm' : '110mm'};">
                 <div class="recibo">
                   <div class="row">
-                    <div class="cell cell-full"><strong>Socio:</strong>&nbsp;${id} - ${apellido} ${nombre}</div>
+                    <div class="cell cell-full"><strong>Socio:</strong>&nbsp;${id || '-'} - ${apellido} ${nombre}</div>
                   </div>
                   <div class="row">
                     <div class="cell cell-full"><strong>Domicilio:</strong>&nbsp;${domicilio}</div>
@@ -229,20 +275,19 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
       })()}
       <script>
         window.onload = function() {
-          ${sociosCompletos.map((s, i) => {
-            const id = s.id_socio || '-';
-            const codigoPeriodo = s.id_periodo || periodoActual || '0';
-            const codigo = `${codigoPeriodo}-${id}`;
-            return `
-              JsBarcode("#barcode-${i}", "${codigo}", {
+          // Códigos precomputados desde React:
+          var codigos = ${JSON.stringify(codigosBarra)};
+          for (var i = 0; i < codigos.length; i++) {
+            try {
+              JsBarcode("#barcode-" + i, codigos[i], {
                 format: "CODE128",
                 lineColor: "#000",
                 width: 2.5,
                 height: 50,
                 displayValue: false
               });
-            `;
-          }).join('\n')}
+            } catch (e) { /* ignorar si falta el svg (por seguridad) */ }
+          }
           window.print();
         };
       </script>

@@ -11,7 +11,8 @@ import {
   faMoneyBillWave,
   faTags,
   faUserPlus,
-  faSignOutAlt
+  faSignOutAlt,
+  faFileInvoiceDollar
 } from '@fortawesome/free-solid-svg-icons';
 
 const Principal = () => {
@@ -53,7 +54,7 @@ const Principal = () => {
                 <FontAwesomeIcon icon={faUsers} className="princ-opcion-icono" />
               </div>
               <span className="princ-opcion-texto">Gestionar Socios</span>
-              <span className="princ-opcion-desc">Administra el listado completo de socios</span>
+              <span className="princ-opcion-desc">Administra el listado de socios</span>
             </div>
           </button>
 
@@ -63,16 +64,16 @@ const Principal = () => {
                 <FontAwesomeIcon icon={faMoneyBillWave} className="princ-opcion-icono" />
               </div>
               <span className="princ-opcion-texto">Gestionar Cuotas</span>
-              <span className="princ-opcion-desc">Control de pagos y cuotas mensuales</span>
+              <span className="princ-opcion-desc">Control de pagos y cuotas</span>
             </div>
           </button>
 
           <button className="princ-opcion princ-opcion-categorias" disabled>
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
-                <FontAwesomeIcon icon={faTags} className="princ-opcion-icono" />
+                <FontAwesomeIcon icon={faFileInvoiceDollar} className="princ-opcion-icono" />
               </div>
-              <span className="princ-opcion-texto">Gestionar Categorías</span>
+              <span className="princ-opcion-texto">Gestión contable</span>
               <span className="princ-opcion-desc">Próximamente</span>
             </div>
           </button>
@@ -87,6 +88,7 @@ const Principal = () => {
             </div>
           </button>
         </div>
+
 
         <div className="princ-footer">
           <div className="princ-footer-container">

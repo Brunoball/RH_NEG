@@ -5,6 +5,8 @@ import Toast from '../../Global/Toast';
 import './ModalPagos.css';
 
 const PRECIO_MENSUAL = 4000;
+const PRECIO_ANUAL_CON_DESCUENTO = 21000; // total con descuento si pagan todo el año
+const MESES_ANIO = 6; // cantidad de periodos que definen "todo el año"
 
 const obtenerPrimerMesDesdeNombre = (nombre) => {
   const match = nombre.match(/\d+/);
@@ -77,10 +79,12 @@ const ModalPagos = ({ socio, onClose }) => {
   }, [socio]);
 
   useEffect(() => {
+    // disponibles: periodos que puede marcar (no pagados)
     const disponibles = periodosDisponibles
       .filter(p => !periodosPagados.includes(p.id))
       .map(p => p.id);
 
+    // "todosSeleccionados" si marcó todos los disponibles (independiente del descuento)
     const todos = disponibles.length > 0 && disponibles.every(id => seleccionados.includes(id));
     setTodosSeleccionados(todos);
   }, [seleccionados, periodosDisponibles, periodosPagados]);
@@ -149,7 +153,12 @@ const ModalPagos = ({ socio, onClose }) => {
   const formatearARS = (monto) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
 
-  const total = seleccionados.length * PRECIO_MENSUAL;
+  // --- REGLA DE NEGOCIO: SOLO HAY DESCUENTO SI HAY EXACTAMENTE 6 SELECCIONADOS ---
+  const aplicaDescuentoAnual = seleccionados.length === MESES_ANIO;
+
+  const total = aplicaDescuentoAnual
+    ? PRECIO_ANUAL_CON_DESCUENTO
+    : seleccionados.length * PRECIO_MENSUAL;
 
   if (!socio) return null;
 
@@ -205,7 +214,9 @@ const ModalPagos = ({ socio, onClose }) => {
                     {todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos'}
                   </button>
                   <div className="selection-info">
-                    {seleccionados.length > 0 ? `${seleccionados.length} seleccionados` : 'Ninguno seleccionado'}
+                    {seleccionados.length > 0
+                      ? `${seleccionados.length} seleccionados${aplicaDescuentoAnual ? ' (pago anual con descuento)' : ''}`
+                      : 'Ninguno seleccionado'}
                   </div>
                 </div>
               </div>
