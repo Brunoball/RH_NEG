@@ -1,10 +1,19 @@
+// src/components/Cuotas/modales/ModalEliminarPago.jsx
 import React, { useState } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalEliminarPago.css'; // usa las mismas clases que el de socio
 
-const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
+/**
+ * Props:
+ * - socio: { id_socio, nombre, ... }
+ * - periodo: string|number (ID del período seleccionado)
+ * - periodoTexto: string (lo que se ve en el select, ej: "1 y 2")
+ * - onClose: fn
+ * - onEliminado: fn
+ */
+const ModalEliminarPago = ({ socio, periodo, periodoTexto, onClose, onEliminado }) => {
   const [toast, setToast] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -20,19 +29,19 @@ const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_socio: socio.id_socio,
-          id_periodo: periodo
-        })
+          id_periodo: periodo, // enviamos el ID, no el texto
+        }),
       });
 
       const data = await res.json();
       if (data.exito) {
         mostrarToast('exito', 'Pago eliminado correctamente');
         setTimeout(() => {
-          onEliminado({ ...socio, estado_pago: 'deudor', medio_pago: '' });
-          onClose();
+          onEliminado?.({ ...socio, estado_pago: 'deudor', medio_pago: '' });
+          onClose?.();
         }, 1000);
       } else {
-        mostrarToast('error', 'Error: ' + data.mensaje);
+        mostrarToast('error', 'Error: ' + (data.mensaje ?? 'No se pudo eliminar'));
       }
     } catch (err) {
       console.error(err);
@@ -59,14 +68,15 @@ const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
       </div>
 
       {/* Mismas clases del modal de eliminar socio */}
-      <div className="soc-modal-overlay-eliminar">
-        <div className="soc-modal-contenido-eliminar">
-          <div className="soc-modal-icono-eliminar">
+      <div className="soc-modal-overlay-eliminar" role="dialog" aria-modal="true">
+        <div className="soc-modal-contenido-eliminar" role="document">
+          <div className="soc-modal-icono-eliminar" aria-hidden="true">
             <FaExclamationTriangle />
           </div>
           <h3 className="soc-modal-titulo-eliminar">Eliminar Pago</h3>
           <p className="soc-modal-texto-eliminar">
-            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para el período <strong>{periodo}</strong>?
+            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para el período{' '}
+            <strong>{periodoTexto ?? periodo}</strong>?
           </p>
           <div className="soc-modal-botones-eliminar">
             <button

@@ -658,7 +658,8 @@ const Cuotas = () => {
       {mostrarModalEliminarPago && (
         <ModalEliminarPago
           socio={socioParaPagar}
-          periodo={periodoSeleccionado}
+          periodo={periodoSeleccionado}                        
+          periodoTexto={getNombrePeriodo(periodoSeleccionado)}  
           onClose={() => setMostrarModalEliminarPago(false)}
           onEliminado={obtenerCuotasYListas}
         />
