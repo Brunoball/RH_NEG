@@ -53,12 +53,10 @@
   background-color: transparent;
   box-shadow: var(--shadow-xl);
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transform: scale(0.98);
-  transition: transform 0.3s ease, opacity 0.3s ease;
   border-radius: var(--border-radius-lg);
   overflow: hidden;
 }
@@ -330,7 +328,6 @@
 }
 
 .periodo-label {
-  flex-grow: 1;
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--gray-800);
@@ -513,4 +510,17 @@
   .modal-icon-circle {
     display: none;
   }
+}
+
+
+@media (min-width: 1500px) {
+.modal-pagos-contenido{
+  max-width: 38%;
+}
+}
+
+@media (min-width: 2500px){
+  .modal-pagos-contenido{
+  max-width: 28%;
+}
 }
