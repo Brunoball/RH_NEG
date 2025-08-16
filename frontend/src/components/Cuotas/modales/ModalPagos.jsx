@@ -202,69 +202,74 @@ const ModalPagos = ({ socio, onClose }) => {
               </div>
             </div>
 
-            <div className="periodos-section">
-              <div className="section-header">
-                <h4 className="section-title">Períodos Disponibles</h4>
-                <div className="section-header-actions">
-                  <button 
-                    className="btn btn-small btn-terciario" 
-                    onClick={toggleSeleccionarTodos}
-                    disabled={cargando || periodosDisponibles.length === 0}
-                  >
-                    {todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                  </button>
-                  <div className="selection-info">
-                    {seleccionados.length > 0
-                      ? `${seleccionados.length} seleccionados${aplicaDescuentoAnual ? ' (pago anual con descuento)' : ''}`
-                      : 'Ninguno seleccionado'}
-                  </div>
-                </div>
-              </div>
+<div className="periodos-section">
+  <div className="section-header">
+    <h4 className="section-title">Períodos Disponibles</h4>
+    <div className="section-header-actions">
+      <button 
+        className="btn btn-small btn-terciario" 
+        onClick={toggleSeleccionarTodos}
+        disabled={cargando || periodosDisponibles.length === 0}
+      >
+        {todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos'}
+      </button>
+    </div>
+  </div>
 
-              {cargando && periodos.length === 0 ? (
-                <div className="loading-state">
-                  <div className="spinner"></div>
-                  <span>Cargando períodos...</span>
+  {cargando && periodos.length === 0 ? (
+    <div className="loading-state">
+      <div className="spinner"></div>
+      <span>Cargando períodos...</span>
+    </div>
+  ) : (
+    <>
+      <div className="periodos-grid-container">
+        <div className="periodos-grid">
+          {periodosDisponibles.map((periodo) => {
+            const yaPagado = periodosPagados.includes(periodo.id);
+            return (
+              <div 
+                key={periodo.id} 
+                className={`periodo-card ${yaPagado ? 'pagado' : ''} ${seleccionados.includes(periodo.id) ? 'seleccionado' : ''}`}
+                onClick={() => !yaPagado && togglePeriodo(periodo.id)}
+              >
+                <div className="periodo-checkbox">
+                  <input
+                    type="checkbox"
+                    id={`periodo-${periodo.id}`}
+                    checked={seleccionados.includes(periodo.id)}
+                    onChange={() => togglePeriodo(periodo.id)}
+                    disabled={yaPagado || cargando}
+                  />
+                  <span className="checkmark"></span>
                 </div>
-              ) : (
-                <div className="periodos-grid-container">
-                  <div className="periodos-grid">
-                    {periodosDisponibles.map((periodo) => {
-                      const yaPagado = periodosPagados.includes(periodo.id);
-                      return (
-                        <div 
-                          key={periodo.id} 
-                          className={`periodo-card ${yaPagado ? 'pagado' : ''} ${seleccionados.includes(periodo.id) ? 'seleccionado' : ''}`}
-                          onClick={() => !yaPagado && togglePeriodo(periodo.id)}
-                        >
-                          <div className="periodo-checkbox">
-                            <input
-                              type="checkbox"
-                              id={`periodo-${periodo.id}`}
-                              checked={seleccionados.includes(periodo.id)}
-                              onChange={() => togglePeriodo(periodo.id)}
-                              disabled={yaPagado || cargando}
-                            />
-                            <span className="checkmark"></span>
-                          </div>
-                          <label htmlFor={`periodo-${periodo.id}`} className="periodo-label">
-                            {periodo.nombre}
-                            {yaPagado && (
-                              <span className="periodo-status">
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                  <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                                Pagado
-                              </span>
-                            )}
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+                <label htmlFor={`periodo-${periodo.id}`} className="periodo-label">
+                  {periodo.nombre}
+                  {yaPagado && (
+                    <span className="periodo-status">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Pagado
+                    </span>
+                  )}
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* AHORA ABAJO DE LA GRILLA */}
+      <div className="selection-info selection-info-bottom">
+        {seleccionados.length > 0
+          ? `${seleccionados.length} seleccionados${aplicaDescuentoAnual ? ' (pago anual con descuento)' : ''}`
+          : 'Ninguno seleccionado'}
+      </div>
+    </>
+  )}
+</div>
+
           </div>
 
           {/* FOOTER con Total a la izquierda y botones a la derecha */}

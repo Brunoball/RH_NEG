@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { FaExclamationTriangle } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
-import './ModalEliminarPago.css';
+import './ModalEliminarPago.css'; // usa las mismas clases que el de socio
 
 const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
   const [toast, setToast] = useState(null);
@@ -41,9 +42,11 @@ const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
     }
   };
 
+  if (!socio) return null;
+
   return (
     <>
-      {/* Toast debe estar fuera del overlay */}
+      {/* Toast fijo arriba de todo */}
       <div className="toast-fixed-container">
         {toast && (
           <Toast
@@ -55,16 +58,29 @@ const ModalEliminarPago = ({ socio, periodo, onClose, onEliminado }) => {
         )}
       </div>
 
-      <div className="modal-eliminar-overlay">
-        <div className="modal-eliminar-contenido">
-          <h3>¿Eliminar pago?</h3>
-          <p>
-            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> 
-            para el período <strong>{periodo}</strong>?
+      {/* Mismas clases del modal de eliminar socio */}
+      <div className="soc-modal-overlay-eliminar">
+        <div className="soc-modal-contenido-eliminar">
+          <div className="soc-modal-icono-eliminar">
+            <FaExclamationTriangle />
+          </div>
+          <h3 className="soc-modal-titulo-eliminar">Eliminar Pago</h3>
+          <p className="soc-modal-texto-eliminar">
+            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para el período <strong>{periodo}</strong>?
           </p>
-          <div className="modal-eliminar-botones">
-            <button className="btn-cancelar" onClick={onClose} disabled={cargando}>Cancelar</button>
-            <button className="btn-confirmar" onClick={handleEliminar} disabled={cargando}>
+          <div className="soc-modal-botones-eliminar">
+            <button
+              className="soc-boton-cancelar-eliminar"
+              onClick={onClose}
+              disabled={cargando}
+            >
+              Cancelar
+            </button>
+            <button
+              className="soc-boton-confirmar-eliminar"
+              onClick={handleEliminar}
+              disabled={cargando}
+            >
               {cargando ? 'Eliminando...' : 'Eliminar'}
             </button>
           </div>

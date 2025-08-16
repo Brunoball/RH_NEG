@@ -445,3 +445,9 @@
 @media (max-width: 400px) {
   .princ-opcion { height: 140px; }
 }
+
+@media (min-width: 1920px) {
+   .princ-encabezado{
+    max-width: 1000px;
+   }
+}
