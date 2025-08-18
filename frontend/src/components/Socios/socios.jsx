@@ -14,7 +14,9 @@ import {
   FaUserSlash,
   FaSearch,
   FaTimes,
-  FaUsers
+  FaUsers,
+  FaFilter,
+  FaChevronDown
 } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
@@ -93,6 +95,20 @@ const BarraSuperior = React.memo(({
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+  // ↓↓↓ NUEVO: submenús tipo Empresas
+  const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
+  const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
+
+  const toggleSubmenu = useCallback(( cual ) => {
+    if (cual === 'alfabetico') {
+      setMostrarSubmenuAlfabetico(v => !v);
+      setMostrarSubmenuCategoria(false);
+    } else if (cual === 'categoria') {
+      setMostrarSubmenuCategoria(v => !v);
+      setMostrarSubmenuAlfabetico(false);
+    }
+  }, []);
+
   const handleLetraClick = useCallback((letra) => {
     setFiltros(prev => ({ 
       ...prev, 
@@ -102,9 +118,25 @@ const BarraSuperior = React.memo(({
       busquedaId: '',
       filtroActivo: 'letra'
     }));
+    setMostrarSubmenuAlfabetico(false);
     setMostrarFiltros(false);
     setAnimacionActiva(true);
     setTimeout(() => setAnimacionActiva(false), 800);
+  }, [setFiltros, setMostrarFiltros, setAnimacionActiva]);
+
+  const handleCategoriaClick = useCallback((value) => {
+    setFiltros(prev => ({
+      ...prev,
+      categoriaSeleccionada: value,
+      letraSeleccionada: 'TODOS',
+      busqueda: '',
+      busquedaId: '',
+      filtroActivo: value === 'OPCIONES' ? null : 'categoria'
+    }));
+    setMostrarSubmenuCategoria(false);
+    setMostrarFiltros(false);
+    setAnimacionActiva(true);
+    setTimeout(() => setAnimacionActiva(false), 500);
   }, [setFiltros, setMostrarFiltros, setAnimacionActiva]);
 
   const handleMostrarTodos = useCallback(() => {
@@ -116,6 +148,8 @@ const BarraSuperior = React.memo(({
       busquedaId: '',
       filtroActivo: 'todos'
     }));
+    setMostrarSubmenuAlfabetico(false);
+    setMostrarSubmenuCategoria(false);
     setMostrarFiltros(false);
     setAnimacionActiva(true);
     setTimeout(() => setAnimacionActiva(false), 600);
@@ -182,7 +216,7 @@ const BarraSuperior = React.memo(({
           </div>
         </div>
 
-        {/* Buscador por ID (desde 1 dígito) */}
+        {/* Buscador por ID */}
         <div className="soc-buscador-container soc-buscador-id-container">
           <input
             type="text"
@@ -223,19 +257,26 @@ const BarraSuperior = React.memo(({
         </div>
       </div>
 
+      {/* ==== NUEVO BLOQUE: Dropdown calcado del de Empresas ==== */}
       <div className="soc-filtros-container" ref={filtrosRef}>
         <button 
-          className="soc-boton-filtros"
+          className="soc-boton-filtros soc-boton-filtros--emp"
           onClick={(e) => {
             e.stopPropagation();
             setMostrarFiltros(!mostrarFiltros);
+            if (!mostrarFiltros) {
+              setMostrarSubmenuAlfabetico(false);
+              setMostrarSubmenuCategoria(false);
+            }
           }}
           disabled={cargando}
         >
-          Filtros {mostrarFiltros ? '▲' : '▼'}
+          <FaFilter className="soc-icono-boton" />
+          <span>Aplicar Filtros</span>
+          <FaChevronDown className={`soc-chevron-icon ${mostrarFiltros ? 'soc-rotate' : ''}`} />
         </button>
-        
-        {/* Chips de filtros activos */}
+
+        {/* Chips de filtros activos (se mantienen) */}
         <div className="soc-filtros-activos-container">
           {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && busqueda && (
             <div className="soc-filtro-activo" key="busqueda">
@@ -309,72 +350,84 @@ const BarraSuperior = React.memo(({
           )}
         </div>
         
-        {/* Panel de filtros */}
+        {/* Panel de filtros con submenús, igual al patrón de Empresas */}
         {mostrarFiltros && (
           <div 
-            className="soc-menu-filtros"
+            className="soc-menu-filtros soc-menu-filtros--emp"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Filtro por letra */}
-            <div className="soc-letras-filtro">
-              {letras.map((letra) => (
-                <button
-                  key={letra}
-                  className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleLetraClick(letra);
-                  }}
-                >
-                  {letra}
-                </button>
-              ))}
-            </div>
-
-            {/* Filtro por categoría */}
-            <div className="soc-categoria-filtro">
-              <label htmlFor="select-categoria" className="soc-categoria-label">
-                Categoría
-              </label>
-              <select
-                id="select-categoria"
-                className="soc-select-categoria"
-                value={categoriaSeleccionada}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFiltros(prev => ({
-                    ...prev,
-                    categoriaSeleccionada: value,
-                    letraSeleccionada: 'TODOS',
-                    busqueda: '',
-                    busquedaId: '',
-                    filtroActivo: value === 'OPCIONES' ? null : 'categoria'
-                  }));
-                  setAnimacionActiva(true);
-                  setTimeout(() => setAnimacionActiva(false), 500);
-                }}
-              >
-                <option value="OPCIONES">Opciones</option>
-                {categorias.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.descripcion}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              className="soc-boton-todos"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleMostrarTodos();
-              }}
+            {/* Ítem 1: Alfabético */}
+            <div
+              className="soc-filtros-menu-item"
+              onClick={() => toggleSubmenu('alfabetico')}
             >
-              Mostrar Todos
-            </button>
+              <span>Filtrar de la A a la Z</span>
+              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuAlfabetico ? 'soc-rotate' : ''}`} />
+            </div>
+
+            {mostrarSubmenuAlfabetico && (
+              <div className="soc-filtros-submenu">
+                <div className="soc-alfabeto-filtros">
+                  {letras.map((letra) => (
+                    <button
+                      key={letra}
+                      className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLetraClick(letra);
+                      }}
+                      title={`Filtrar por ${letra}`}
+                    >
+                      {letra}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ítem 2: Categorías */}
+            <div
+              className="soc-filtros-menu-item"
+              onClick={() => toggleSubmenu('categoria')}
+            >
+              <span>Categorías</span>
+              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuCategoria ? 'soc-rotate' : ''}`} />
+            </div>
+
+            {mostrarSubmenuCategoria && (
+              <div className="soc-filtros-submenu">
+                <div className="soc-submenu-lista">
+                  {categorias.map(cat => {
+                    const active = String(categoriaSeleccionada) === String(cat.id);
+                    return (
+                      <div
+                        key={cat.id}
+                        className={`soc-filtros-submenu-item ${active ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCategoriaClick(String(cat.id));
+                        }}
+                        title={`Filtrar por ${cat.descripcion}`}
+                      >
+                        {cat.descripcion}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Ítem 3: Mostrar todas */}
+            <div
+              className="soc-filtros-menu-item soc-filtros-menu-item__mostrar-todas"
+              onClick={(e) => { e.stopPropagation(); handleMostrarTodos(); }}
+            >
+              <span>Mostrar Todas</span>
+            </div>
           </div>
         )}
       </div>
+      {/* ==== FIN NUEVO BLOQUE ==== */}
     </div>
   );
 });
@@ -427,26 +480,17 @@ const Socios = () => {
     return a === b;
   };
 
-  /* ===============================
-     Visibles:
-     - SIEMPRE base = socios con activo=1
-     - SI filtroActivo === 'categoria': además exigir id_estado=2
-     - Otros filtros NO aplican restricción por id_estado
-  =============================== */
+  /* Visibles */
   const sociosFiltrados = useMemo(() => {
-    // 1) Base por "activo"
     let resultados = (socios || []).filter(s => Number(s?.activo) === 1);
 
-    // 2) Restricción por estado solo cuando hay filtro de categoría
     const exigirEstadoActivo = filtroActivo === 'categoria';
 
-    // 3) ID (exclusivo)
     if (filtroActivo === 'id' && busquedaId !== '') {
       resultados = resultados.filter((s) => equalId(s, busquedaId));
       return resultados;
     }
 
-    // 4) Otros filtros
     if (filtroActivo === 'busqueda' && busqueda) {
       resultados = resultados.filter((s) =>
         (s.nombre ?? '').toLowerCase().includes(busqueda.toLowerCase())
@@ -460,10 +504,9 @@ const Socios = () => {
         String(s?.id_categoria) === String(categoriaSeleccionada)
       );
     } else if (filtroActivo === 'todos') {
-      // Nada extra (ya se aplicó activo=1)
+      // nada extra
     }
 
-    // 5) Si corresponde, exigir id_estado = 2
     if (exigirEstadoActivo) {
       resultados = resultados.filter((s) => Number(s?.id_estado) === 2);
     }
@@ -482,6 +525,7 @@ const Socios = () => {
   useEffect(() => {
     const handleClickOutsideFiltros = (event) => {
       if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
+        // Cierra todo como en Empresas
         setMostrarFiltros(false);
       }
     };
@@ -507,7 +551,6 @@ const Socios = () => {
     const cargarDatosIniciales = async () => {
       try {
         setCargando(true);
-        // Socios (el backend trae todos, filtramos en frontend por activo=1)
         const response = await fetch(`${BASE_URL}/api.php?action=socios`);
         const data = await response.json();
         if (data.exito) {
@@ -516,7 +559,6 @@ const Socios = () => {
           mostrarToast(`Error al obtener socios: ${data.mensaje}`, 'error');
         }
 
-        // Listas para categorías
         try {
           const respListas = await fetch(`${BASE_URL}/api.php?action=listas`);
           const dataListas = await respListas.json();
