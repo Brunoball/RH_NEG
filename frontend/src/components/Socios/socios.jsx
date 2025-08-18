@@ -95,7 +95,6 @@ const BarraSuperior = React.memo(({
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-  // ↓↓↓ NUEVO: submenús tipo Empresas
   const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
   const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
 
@@ -257,8 +256,71 @@ const BarraSuperior = React.memo(({
         </div>
       </div>
 
-      {/* ==== NUEVO BLOQUE: Dropdown calcado del de Empresas ==== */}
+      {/* ==== FILTROS: chips a la IZQUIERDA y botón pegado a la DERECHA ==== */}
       <div className="soc-filtros-container" ref={filtrosRef}>
+        {/* Chips primero (izquierda) */}
+        <div className="soc-filtros-activos-container">
+          {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && busqueda && (
+            <div className="soc-filtro-activo" key="busqueda">
+              <span className="soc-filtro-activo-busqueda">
+                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
+                {busqueda.length > 20 ? `${busqueda.substring(0, 20)}…` : busqueda}
+              </span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => { e.stopPropagation(); limpiarFiltro('busqueda'); }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
+            </div>
+          )}
+          {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
+            <div className="soc-filtro-activo" key="id">
+              <span className="soc-filtro-activo-id">
+                ID: {busquedaId.length > 6 ? `${busquedaId.slice(0, 6)}…` : busquedaId}
+              </span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => { e.stopPropagation(); limpiarFiltro('id'); }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
+            </div>
+          )}
+          {(filtroActivo === 'letra' || ultimoFiltroActivo === 'letra') && letraSeleccionada !== 'TODOS' && (
+            <div className="soc-filtro-activo" key="letra">
+              <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => { e.stopPropagation(); limpiarFiltro('letra'); }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
+            </div>
+          )}
+          {(filtroActivo === 'categoria' || ultimoFiltroActivo === 'categoria') && categoriaSeleccionada !== 'OPCIONES' && (
+            <div className="soc-filtro-activo" key="categoria">
+              <span className="soc-filtro-activo-categoria">
+                Cat: {(() => {
+                  const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
+                  return found ? found.descripcion : categoriaSeleccionada;
+                })()}
+              </span>
+              <button 
+                className="soc-filtro-activo-cerrar"
+                onClick={(e) => { e.stopPropagation(); limpiarFiltro('categoria'); }}
+                title="Quitar filtro"
+              >
+                <FaTimes size={10} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Botón de filtros (derecha) */}
         <button 
           className="soc-boton-filtros soc-boton-filtros--emp"
           onClick={(e) => {
@@ -276,87 +338,12 @@ const BarraSuperior = React.memo(({
           <FaChevronDown className={`soc-chevron-icon ${mostrarFiltros ? 'soc-rotate' : ''}`} />
         </button>
 
-        {/* Chips de filtros activos (se mantienen) */}
-        <div className="soc-filtros-activos-container">
-          {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && busqueda && (
-            <div className="soc-filtro-activo" key="busqueda">
-              <span className="soc-filtro-activo-busqueda">
-                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
-                {busqueda.length > 3 ? `${busqueda.substring(0, 3)}...` : busqueda}
-              </span>
-              <button 
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  limpiarFiltro('busqueda');
-                }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
-            <div className="soc-filtro-activo" key="id">
-              <span className="soc-filtro-activo-id">
-                ID: {busquedaId.length > 3 ? `${busquedaId.slice(0, 3)}...` : busquedaId}
-              </span>
-              <button 
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  limpiarFiltro('id');
-                }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'letra' || ultimoFiltroActivo === 'letra') && letraSeleccionada !== 'TODOS' && (
-            <div className="soc-filtro-activo" key="letra">
-              <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
-              <button 
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  limpiarFiltro('letra');
-                }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'categoria' || ultimoFiltroActivo === 'categoria') && categoriaSeleccionada !== 'OPCIONES' && (
-            <div className="soc-filtro-activo" key="categoria">
-              <span className="soc-filtro-activo-categoria">
-                Cat: {(() => {
-                  const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
-                  return found ? found.descripcion : categoriaSeleccionada;
-                })()}
-              </span>
-              <button 
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  limpiarFiltro('categoria');
-                }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-        </div>
-        
-        {/* Panel de filtros con submenús, igual al patrón de Empresas */}
+        {/* Panel del menú (anclado a la derecha bajo el botón) */}
         {mostrarFiltros && (
           <div 
             className="soc-menu-filtros soc-menu-filtros--emp"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Ítem 1: Alfabético */}
             <div
               className="soc-filtros-menu-item"
               onClick={() => toggleSubmenu('alfabetico')}
@@ -372,10 +359,7 @@ const BarraSuperior = React.memo(({
                     <button
                       key={letra}
                       className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleLetraClick(letra);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); handleLetraClick(letra); }}
                       title={`Filtrar por ${letra}`}
                     >
                       {letra}
@@ -385,7 +369,6 @@ const BarraSuperior = React.memo(({
               </div>
             )}
 
-            {/* Ítem 2: Categorías */}
             <div
               className="soc-filtros-menu-item"
               onClick={() => toggleSubmenu('categoria')}
@@ -403,10 +386,7 @@ const BarraSuperior = React.memo(({
                       <div
                         key={cat.id}
                         className={`soc-filtros-submenu-item ${active ? 'active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCategoriaClick(String(cat.id));
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleCategoriaClick(String(cat.id)); }}
                         title={`Filtrar por ${cat.descripcion}`}
                       >
                         {cat.descripcion}
@@ -417,7 +397,6 @@ const BarraSuperior = React.memo(({
               </div>
             )}
 
-            {/* Ítem 3: Mostrar todas */}
             <div
               className="soc-filtros-menu-item soc-filtros-menu-item__mostrar-todas"
               onClick={(e) => { e.stopPropagation(); handleMostrarTodos(); }}
@@ -427,7 +406,7 @@ const BarraSuperior = React.memo(({
           </div>
         )}
       </div>
-      {/* ==== FIN NUEVO BLOQUE ==== */}
+      {/* ==== FIN FILTROS ==== */}
     </div>
   );
 });
@@ -470,7 +449,6 @@ const Socios = () => {
 
   const { busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, filtroActivo } = filtros;
 
-  // Helpers ID
   const getId = (s) => String(s?.id_socio ?? s?.id ?? '').trim();
   const normalizeId = (v) => String(v ?? '').replace(/\D/g, '');
   const equalId = (s, needle) => {
@@ -480,7 +458,6 @@ const Socios = () => {
     return a === b;
   };
 
-  /* Visibles */
   const sociosFiltrados = useMemo(() => {
     let resultados = (socios || []).filter(s => Number(s?.activo) === 1);
 
@@ -514,7 +491,6 @@ const Socios = () => {
     return resultados;
   }, [socios, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, filtroActivo]);
 
-  // UX
   useEffect(() => {
     if (sociosFiltrados.length > 0) {
       const timer = setTimeout(() => setBloquearInteraccion(false), 300);
@@ -525,7 +501,6 @@ const Socios = () => {
   useEffect(() => {
     const handleClickOutsideFiltros = (event) => {
       if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
-        // Cierra todo como en Empresas
         setMostrarFiltros(false);
       }
     };
@@ -546,7 +521,6 @@ const Socios = () => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
 
-  // Carga inicial
   useEffect(() => {
     const cargarDatosIniciales = async () => {
       try {
@@ -596,7 +570,6 @@ const Socios = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [mostrarToast]);
 
-  // Persistencia filtros
   useEffect(() => {
     localStorage.setItem('filtros_socios', JSON.stringify(filtros));
   }, [filtros]);
@@ -605,7 +578,6 @@ const Socios = () => {
     if (filtroActivo !== null) setUltimoFiltroActivo(filtroActivo);
   }, [filtroActivo]);
 
-  // Acciones
   const manejarSeleccion = useCallback((socio) => {
     if (bloquearInteraccion || animacionActiva) return;
     setSocioSeleccionado(prev => 
@@ -709,7 +681,6 @@ const Socios = () => {
     saveAs(blob, 'Socios_visibles.xlsx');
   }, [socios, sociosFiltrados, filtroActivo, construirDomicilio, mostrarToast]);
 
-  // Fila virtualizada
   const Row = React.memo(({ index, style, data }) => {
     const socio = data[index];
     const esFilaPar = index % 2 === 0;
