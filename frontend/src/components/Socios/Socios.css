@@ -421,8 +421,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   background: var(--soc-gradient-primary);
   color: white;
   border-radius: 50%;
