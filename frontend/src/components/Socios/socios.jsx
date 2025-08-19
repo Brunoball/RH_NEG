@@ -304,7 +304,7 @@ const BarraSuperior = React.memo(({
           {(filtroActivo === 'categoria' || ultimoFiltroActivo === 'categoria') && categoriaSeleccionada !== 'OPCIONES' && (
             <div className="soc-filtro-activo" key="categoria">
               <span className="soc-filtro-activo-categoria">
-                Cat: {(() => {
+                 {(() => {
                   const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
                   return found ? found.descripcion : categoriaSeleccionada;
                 })()}
