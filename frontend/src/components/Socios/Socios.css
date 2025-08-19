@@ -36,27 +36,8 @@
 
 /* Importación de tipografía - Igual que Principal */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
-html {
-  font-size: 16px; /* Base para rem */
-}
 
-@media (min-width: 1600px) {
-  html {
-    font-size: 16px;
-  }
-}
 
-@media (min-width: 1920px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 2560px) {
-  html {
-    font-size: 16px;
-  }
-}
 /* Estilos base */
 .soc-container {
   position: relative;
@@ -932,6 +913,15 @@ html {
   .soc-filtros-submenu { padding: 0.75rem; }
   .soc-alfabeto-filtros { grid-template-columns: repeat(6, 1fr); }
   .soc-letra-filtro { padding: 0.4rem; font-size: 0.85rem; }
+}
+
+@media (min-width: 2500px) {
+.soc-letra-filtro { padding: 5px;} 
+
+}
+@media (min-width: 3300px) {
+.soc-letra-filtro { padding: 5px;} 
+
 }
 
 @media (max-width: 576px) {
