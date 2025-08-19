@@ -36,7 +36,27 @@
 
 /* Importación de tipografía - Igual que Principal */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
+html {
+  font-size: 16px; /* Base para rem */
+}
 
+@media (min-width: 1600px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 16px;
+  }
+}
 /* Estilos base */
 .soc-container {
   position: relative;
@@ -51,6 +71,7 @@
   justify-content: space-between;
   flex-direction: column;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
 }
 
 .soc-glass-effect {
@@ -71,9 +92,7 @@
   to { transform: rotate(360deg); }
 }
 
-html {
-  font-size: 16px; /* Base para rem */
-}
+
 /* Barra superior */
 .soc-barra-superior {
   display: flex;
