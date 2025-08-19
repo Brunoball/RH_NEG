@@ -27,6 +27,8 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  --periodos-gap: 0.75rem;
 }
 
 * {
@@ -231,10 +233,11 @@
   min-height: auto;
 }
 
+/* ---- FLEX EN VEZ DE GRID ---- */
 .periodos-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--periodos-gap);
   align-content: flex-start;
 }
 
@@ -250,6 +253,10 @@
   position: relative;
   overflow: hidden;
   min-height: 60px;
+
+  /* 2 por fila */
+  flex: 0 1 calc(50% - (var(--periodos-gap) / 2));
+  max-width: calc(50% - (var(--periodos-gap) / 2));
 }
 
 .periodo-card:hover:not(.pagado) {
@@ -355,7 +362,7 @@
 /* ===== FOOTER ===== */
 .modal-footer {
   display: flex;
-  justify-content: space-between; /* total a la izquierda, botones a la derecha */
+  justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
   padding: 1.5rem;
@@ -376,8 +383,7 @@
   border-radius: 9999px;
   font-weight: 600;
   font-size: 0.95rem;
-  /* Globo azul */
-  background-color: #2563EB; /* azul */
+  background-color: #2563EB;
   color: #FFFFFF;
   box-shadow: var(--shadow-sm);
   user-select: none;
@@ -474,7 +480,7 @@
   
   .modal-footer {
     padding: 1.25rem;
-    flex-direction: column;          /* total arriba, botones abajo */
+    flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
   }
@@ -489,8 +495,10 @@
     width: 100%;
   }
 
-  .periodos-grid {
-    grid-template-columns: 1fr;
+  /* En mobile: 1 por fila */
+  .periodo-card {
+    flex-basis: 100%;
+    max-width: 100%;
   }
 
   .section-header-actions {
@@ -510,17 +518,4 @@
   .modal-icon-circle {
     display: none;
   }
-}
-
-
-@media (min-width: 1500px) {
-.modal-pagos-contenido{
-  max-width: 38%;
-}
-}
-
-@media (min-width: 2500px){
-  .modal-pagos-contenido{
-  max-width: 28%;
-}
 }
