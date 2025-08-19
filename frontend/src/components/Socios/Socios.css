@@ -481,7 +481,6 @@
 }
 .soc-filtro-activo-cerrar:hover {
   background: #b91c1c;
-  transform: translateY(-50%) scale(1.05);
 }
 
 .soc-filtro-activo-id {
@@ -915,14 +914,7 @@
   .soc-letra-filtro { padding: 0.4rem; font-size: 0.85rem; }
 }
 
-@media (min-width: 2500px) {
-.soc-letra-filtro { padding: 5px;} 
 
-}
-@media (min-width: 3300px) {
-.soc-letra-filtro { padding: 5px;} 
-
-}
 
 @media (max-width: 576px) {
   .soc-container { padding: 1rem; }
@@ -951,3 +943,13 @@
 
 /* util */
 .otrobuscador{ position: absolute !important; }
+
+
+@media (min-width: 1800px) {
+.soc-letra-filtro { padding: 6px 0 !important;} 
+
+}
+@media (min-width: 3300px) {
+.soc-letra-filtro { padding: 5px !important;} 
+
+}
