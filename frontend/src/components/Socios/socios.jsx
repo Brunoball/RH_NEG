@@ -171,6 +171,18 @@ const BarraSuperior = React.memo(({
     setTimeout(() => setAnimacionActiva(false), 300);
   }, [setFiltros, setAnimacionActiva]);
 
+  // truncadores
+  const truncar2 = useCallback((txt) => {
+    if (!txt) return '';
+    const t = String(txt);
+    return t.length > 2 ? `${t.slice(0,2)}..` : t;
+  }, []);
+
+  const truncarId2 = useCallback((txt) => {
+    const t = String(txt ?? '');
+    return t.length > 2 ? `${t.slice(0,2)}..` : t;
+  }, []);
+
   return (
     <div className="soc-barra-superior">
       <div className="soc-titulo-container">
@@ -256,15 +268,15 @@ const BarraSuperior = React.memo(({
         </div>
       </div>
 
-      {/* ==== FILTROS: chips a la IZQUIERDA y botón pegado a la DERECHA ==== */}
+      {/* Filtros (chips + botón) */}
       <div className="soc-filtros-container" ref={filtrosRef}>
-        {/* Chips primero (izquierda) */}
+        {/* Chips */}
         <div className="soc-filtros-activos-container">
           {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && busqueda && (
-            <div className="soc-filtro-activo" key="busqueda">
+            <div className="soc-filtro-activo" key="busqueda" title={busqueda}>
               <span className="soc-filtro-activo-busqueda">
                 <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
-                {busqueda.length > 20 ? `${busqueda.substring(0, 20)}…` : busqueda}
+                {truncar2(busqueda)}
               </span>
               <button 
                 className="soc-filtro-activo-cerrar"
@@ -276,9 +288,9 @@ const BarraSuperior = React.memo(({
             </div>
           )}
           {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
-            <div className="soc-filtro-activo" key="id">
+            <div className="soc-filtro-activo" key="id" title={`ID: ${busquedaId}`}>
               <span className="soc-filtro-activo-id">
-                ID: {busquedaId.length > 6 ? `${busquedaId.slice(0, 6)}…` : busquedaId}
+                ID: {truncarId2(busquedaId)}
               </span>
               <button 
                 className="soc-filtro-activo-cerrar"
@@ -302,11 +314,19 @@ const BarraSuperior = React.memo(({
             </div>
           )}
           {(filtroActivo === 'categoria' || ultimoFiltroActivo === 'categoria') && categoriaSeleccionada !== 'OPCIONES' && (
-            <div className="soc-filtro-activo" key="categoria">
+            <div
+              className="soc-filtro-activo"
+              key="categoria"
+              title={(() => {
+                const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
+                return found ? found.descripcion : categoriaSeleccionada;
+              })()}
+            >
               <span className="soc-filtro-activo-categoria">
-                 {(() => {
+                {(() => {
                   const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
-                  return found ? found.descripcion : categoriaSeleccionada;
+                  const label = found ? found.descripcion : String(categoriaSeleccionada);
+                  return label ? (label.length > 2 ? `${label.slice(0,2)}..` : label) : '';
                 })()}
               </span>
               <button 
@@ -320,7 +340,7 @@ const BarraSuperior = React.memo(({
           )}
         </div>
 
-        {/* Botón de filtros (derecha) */}
+        {/* Botón filtros */}
         <button 
           className="soc-boton-filtros soc-boton-filtros--emp"
           onClick={(e) => {
@@ -338,7 +358,7 @@ const BarraSuperior = React.memo(({
           <FaChevronDown className={`soc-chevron-icon ${mostrarFiltros ? 'soc-rotate' : ''}`} />
         </button>
 
-        {/* Panel del menú (anclado a la derecha bajo el botón) */}
+        {/* Panel menú */}
         {mostrarFiltros && (
           <div 
             className="soc-menu-filtros soc-menu-filtros--emp"
@@ -406,7 +426,7 @@ const BarraSuperior = React.memo(({
           </div>
         )}
       </div>
-      {/* ==== FIN FILTROS ==== */}
+      {/* FIN FILTROS */}
     </div>
   );
 });

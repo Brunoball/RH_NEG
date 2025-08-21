@@ -953,3 +953,32 @@
 .soc-letra-filtro { padding: 5px !important;} 
 
 }
+
+/* =========================================================
+   FIX SOLO PARA MONITORES GRANDES (no cambia notebook/móvil)
+   Evita que el chip de Filtros se superponga con el botón.
+   ========================================================= */
+@media (min-width: 1200px) {
+  /* deja espacio para los chips y que no se monten */
+  .soc-filtros-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .soc-filtros-activos-container {
+    transform: none;
+    height: auto;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;           /* si hay varios, que corten línea */
+    max-width: calc(100% - 260px); /* deja espacio al botón de filtros */
+  }
+  .soc-filtro-activo {
+    position: relative;        /* deja de estar absoluto para no tapar */
+  }
+  .soc-boton-filtros--emp {
+    margin-left: auto;         /* botón pegado a la derecha */
+  }
+  /* por si el dropdown quedaba por debajo de la tabla */
+  .soc-menu-filtros--emp { z-index: 2000; }
+}

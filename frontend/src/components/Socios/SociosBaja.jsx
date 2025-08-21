@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import { FaUserCheck, FaTrash, FaInfoCircle } from 'react-icons/fa';
+import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt } from 'react-icons/fa';
 import Toast from '../Global/Toast';
 import './SociosBaja.css';
 
@@ -9,14 +9,35 @@ const SociosBaja = () => {
   const [socios, setSocios] = useState([]);
   const [sociosFiltrados, setSociosFiltrados] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] = useState(false);
   const [mostrarModalMotivo, setMostrarModalMotivo] = useState(false);
+
   const [motivoCompleto, setMotivoCompleto] = useState('');
   const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
+
+  // Fecha de alta editable
+  const [fechaAlta, setFechaAlta] = useState('');
+  const fechaInputRef = useRef(null);
+
   const navigate = useNavigate();
+
+  // Zona horaria fija para evitar desfasajes (Hostinger / distintas máquinas)
+  const TZ = 'America/Argentina/Cordoba';
+
+  // Hoy en formato YYYY-MM-DD, calculado explícitamente en la TZ de Córdoba
+  const hoyISO = () => {
+    // en-CA devuelve YYYY-MM-DD
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  };
 
   useEffect(() => {
     obtenerSociosBaja();
@@ -32,7 +53,7 @@ const SociosBaja = () => {
   const obtenerSociosBaja = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${BASE_URL}/api.php?action=socios&baja=1`);
+      const response = await fetch(`${BASE_URL}/api.php?action=socios&baja=1&ts=${Date.now()}`);
       const data = await response.json();
       if (data.exito) {
         setSocios(data.socios || []);
@@ -63,29 +84,52 @@ const SociosBaja = () => {
   };
 
   const darAltaSocio = async (id) => {
+    // Validación simple de fecha (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaAlta)) {
+      setToast({
+        show: true,
+        tipo: 'error',
+        mensaje: 'Fecha de alta inválida. Usá el formato AAAA-MM-DD.',
+      });
+      return;
+    }
+
     try {
-      const response = await fetch(`${BASE_URL}/api.php?action=dar_alta_socio`, {
+      // Enviar como x-www-form-urlencoded para garantizar recepción en $_POST
+      const params = new URLSearchParams();
+      params.set('id_socio', String(id));
+      params.set('fecha_ingreso', fechaAlta);
+
+      const response = await fetch(`${BASE_URL}/api.php?action=dar_alta_socio&ts=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_socio: id })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: params.toString(),
       });
 
-      const data = await response.json();
-      if (data.exito) {
-        setSocios(prev => prev.filter(s => s.id_socio !== id));
-        setSociosFiltrados(prev => prev.filter(s => s.id_socio !== id));
+      // Manejo robusto de respuesta (por si viene HTML en error)
+      let data;
+      const text = await response.text();
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { exito: false, mensaje: text || 'Respuesta no válida' };
+      }
+
+      if (response.ok && data.exito) {
+        setSocios((prev) => prev.filter((s) => s.id_socio !== id));
+        setSociosFiltrados((prev) => prev.filter((s) => s.id_socio !== id));
         setMostrarConfirmacion(false);
         setSocioSeleccionado(null);
         setToast({
           show: true,
           tipo: 'exito',
-          mensaje: 'Socio dado de alta correctamente',
+          mensaje: `Socio dado de alta correctamente`,
         });
       } else {
         setToast({
           show: true,
           tipo: 'error',
-          mensaje: 'Error al dar de alta: ' + data.mensaje,
+          mensaje: 'Error al dar de alta: ' + (data.mensaje || 'Desconocido'),
         });
       }
     } catch (error) {
@@ -99,16 +143,16 @@ const SociosBaja = () => {
 
   const eliminarSocio = async (id) => {
     try {
-      const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio`, {
+      const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio&ts=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_socio: id })
+        body: JSON.stringify({ id_socio: id }),
       });
 
       const data = await response.json();
       if (data.exito) {
-        setSocios(prev => prev.filter(s => s.id_socio !== id));
-        setSociosFiltrados(prev => prev.filter(s => s.id_socio !== id));
+        setSocios((prev) => prev.filter((s) => s.id_socio !== id));
+        setSociosFiltrados((prev) => prev.filter((s) => s.id_socio !== id));
         setMostrarConfirmacionEliminar(false);
         setSocioSeleccionado(null);
         setToast({
@@ -132,15 +176,39 @@ const SociosBaja = () => {
     }
   };
 
-  const closeToast = () => {
-    setToast({ ...toast, show: false });
-  };
+  const closeToast = () => setToast({ ...toast, show: false });
 
   const formatearFecha = (yyyy_mm_dd) => {
     if (!yyyy_mm_dd) return '';
-    const [y, m, d] = yyyy_mm_dd.split('-');
+    const [y, m, d] = (yyyy_mm_dd || '').split('-');
     if (!y || !m || !d) return yyyy_mm_dd;
     return `${d}/${m}/${y}`;
+    // Si algún registro viene como 'YYYY/MM/DD' u otro, lo podrías normalizar antes.
+  };
+
+  // Abrir selector de fecha sobre CUALQUIER parte del campo (gesto válido)
+  const openDatePicker = (e) => {
+    e.preventDefault();
+    const el = fechaInputRef.current;
+    if (!el) return;
+    try {
+      if (typeof el.showPicker === 'function') {
+        el.showPicker();
+      } else {
+        el.focus();
+        el.click();
+      }
+    } catch {
+      el.focus();
+      el.click();
+    }
+  };
+
+  // Accesibilidad: abrir con Enter o Space cuando el contenedor tiene foco
+  const handleKeyDownPicker = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      openDatePicker(e);
+    }
   };
 
   return (
@@ -194,7 +262,7 @@ const SociosBaja = () => {
               <div className="soc-col-acciones-baja">Acciones</div>
             </div>
           </div>
-          
+
           <div className="soc-tabla-body-baja">
             {sociosFiltrados.length === 0 ? (
               <div className="soc-sin-resultados-container-baja">
@@ -211,7 +279,7 @@ const SociosBaja = () => {
                   <div className="soc-col-domicilio-baja">
                     {formatearFecha(s.ingreso)}
                   </div>
-                  <div 
+                  <div
                     className="soc-col-comentario-baja"
                     onClick={() => mostrarMotivoCompleto(s.motivo)}
                   >
@@ -233,6 +301,8 @@ const SociosBaja = () => {
                         className="soc-icono-baja"
                         onClick={() => {
                           setSocioSeleccionado(s);
+                          // SIEMPRE por defecto HOY en Córdoba, no usar s.ingreso
+                          setFechaAlta(hoyISO());
                           setMostrarConfirmacion(true);
                         }}
                       />
@@ -261,8 +331,35 @@ const SociosBaja = () => {
             </div>
             <h3 className="soc-modal-titulo-alta">Reactivar Socio</h3>
             <p className="soc-modal-texto-alta">
-              ¿Deseas dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?
+              ¿Deseás dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?
             </p>
+
+            {/* Campo fecha: contenedor completo abre el calendario */}
+            <div className="soc-campo-fecha-alta">
+              <label htmlFor="fecha_alta" className="soc-label-fecha-alta">
+                Fecha de alta
+              </label>
+
+              <div
+                className="soc-input-fecha-container"
+                role="button"
+                tabIndex={0}
+                onMouseDown={openDatePicker}
+                onKeyDown={handleKeyDownPicker}
+                aria-label="Abrir selector de fecha"
+              >
+                <input
+                  id="fecha_alta"
+                  ref={fechaInputRef}
+                  type="date"
+                  className="soc-input-fecha-alta"
+                  value={fechaAlta}
+                  onChange={(e) => setFechaAlta(e.target.value)}
+                />
+                <FaCalendarAlt className="soc-icono-calendario" aria-hidden="true" />
+              </div>
+            </div>
+
             <div className="soc-modal-botones-alta">
               <button
                 className="soc-boton-confirmar-alta"
