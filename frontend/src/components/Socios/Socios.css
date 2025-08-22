@@ -983,3 +983,7 @@
   /* por si el dropdown quedaba por debajo de la tabla */
   .soc-menu-filtros--emp { z-index: 2000; }
 }
+
+@media (min-width: 1600px) {
+        .soc-filtros-container {width: 18vw;  max-width: 400px;}
+}
