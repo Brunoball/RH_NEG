@@ -559,7 +559,8 @@ const AgregarSocio = () => {
             </div>
           )}
 
-          <div className="add-socio-buttons-container">
+        </form>
+                  <div className="add-socio-buttons-container">
             {currentStep > 1 && (
               <button 
                 type="button"
@@ -596,7 +597,6 @@ const AgregarSocio = () => {
               </button>
             )}
           </div>
-        </form>
       </div>
     </div>
   );

@@ -596,7 +596,7 @@ const EditarSocio = () => {
             >
               <FontAwesomeIcon icon={faSave} className="edit-socio-icon-button" />
               <span className="edit-socio-button-text">
-                {loading ? 'Actualizar Socio' : 'Actualizar Socio'}
+                {loading ? 'Guardando...' : 'Actualizar Socio'}
               </span>
             </button>
           </div>
