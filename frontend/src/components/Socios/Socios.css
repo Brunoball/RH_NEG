@@ -964,6 +964,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 300px;
   }
   .soc-filtros-activos-container {
     transform: none;
