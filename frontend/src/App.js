@@ -1,3 +1,4 @@
+// App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -8,7 +9,10 @@ import Socios from './components/Socios/socios';
 import AgregarSocio from './components/Socios/AgregarSocio';
 import EditarSocio from './components/Socios/EditarSocio';
 import SociosBaja from './components/Socios/SociosBaja';
-import Cuotas from './components/Cuotas/Cuotas'; // ✅ nombre correcto
+import Cuotas from './components/Cuotas/Cuotas';
+
+// 🔹 importa tu panel contable (ajusta la ruta si tu archivo está en otra carpeta)
+import DashboardContable from './components/Contable/DashboardContable';
 
 function App() {
   return (
@@ -21,7 +25,11 @@ function App() {
         <Route path="/socios/agregar" element={<RutaProtegida componente={<AgregarSocio />} />} />
         <Route path="/socios/editar/:id" element={<RutaProtegida componente={<EditarSocio />} />} />
         <Route path="/socios/baja" element={<RutaProtegida componente={<SociosBaja />} />} />
-        <Route path="/cuotas" element={<RutaProtegida componente={<Cuotas />} />} /> {/* ✅ nueva ruta */}
+        <Route path="/cuotas" element={<RutaProtegida componente={<Cuotas />} />} />
+
+        {/* 🔹 nueva ruta protegida al panel contable */}
+        <Route path="/contable" element={<RutaProtegida componente={<DashboardContable />} />} />
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
