@@ -61,8 +61,8 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at center, 
-    rgba(59, 130, 246, 0.08) 0%, 
+  background: radial-gradient(circle at center,
+    rgba(59, 130, 246, 0.08) 0%,
     rgba(255, 255, 255, 0) 70%);
   z-index: -1;
   animation: add-rotate 20s linear infinite;
@@ -82,14 +82,15 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* mantiene el scroll solo dentro del form */
 }
 
 .add-socio-form {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  overflow-y: hidden;
-  padding: 0rem 1rem 0;
+  flex-direction: column;         /* 🔑 el form scrollea */    /* 🔑 espacio reservado para los botones */
+  box-sizing: border-box;
+  scroll-padding-bottom: 7rem;   /* 🔑 asegura que el último input no quede debajo */
 }
 
 .add-socio-sections {
@@ -382,7 +383,13 @@
   padding: .5rem 2rem 1rem;
   position: sticky;
   bottom: 0;
+  background: rgba(255,255,255,0.9);    /* 🔑 fondo sólido */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);           /* 🔑 separa visualmente */
+  border-top: 1px solid var(--add-gray-200);
+  z-index: 5;                           /* 🔑 por encima del contenido, sin taparlo */
 }
+
 .add-socio-textarea{
   height: 120px;
   max-height: 22vh;
@@ -487,23 +494,27 @@
 }
 
 /* Media queries para responsive */
+@media (max-width:1200px ){
+      .progress-steps{margin-bottom: 0; margin-top: .5rem;}
+      .add-socio-section{padding-top: 6px;}
+}
 @media (min-width: 1300px) {
   .add-socio-section-title{
     margin-bottom: 1.5rem;
   }
   .progress-steps{
-    margin: 2rem;
+    margin: 2rem 2rem 1rem;
   }
   .add-socio-label {
     font-size: 1.1rem;
     top: 1.2rem;
   }
-  
+
   .add-socio-input {
     padding: 1.5rem 1rem 1rem;
     font-size: 1.1rem;
   }
-  
+
   .add-socio-input-wrapper.has-value .add-socio-label,
   .add-socio-input:focus ~ .add-socio-label {
     transform: translateY(-1.6rem) scale(0.8);
@@ -523,7 +534,7 @@
     width: 95vw;
     margin: 1vh auto;
   }
-  
+
   .add-socio-sections {
     grid-template-columns: 1fr;
   }
@@ -532,19 +543,19 @@
     margin: 1rem;
     padding-bottom: 1rem;
   }
-  
+
   .step-number {
     width: 2rem;
     height: 2rem;
     font-size: 0.9rem;
   }
-  
+
   .step-label {
     font-size: 0.7rem;
   }
-  
+
   .add-socio-buttons-container {
-    padding: 1rem;
+    padding: .75rem 1rem 1rem;
   }
 
   .add-socio-group-row,
@@ -557,20 +568,26 @@
   .add-socio-input-wrapper {
     min-height: 55px;
   }
-  
+
   .add-socio-label {
     font-size: 0.9rem;
     top: 0.9rem;
   }
-  
+
   .add-socio-input {
     padding: 1.1rem 0.9rem 0.6rem;
     font-size: 0.95rem;
   }
-  
+
   .add-socio-input-wrapper.has-value .add-socio-label,
   .add-socio-input:focus ~ .add-socio-label {
     transform: translateY(-1.2rem) scale(0.8);
+  }
+
+  /* 🔑 extra espacio en móviles por la barra */
+  .add-socio-form {
+    padding-bottom: 8rem;
+    scroll-padding-bottom: 8rem;
   }
 }
 
@@ -581,26 +598,27 @@
     margin: 0;
     border-radius: 0;
   }
-  
+
   .add-socio-box {
     border-radius: 0;
   }
-  
+
   .add-header {
     border-radius: 0;
   }
-  
+
   .add-icon-title h1 {
     font-size: 1.25rem;
   }
-  
+
   .add-socio-button {
     width: 100%;
     padding: 0.85rem 1.5rem;
   }
-  
+
   .add-socio-form {
-    padding-bottom: 3rem;
+    padding-bottom: 9rem;         /* 🔑 más margen en pantallas chicas */
+    scroll-padding-bottom: 9rem;
   }
 }
 
@@ -609,15 +627,16 @@
     font-size: 0.9rem;
     padding: 0.7rem 0.9rem;
   }
-  
+
   .add-socio-label {
     font-size: 0.8rem;
   }
-  
+
   .add-socio-section-title {
     font-size: 1rem;
   }
 }
+
 .add-socio-input-wrapper.always-active .add-socio-label {
   transform: translateY(-1.4rem) scale(0.85);
   background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%);
@@ -632,11 +651,7 @@
   color: var(--add-primary);
 }
 
-
-
-/* Añade estas reglas a tu CSS existente */
-
-/* Estilo base del textarea (similar al input) */
+/* ===== Textarea alineado con floating label ===== */
 .add-socio-textarea {
   width: 100%;
   padding: 0.8rem 1rem;
@@ -652,7 +667,6 @@
   resize: vertical;
 }
 
-/* Estilo cuando el textarea tiene foco */
 .add-socio-textarea:focus {
   outline: none;
   border-color: var(--add-primary-light);
@@ -660,14 +674,12 @@
   background: rgba(255, 255, 255, 0.95);
 }
 
-/* Contenedor del textarea con label flotante */
 .add-socio-input-wrapper.has-value textarea.add-socio-textarea,
 .add-socio-input-wrapper textarea.add-socio-textarea:focus {
   padding-top: 1.5rem;
   padding-bottom: 0.5rem;
 }
 
-/* Estilo para el wrapper del textarea cuando tiene contenido */
 .add-socio-input-wrapper.has-value textarea.add-socio-textarea ~ .add-socio-label,
 .add-socio-input-wrapper textarea.add-socio-textarea:focus ~ .add-socio-label {
   transform: translateY(-1.4rem) scale(0.85);
@@ -678,7 +690,6 @@
   left: 0.8rem;
 }
 
-/* Efecto de highlight para el textarea */
 .add-socio-input-wrapper textarea.add-socio-textarea ~ .add-socio-input-highlight {
   position: absolute;
   bottom: 0;
@@ -693,7 +704,6 @@
   width: 100%;
 }
 
-/* Estilo para el icono del textarea */
 .add-socio-input-wrapper.has-value textarea.add-socio-textarea ~ .add-socio-label .input-icon,
 .add-socio-input-wrapper textarea.add-socio-textarea:focus ~ .add-socio-label .input-icon {
   color: var(--add-primary);

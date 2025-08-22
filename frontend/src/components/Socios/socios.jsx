@@ -175,12 +175,12 @@ const BarraSuperior = React.memo(({
   const truncar2 = useCallback((txt) => {
     if (!txt) return '';
     const t = String(txt);
-    return t.length > 2 ? `${t.slice(0,2)}..` : t;
+    return t.length > 3 ? `${t.slice(0,3)}..` : t;
   }, []);
 
   const truncarId2 = useCallback((txt) => {
     const t = String(txt ?? '');
-    return t.length > 2 ? `${t.slice(0,2)}..` : t;
+    return t.length > 3 ? `${t.slice(0,3)}..` : t;
   }, []);
 
   return (
