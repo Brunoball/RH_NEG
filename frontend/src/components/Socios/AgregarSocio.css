@@ -173,7 +173,7 @@
 .add-socio-section-content {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
 /* Floating labels mejorados */
@@ -523,10 +523,11 @@
 
 @media (max-width: 992px) {
   .add-socio-container {
-    width: 90vw;
+    width: 100vw;
     height: auto;
-    min-height: 80vh;
+    min-height: 100vh;
   }
+
 }
 
 @media (max-width: 768px) {
@@ -774,5 +775,78 @@
 
   .step-label {
     font-size: 0.7rem;
+  }
+}
+@media (max-width: 900px) {
+  /* Inputs y labels más chicos */
+  .add-socio-input {
+    padding: 0.6rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .add-socio-label {
+    font-size: 0.7rem;
+    top: 0.5rem;
+  }
+
+  .add-socio-input-wrapper.has-value .add-socio-label,
+  .add-socio-input:focus ~ .add-socio-label {
+    transform: translateY(-0.9rem) scale(0.7);
+  }
+
+  /* Textarea */
+  .add-socio-textarea {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    min-height: 70px;
+  }
+
+  /* Títulos */
+  .add-socio-section-title {
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+
+  /* Botones */
+  .add-socio-button {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .add-socio-buttons-container {
+    padding: 0.3rem 0.6rem;
+  }
+
+  /* Steps */
+  .step-number {
+    width: 1.4rem;
+    height: 1.4rem;
+    font-size: 0.65rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .step-label {
+    font-size: 0.6rem;
+  }
+
+  .progress-steps {
+    margin: 0.4rem 0.8rem;
+  }
+
+  /* Header más compacto */
+  .add-header {
+    padding: 0.6rem 0.8rem;
+  }
+
+  .add-icon-title h1 {
+    font-size: 1rem;
+  }
+
+  .add-icon-title p {
+    font-size: 0.7rem;
+  }
+
+  .add-icon {
+    font-size: 1.2rem;
   }
 }
