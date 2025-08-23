@@ -1,38 +1,22 @@
 <?php
-/**
- * Devuelve pagos de socios agrupados por PERÍODO (campo per.nombre),
- * calculando el precio por pago:
- *  - $4000 por defecto
- *  - $3500 si el socio pagó exactamente 6 periodos en el mismo mes (descuento => $21000 en total)
- *
- * Salida:
- * {
- *   "exito": true,
- *   "datos": [
- *     { "nombre": "PERÍODO 1 Y 2", "pagos": [ { ... }, ... ] },
- *     ...
- *   ],
- *   "total_socios": 1234                 // NUEVO: socios activos (=1)
- * }
- */
-
 require_once __DIR__ . '/../../config/db.php';
 
 try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    /* ===== Total de socios (activos) para el gráfico circular ===== */
+    /* ===== Total de socios (activos) ===== */
     $stmtTot = $pdo->query("SELECT COUNT(*) AS c FROM socios WHERE activo = 1");
     $rowTot  = $stmtTot->fetch(PDO::FETCH_ASSOC);
     $totalSocios = (int)($rowTot['c'] ?? 0);
 
-    /* ===== Pagos ===== */
+    /* ===== Pagos (SOLO pagados) ===== */
     $sql = "
         SELECT
             p.id_pago,
             p.id_socio,
             p.id_periodo,
             p.fecha_pago,
+            p.estado,
             s.nombre            AS socio_nombre,
             s.id_cobrador       AS socio_id_cobrador,
             cb.nombre           AS cobrador_nombre,
@@ -41,6 +25,7 @@ try {
         INNER JOIN socios s    ON s.id_socio   = p.id_socio
         INNER JOIN periodo per ON per.id_periodo = p.id_periodo
         LEFT JOIN cobrador cb  ON cb.id_cobrador = s.id_cobrador
+        WHERE p.estado = 'pagado'
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
     ";
     $stmt = $pdo->query($sql);
@@ -67,7 +52,7 @@ try {
 
         $precio = (isset($conteoPorSocioMes[$keySM]) && (int)$conteoPorSocioMes[$keySM] === 6) ? 3500 : 4000;
 
-        // Partir nombre "Nombre ... Apellido" -> (Nombre, Apellido)
+        // Partir nombre "Nombre ... Apellido"
         $nombreCompleto = trim((string)$row['socio_nombre']);
         $apellido = '';
         $nombre   = $nombreCompleto;
@@ -88,7 +73,7 @@ try {
         }
 
         $porPeriodo[$periodoNombre]['pagos'][] = [
-            'ID_Socio'      => $idSocio,                   // <<--- NUEVO (para contar únicos)
+            'ID_Socio'      => $idSocio,
             'Apellido'      => $apellido,
             'Nombre'        => $nombre,
             'Precio'        => (float)$precio,
@@ -105,7 +90,7 @@ try {
     echo json_encode([
         'exito'        => true,
         'datos'        => $datos,
-        'total_socios' => $totalSocios,   // <<--- NUEVO
+        'total_socios' => $totalSocios,
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

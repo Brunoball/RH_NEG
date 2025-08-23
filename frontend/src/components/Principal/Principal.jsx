@@ -9,7 +9,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers,
   faMoneyBillWave,
-  faTags,
   faUserPlus,
   faSignOutAlt,
   faFileInvoiceDollar
@@ -80,8 +79,22 @@ function ConfirmLogoutModal({ open, onConfirm, onCancel }) {
 const Principal = () => {
   const usuario = JSON.parse(localStorage.getItem('usuario'));
   const navigate = useNavigate();
-
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // 🧹 Al entrar a Principal, limpiar filtros/caches de Socios
+  useEffect(() => {
+    const KEYS_A_LIMPIAR = [
+      'filtros_socios',
+      // Por si más adelante usás caches:
+      'socios_cache',
+      'listas_cache',
+      'socios_cache_etag',
+      'socios_cache_exp',
+    ];
+    KEYS_A_LIMPIAR.forEach((k) => localStorage.removeItem(k));
+    // Si usaste sessionStorage para algo relacionado a Socios:
+    sessionStorage.removeItem('filtros_socios');
+  }, []);
 
   const pedirConfirmacion = () => setShowConfirm(true);
 

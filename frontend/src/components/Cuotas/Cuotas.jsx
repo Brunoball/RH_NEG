@@ -17,15 +17,11 @@ import {
   FaUsers,
   FaTimes
 } from 'react-icons/fa';
-import {
-  FiChevronLeft,
-  FiChevronRight,
-  FiChevronUp,
-  FiChevronDown
-} from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
 import ModalCodigoBarras from './modales/ModalCodigoBarras';
 import ModalEliminarPago from './modales/ModalEliminarPago';
+import ModalEliminarCondonacion from './modales/ModalEliminarCondonacion'; // NUEVO
 import { imprimirRecibos } from '../../utils/imprimirRecibos';
 import Toast from '../Global/Toast';
 import './Cuotas.css';
@@ -36,7 +32,7 @@ const Cuotas = () => {
   const [loadingPrint, setLoadingPrint] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [busquedaId, setBusquedaId] = useState('');
-  const [estadoPagoSeleccionado, setEstadoPagoSeleccionado] = useState('deudor');
+  const [estadoPagoSeleccionado, setEstadoPagoSeleccionado] = useState('deudor'); // 'deudor' | 'pagado' | 'condonado'
   const [estadoSocioSeleccionado, setEstadoSocioSeleccionado] = useState('');
   const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState('');
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
@@ -46,6 +42,7 @@ const Cuotas = () => {
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
   const [mostrarModalEliminarPago, setMostrarModalEliminarPago] = useState(false);
+  const [mostrarModalEliminarCond, setMostrarModalEliminarCond] = useState(false); // NUEVO
   const [socioParaPagar, setSocioParaPagar] = useState(null);
   const [filtrosExpandidos, setFiltrosExpandidos] = useState(true);
   const [orden, setOrden] = useState({ campo: 'nombre', ascendente: true });
@@ -57,23 +54,26 @@ const Cuotas = () => {
   const obtenerCuotasYListas = async () => {
     try {
       setLoading(true);
+
+      // Flags opcionales para backend
+      let qs = '';
+      if (estadoPagoSeleccionado === 'pagado') qs = '&pagados=1';
+      else if (estadoPagoSeleccionado === 'condonado') qs = '&condonados=1';
+      if (periodoSeleccionado) qs += `&id_periodo=${encodeURIComponent(periodoSeleccionado)}`;
+
       const [resCuotas, resListas] = await Promise.all([
-        fetch(`${BASE_URL}/api.php?action=cuotas${estadoPagoSeleccionado === 'pagado' ? '&pagados=1' : ''}`),
+        fetch(`${BASE_URL}/api.php?action=cuotas${qs}`),
         fetch(`${BASE_URL}/api.php?action=listas`),
       ]);
 
       const dataCuotas = await resCuotas.json();
       const dataListas = await resListas.json();
 
-      if (dataCuotas.exito) {
-        setCuotas(dataCuotas.cuotas);
-      }
+      if (dataCuotas.exito) setCuotas(dataCuotas.cuotas);
+
       if (dataListas.exito) {
         setMediosPago(dataListas.listas.cobradores.map(c => c.nombre));
-        setPeriodos(dataListas.listas.periodos.map(p => ({
-          id: p.id,
-          nombre: p.nombre
-        })));
+        setPeriodos(dataListas.listas.periodos.map(p => ({ id: p.id, nombre: p.nombre })));
         setEstados(dataListas.listas.estados.map(e => e.descripcion));
       }
     } catch (error) {
@@ -85,13 +85,10 @@ const Cuotas = () => {
 
   useEffect(() => {
     obtenerCuotasYListas();
-  }, [estadoPagoSeleccionado]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoPagoSeleccionado, periodoSeleccionado]);
 
-  const getId = (c) => {
-    return String(
-      c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? ''
-    );
-  };
+  const getId = (c) => String(c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? '');
 
   const getIdNumber = (c) => {
     const n = Number(getId(c));
@@ -99,7 +96,7 @@ const Cuotas = () => {
   };
 
   const equalId = (c, needle) => {
-    if (!needle.trim()) return true;        // si no hay ID, no filtra
+    if (!needle.trim()) return true;
     const a = Number(getId(c));
     const b = Number(needle);
     if (Number.isNaN(a) || Number.isNaN(b)) return false;
@@ -110,12 +107,14 @@ const Cuotas = () => {
     if (!periodoSeleccionado) return [];
 
     const lista = cuotas
-      .filter((c) => String(c.id_periodo) === String(periodoSeleccionado))
+      .filter((c) => String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null)
       .filter((c) => {
-        const coincideBusqueda = busqueda === '' || 
+        const coincideBusqueda =
+          busqueda === '' ||
           c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
           c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
           c.documento?.toLowerCase().includes(busqueda.toLowerCase());
+
         const coincideId = equalId(c, busquedaId);
         const coincideEstadoSocio = estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
         const coincideMedio = medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado;
@@ -124,25 +123,20 @@ const Cuotas = () => {
         return coincideBusqueda && coincideId && coincideEstadoSocio && coincideMedio && coincideEstadoPago;
       });
 
-    // ORDEN
     return lista.sort((a, b) => {
       if (orden.campo === 'id') {
         const ida = getIdNumber(a);
         const idb = getIdNumber(b);
-        // sin ID quedan al final
         if (ida === null && idb === null) return 0;
         if (ida === null) return 1;
         if (idb === null) return -1;
         return orden.ascendente ? ida - idb : idb - ida;
       }
-
       if (orden.campo === 'domicilio') {
         const A = a.domicilio || '';
         const B = b.domicilio || '';
         return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
       }
-
-      // Por defecto, ordenar alfabéticamente por nombre (suele contener "Apellido Nombre")
       const A = a.nombre || '';
       const B = b.nombre || '';
       return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
@@ -159,9 +153,9 @@ const Cuotas = () => {
   ]);
 
   const cantidadFiltradaDeudores = useMemo(() => {
-    return cuotas.filter(c => 
-      String(c.id_periodo) === String(periodoSeleccionado) &&
-      (busqueda === '' || 
+    return cuotas.filter(c =>
+      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
+      (busqueda === '' ||
         c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
@@ -173,9 +167,9 @@ const Cuotas = () => {
   }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
   const cantidadFiltradaPagados = useMemo(() => {
-    return cuotas.filter(c => 
-      String(c.id_periodo) === String(periodoSeleccionado) &&
-      (busqueda === '' || 
+    return cuotas.filter(c =>
+      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
+      (busqueda === '' ||
         c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
@@ -183,6 +177,20 @@ const Cuotas = () => {
       (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
       (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
       c.estado_pago === 'pagado'
+    ).length;
+  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
+
+  const cantidadFiltradaCondonados = useMemo(() => {
+    return cuotas.filter(c =>
+      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
+      (busqueda === '' ||
+        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
+      equalId(c, busquedaId) &&
+      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
+      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
+      c.estado_pago === 'condonado'
     ).length;
   }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
 
@@ -199,7 +207,7 @@ const Cuotas = () => {
       alert('Por favor deshabilita el bloqueador de ventanas emergentes para esta página');
       return;
     }
-    
+
     setLoadingPrint(true);
     try {
       await imprimirRecibos(cuotasFiltradas, periodoSeleccionado, ventanaImpresion);
@@ -222,14 +230,12 @@ const Cuotas = () => {
     setToastVisible(true);
   };
 
-  const toggleFiltros = () => {
-    setFiltrosExpandidos(!filtrosExpandidos);
-  };
+  const toggleFiltros = () => setFiltrosExpandidos(!filtrosExpandidos);
 
   const Row = ({ index, style, data }) => {
     const cuota = data[index];
-    
-    const claseEstado = {
+
+    const claseEstadoSocio = {
       activo: 'cuo_estado-activo',
       pasivo: 'cuo_estado-pasivo'
     }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
@@ -241,40 +247,47 @@ const Cuotas = () => {
     }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
 
     return (
-      <div 
-        style={style} 
+      <div
+        style={style}
         className={`cuo_tabla-fila cuo_grid-container ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
       >
         <div className="cuo_col-id">{getId(cuota) || '-'}</div>
+
         <div className="cuo_col-nombre">
           <div className="cuo_nombre-socio">{cuota.nombre}</div>
           {cuota.documento && <div className="cuo_documento">Doc: {cuota.documento}</div>}
         </div>
+
         <div className="cuo_col-domicilio">{cuota.domicilio || '-'}</div>
+
+        {/* SOLO estado del socio (Activo/Pasivo) */}
         <div className="cuo_col-estado">
-          <span className={`cuo_badge ${claseEstado}`}>
+          <span className={`cuo_badge ${claseEstadoSocio}`} title="Estado del socio">
             {cuota.estado}
           </span>
         </div>
+
+        {/* Medio de pago: Cobrador/Oficina/Transferencia */}
         <div className="cuo_col-medio-pago">
           <span className={`cuo_badge ${claseMedioPago}`}>
             {cuota.medio_pago || 'Sin especificar'}
           </span>
         </div>
+
         <div className="cuo_col-acciones">
           <div className="cuo_acciones-cell">
             {estadoPagoSeleccionado === 'deudor' ? (
-              <button 
+              <button
                 className="cuo_boton-accion cuo_boton-accion-success"
                 onClick={() => {
                   setSocioParaPagar(cuota);
                   setMostrarModalPagos(true);
                 }}
-                title="Registrar pago"
+                title="Registrar pago / condonar"
               >
                 <FaDollarSign />
               </button>
-            ) : (
+            ) : estadoPagoSeleccionado === 'pagado' ? (
               <button
                 className="cuo_boton-accion cuo_boton-accion-danger"
                 onClick={() => {
@@ -285,8 +298,19 @@ const Cuotas = () => {
               >
                 <FaTimes />
               </button>
+            ) : (
+              <button
+                className="cuo_boton-accion cuo_boton-accion-danger"
+                onClick={() => {
+                  setSocioParaPagar(cuota);
+                  setMostrarModalEliminarCond(true);
+                }}
+                title="Eliminar condonación"
+              >
+                <FaTimes />
+              </button>
             )}
-            <button 
+            <button
               className="cuo_boton-accion cuo_boton-accion-primary"
               onClick={() => {
                 const ventanaImpresion = window.open('', '_blank');
@@ -311,6 +335,12 @@ const Cuotas = () => {
     return periodo ? periodo.nombre : id;
   };
 
+  const etiquetaPestaña = {
+    deudor: 'Deudores',
+    pagado: 'Pagados',
+    condonado: 'Condonados',
+  }[estadoPagoSeleccionado] || '';
+
   return (
     <div className="cuo_app-container">
       <div className={`cuo_filtros-panel ${!filtrosExpandidos ? 'cuo_filtros-colapsado' : ''}`}>
@@ -320,7 +350,7 @@ const Cuotas = () => {
             Filtros Avanzados
           </h3>
           <div className="cuo_filtros-controles">
-            <button 
+            <button
               className="cuo_boton cuo_boton-icono cuo_boton-toggle-horizontal"
               onClick={toggleFiltros}
               title={filtrosExpandidos ? 'Ocultar filtros' : 'Mostrar filtros'}
@@ -337,9 +367,9 @@ const Cuotas = () => {
                 <FaCalendarAlt className="cuo_filtro-icono" />
                 Período
               </label>
-              <select 
-                value={periodoSeleccionado} 
-                onChange={(e) => setPeriodoSeleccionado(e.target.value)} 
+              <select
+                value={periodoSeleccionado}
+                onChange={(e) => setPeriodoSeleccionado(e.target.value)}
                 className="cuo_filtro-select"
                 disabled={loading}
               >
@@ -361,14 +391,21 @@ const Cuotas = () => {
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
                 >
-                  Deudores <span style={{ display: 'inline-block',  textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
+                  Deudores <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
                 >
-                  Pagados <span style={{ display: 'inline-block',  textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
+                  Pagados <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
+                </button>
+                <button
+                  className={`cuo_tab ${estadoPagoSeleccionado === 'condonado' ? 'cuo_tab-activo' : ''}`}
+                  onClick={() => setEstadoPagoSeleccionado('condonado')}
+                  disabled={loading}
+                >
+                  Condonados <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaCondonados})</span>
                 </button>
               </div>
             </div>
@@ -378,9 +415,9 @@ const Cuotas = () => {
                 <FaFilter className="cuo_filtro-icono" />
                 Estado del Socio
               </label>
-              <select 
-                value={estadoSocioSeleccionado} 
-                onChange={(e) => setEstadoSocioSeleccionado(e.target.value)} 
+              <select
+                value={estadoSocioSeleccionado}
+                onChange={(e) => setEstadoSocioSeleccionado(e.target.value)}
                 className="cuo_filtro-select"
                 disabled={loading}
               >
@@ -396,9 +433,9 @@ const Cuotas = () => {
                 <FaFilter className="cuo_filtro-icono" />
                 Medio de Pago
               </label>
-              <select 
-                value={medioPagoSeleccionado} 
-                onChange={(e) => setMedioPagoSeleccionado(e.target.value)} 
+              <select
+                value={medioPagoSeleccionado}
+                onChange={(e) => setMedioPagoSeleccionado(e.target.value)}
                 className="cuo_filtro-select"
                 disabled={loading}
               >
@@ -410,14 +447,14 @@ const Cuotas = () => {
             </div>
 
             <div className="cuo_filtro-acciones" >
-              <button 
+              <button
                 className="cuo_boton cuo_boton-light cuo_boton-limpiar"
                 onClick={limpiarFiltros}
                 disabled={loading}
               >
                 Limpiar Filtros
               </button>
-              <button 
+              <button
                 className="cuo_boton cuo_boton-secondary"
                 onClick={() => navigate('/panel')}
                 disabled={loading}
@@ -443,12 +480,17 @@ const Cuotas = () => {
         <div className="cuo_content-header">
           <div className="cuo_header-top">
             <h2 className="cuo_content-title">
-              Gestión de Cuotas 
+              Gestión de Cuotas
               {periodoSeleccionado && (
-                <span className="cuo_periodo-seleccionado"> - {getNombrePeriodo(periodoSeleccionado)}</span>
+                <>
+                  <span className="cuo_periodo-seleccionado"> - {getNombrePeriodo(periodoSeleccionado)}</span>
+                  {etiquetaPestaña && (
+                    <span className="cuo_periodo-seleccionado"> — {etiquetaPestaña}</span>
+                  )}
+                </>
               )}
             </h2>
-            
+
             <div className="cuo_contador-socios">
               <div className="cuo_contador-icono">
                 <FaUsers />
@@ -461,15 +503,11 @@ const Cuotas = () => {
 
           <div className="cuo_header-bottom">
             <div className='conteiner-buscador'>
-              {/* Buscador principal */}
               <div className="cuo_buscador-container">
                 {busqueda ? (
-                  <button 
-                    className="cuo_buscador-clear" 
-                    onClick={() => {
-                      setBusqueda('');
-                      // setBusquedaId(''); // opcional
-                    }}
+                  <button
+                    className="cuo_buscador-clear"
+                    onClick={() => { setBusqueda(''); }}
                     title="Limpiar búsqueda"
                   >
                     <FaTimes />
@@ -491,15 +529,11 @@ const Cuotas = () => {
                 />
               </div>
 
-              {/* Buscador ID */}
               <div className="cuo_buscador-id-wrapper">
                 {busquedaId ? (
-                  <button 
-                    className="cuo_buscador-clear" 
-                    onClick={() => {
-                      setBusquedaId('');
-                      // setBusqueda(''); // opcional
-                    }}
+                  <button
+                    className="cuo_buscador-clear"
+                    onClick={() => { setBusquedaId(''); }}
                     title="Limpiar ID"
                   >
                     <FaTimes />
@@ -556,7 +590,6 @@ const Cuotas = () => {
         <div className="cuo_tabla-container">
           <div className="cuo_tabla-wrapper">
             <div className="cuo_tabla-header cuo_grid-container">
-              {/* Encabezado ID con orden y flecha */}
               <div
                 className="cuo_col-id cuo_col-clickable"
                 onClick={() => toggleOrden('id')}
@@ -567,17 +600,17 @@ const Cuotas = () => {
                 {orden.campo === 'id' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
 
-              <div 
-                className="cuo_col-nombre cuo_col-clickable" 
+              <div
+                className="cuo_col-nombre cuo_col-clickable"
                 onClick={() => toggleOrden('nombre')}
                 title="Ordenar por nombre"
               >
-                Socio 
+                Socio
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'nombre' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'nombre' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
 
-              <div 
+              <div
                 className="cuo_col-domicilio cuo_col-clickable"
                 onClick={() => toggleOrden('domicilio')}
                 title="Ordenar por dirección"
@@ -601,8 +634,8 @@ const Cuotas = () => {
               ) : !loading && cuotasFiltradas.length === 0 ? (
                 <div className="cuo_estado-container">
                   <p className="cuo_estado-mensaje">
-                    {periodoSeleccionado 
-                      ? 'No se encontraron resultados con los filtros actuales' 
+                    {periodoSeleccionado
+                      ? 'No se encontraron resultados con los filtros actuales'
                       : 'Seleccione un período para mostrar las cuotas'}
                   </p>
                 </div>
@@ -639,9 +672,9 @@ const Cuotas = () => {
       {mostrarModalPagos && (
         <ModalPagos
           socio={socioParaPagar}
-          onClose={() => {
+          onClose={(refetch) => {
             setMostrarModalPagos(false);
-            obtenerCuotasYListas();
+            if (refetch) obtenerCuotasYListas();
           }}
         />
       )}
@@ -658,9 +691,19 @@ const Cuotas = () => {
       {mostrarModalEliminarPago && (
         <ModalEliminarPago
           socio={socioParaPagar}
-          periodo={periodoSeleccionado}                        
-          periodoTexto={getNombrePeriodo(periodoSeleccionado)}  
+          periodo={periodoSeleccionado}
+          periodoTexto={getNombrePeriodo(periodoSeleccionado)}
           onClose={() => setMostrarModalEliminarPago(false)}
+          onEliminado={obtenerCuotasYListas}
+        />
+      )}
+
+      {mostrarModalEliminarCond && (
+        <ModalEliminarCondonacion
+          socio={socioParaPagar}
+          periodo={periodoSeleccionado}
+          periodoTexto={getNombrePeriodo(periodoSeleccionado)}
+          onClose={() => setMostrarModalEliminarCond(false)}
           onEliminado={obtenerCuotasYListas}
         />
       )}

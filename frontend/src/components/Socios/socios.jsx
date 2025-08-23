@@ -1,6 +1,7 @@
+// src/components/Socios/Socios.jsx
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import BASE_URL from '../../config/config';
 import { 
@@ -444,11 +445,18 @@ const Socios = () => {
   const [socioDarBaja, setSocioDarBaja] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [bloquearInteraccion, setBloquearInteraccion] = useState(true);
+
+  // 🔸 Estado y timer para forzar/gestionar la cascada SIEMPRE que se cargue la tabla
   const [animacionActiva, setAnimacionActiva] = useState(false);
+  const [tablaKey, setTablaKey] = useState(0);
+  const cascadeTimer = useRef(null);
+
   const [tooltipVisible, setTooltipVisible] = useState(null);
   const [ultimoFiltroActivo, setUltimoFiltroActivo] = useState(null);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const filtrosRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [toast, setToast] = useState({
     mostrar: false,
@@ -511,6 +519,20 @@ const Socios = () => {
     return resultados;
   }, [socios, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, filtroActivo]);
 
+  // 🔸 Helper para disparar SIEMPRE la animación en cascada y forzar remount del List
+  const triggerCascade = useCallback((duration = 800) => {
+    if (cascadeTimer.current) {
+      clearTimeout(cascadeTimer.current);
+      cascadeTimer.current = null;
+    }
+    setAnimacionActiva(true);
+    setTablaKey(k => k + 1); // fuerza remount del List
+    cascadeTimer.current = setTimeout(() => {
+      setAnimacionActiva(false);
+      cascadeTimer.current = null;
+    }, duration);
+  }, []);
+
   useEffect(() => {
     if (sociosFiltrados.length > 0) {
       const timer = setTimeout(() => setBloquearInteraccion(false), 300);
@@ -537,58 +559,76 @@ const Socios = () => {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      // cleanup de timeouts de cascada
+      if (cascadeTimer.current) clearTimeout(cascadeTimer.current);
+    };
+  }, []);
+
   const mostrarToast = useCallback((mensaje, tipo = 'exito') => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
 
-  useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      try {
-        setCargando(true);
-        const response = await fetch(`${BASE_URL}/api.php?action=socios`);
-        const data = await response.json();
-        if (data.exito) {
-          setSocios(data.socios || []);
-        } else {
-          mostrarToast(`Error al obtener socios: ${data.mensaje}`, 'error');
-        }
+  const cargarDatos = useCallback(async () => {
+    try {
+      setCargando(true);
+      setBloquearInteraccion(true);
 
-        try {
-          const respListas = await fetch(`${BASE_URL}/api.php?action=listas`);
-          const dataListas = await respListas.json();
-          if (dataListas?.exito && dataListas?.listas?.categorias) {
-            setCategorias(dataListas.listas.categorias);
-          } else {
-            setCategorias([]);
-          }
-        } catch {
+      const response = await fetch(`${BASE_URL}/api.php?action=socios`);
+      const data = await response.json();
+      if (data.exito) {
+        setSocios(data.socios || []);
+      } else {
+        mostrarToast(`Error al obtener socios: ${data.mensaje}`, 'error');
+        setSocios([]);
+      }
+
+      try {
+        const respListas = await fetch(`${BASE_URL}/api.php?action=listas`);
+        const dataListas = await respListas.json();
+        if (dataListas?.exito && dataListas?.listas?.categorias) {
+          setCategorias(dataListas.listas.categorias);
+        } else {
           setCategorias([]);
         }
-      } catch (error) {
-        mostrarToast('Error de red al obtener datos', 'error');
-      } finally {
-        setCargando(false);
+      } catch {
+        setCategorias([]);
       }
-    };
 
-    cargarDatosIniciales();
+      // 🔸 Dispara UNA sola cascada al final de la carga
+      triggerCascade(900);
+    } catch (error) {
+      mostrarToast('Error de red al obtener datos', 'error');
+      setSocios([]);
+      setCategorias([]);
+    } finally {
+      setCargando(false);
+    }
+  }, [mostrarToast, triggerCascade]);
 
-    const handlePopState = () => {
-      if (window.location.pathname === '/panel') {
-        setFiltros({
-          busqueda: '',
-          busquedaId: '',
-          letraSeleccionada: 'TODOS',
-          categoriaSeleccionada: 'OPCIONES',
-          filtroActivo: null
-        });
-        localStorage.removeItem('filtros_socios');
-      }
-    };
+  // Detectar retorno con refresh y limpiar el state de la URL
+  useEffect(() => {
+    const state = location.state;
+    if (state && state.refresh) {
+      setNeedsRefresh(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [mostrarToast]);
+  // Carga inicial una sola vez
+  useEffect(() => {
+    cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Recarga solo cuando needsRefresh sea true (evita doble recarga)
+  useEffect(() => {
+    if (needsRefresh) {
+      cargarDatos();
+      setNeedsRefresh(false);
+    }
+  }, [needsRefresh, cargarDatos]);
 
   useEffect(() => {
     localStorage.setItem('filtros_socios', JSON.stringify(filtros));
@@ -621,6 +661,7 @@ const Socios = () => {
       if (data.exito) {
         setSocios(prev => prev.filter((s) => s.id_socio !== id));
         mostrarToast('Socio eliminado correctamente');
+        triggerCascade(700);
       } else {
         mostrarToast(`Error al eliminar: ${data.mensaje}`, 'error');
       }
@@ -630,7 +671,7 @@ const Socios = () => {
       setMostrarModalEliminar(false);
       setSocioAEliminar(null);
     }
-  }, [mostrarToast]);
+  }, [mostrarToast, triggerCascade]);
 
   const darDeBajaSocio = useCallback(async (id, motivo) => {
     try {
@@ -643,6 +684,7 @@ const Socios = () => {
       if (data.exito) {
         setSocios(prev => prev.filter((s) => s.id_socio !== id));
         mostrarToast('Socio dado de baja correctamente');
+        triggerCascade(700);
       } else {
         mostrarToast(`Error: ${data.mensaje}`, 'error');
       }
@@ -652,7 +694,7 @@ const Socios = () => {
       setMostrarModalDarBaja(false);
       setSocioDarBaja(null);
     }
-  }, [mostrarToast]);
+  }, [mostrarToast, triggerCascade]);
 
   const construirDomicilio = useCallback((domicilio, numero) => {
     const calle = (domicilio ?? '').trim();
@@ -745,7 +787,7 @@ const Socios = () => {
                 title="Editar"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/socios/editar/${socio.id_socio}`);
+                  navigate(`/socios/editar/${socio.id_socio}`, { state: { refresh: true } });
                 }}
                 className="soc-icono"
               />
@@ -836,8 +878,7 @@ const Socios = () => {
                     categoriaSeleccionada: 'OPCIONES',
                     filtroActivo: 'todos'
                   });
-                  setAnimacionActiva(true);
-                  setTimeout(() => setAnimacionActiva(false), 500);
+                  triggerCascade(700);
                 }}
               >
                 Mostrar todos los socios
@@ -859,6 +900,7 @@ const Socios = () => {
             </div>
           ) : (
             <List
+              key={tablaKey}            // 🔸 remount para asegurar animación
               height={2000}
               itemCount={sociosFiltrados.length}
               itemSize={45}
