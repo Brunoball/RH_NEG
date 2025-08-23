@@ -1,5 +1,5 @@
 // src/components/Cuotas/Cuotas.jsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -21,14 +21,36 @@ import { FiChevronLeft, FiChevronRight, FiChevronUp, FiChevronDown } from 'react
 import ModalPagos from './modales/ModalPagos';
 import ModalCodigoBarras from './modales/ModalCodigoBarras';
 import ModalEliminarPago from './modales/ModalEliminarPago';
-import ModalEliminarCondonacion from './modales/ModalEliminarCondonacion'; // NUEVO
+import ModalEliminarCondonacion from './modales/ModalEliminarCondonacion';
 import { imprimirRecibos } from '../../utils/imprimirRecibos';
 import Toast from '../Global/Toast';
 import './Cuotas.css';
+import axios from 'axios';
+
+/* =========================
+ * API con interceptor
+ * ========================= */
+const api = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10000,
+});
+api.interceptors.response.use(
+  (response) => response.data,
+  (error) => {
+    const status = error?.response?.status;
+    const server = error?.response?.data;
+    const msg = server?.mensaje || error.message || 'Error en la petición';
+    console.error(`HTTP ${status || ''} – ${msg}`, server || error);
+    return Promise.reject({ ...error, message: msg, server, status });
+  }
+);
 
 const Cuotas = () => {
+  const navigate = useNavigate();
+
+  // ===== Estado UI =====
   const [cuotas, setCuotas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadingPrint, setLoadingPrint] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [busquedaId, setBusquedaId] = useState('');
@@ -42,59 +64,52 @@ const Cuotas = () => {
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
   const [mostrarModalEliminarPago, setMostrarModalEliminarPago] = useState(false);
-  const [mostrarModalEliminarCond, setMostrarModalEliminarCond] = useState(false); // NUEVO
+  const [mostrarModalEliminarCond, setMostrarModalEliminarCond] = useState(false);
   const [socioParaPagar, setSocioParaPagar] = useState(null);
   const [filtrosExpandidos, setFiltrosExpandidos] = useState(true);
   const [orden, setOrden] = useState({ campo: 'nombre', ascendente: true });
   const [toastVisible, setToastVisible] = useState(false);
   const [toastTipo, setToastTipo] = useState('exito');
   const [toastMensaje, setToastMensaje] = useState('');
-  const navigate = useNavigate();
 
-  const obtenerCuotasYListas = async () => {
-    try {
-      setLoading(true);
+  // ===== Caché (memoria) + TTL =====
+  const cacheRef = useRef({
+    ttl: 30 * 60 * 1000, // 30 minutos
+    // Cache de cuotas por clave "estadoPago|periodoId"
+    cuotas: {
+      // [cacheKey]: { data: [], ts: number }
+    },
+    // Cache para listas auxiliares
+    listas: {
+      data: null, // { mediosPago:[], periodos:[], estados:[] }
+      ts: 0,
+    },
+  });
 
-      // Flags opcionales para backend
-      let qs = '';
-      if (estadoPagoSeleccionado === 'pagado') qs = '&pagados=1';
-      else if (estadoPagoSeleccionado === 'condonado') qs = '&condonados=1';
-      if (periodoSeleccionado) qs += `&id_periodo=${encodeURIComponent(periodoSeleccionado)}`;
+  const isFresh = (ts) => ts && (Date.now() - ts < cacheRef.current.ttl);
+  const getCuotasKey = useCallback(
+    (estadoPago, periodoId) => `${estadoPago}|${periodoId || 'NO_PERIODO'}`,
+    []
+  );
 
-      const [resCuotas, resListas] = await Promise.all([
-        fetch(`${BASE_URL}/api.php?action=cuotas${qs}`),
-        fetch(`${BASE_URL}/api.php?action=listas`),
-      ]);
-
-      const dataCuotas = await resCuotas.json();
-      const dataListas = await resListas.json();
-
-      if (dataCuotas.exito) setCuotas(dataCuotas.cuotas);
-
-      if (dataListas.exito) {
-        setMediosPago(dataListas.listas.cobradores.map(c => c.nombre));
-        setPeriodos(dataListas.listas.periodos.map(p => ({ id: p.id, nombre: p.nombre })));
-        setEstados(dataListas.listas.estados.map(e => e.descripcion));
-      }
-    } catch (error) {
-      console.error('Error al conectar con el servidor:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // ===== Debounce para búsquedas (solo filtra en memoria) =====
+  const [debouncedBusqueda, setDebouncedBusqueda] = useState('');
+  const [debouncedBusquedaId, setDebouncedBusquedaId] = useState('');
   useEffect(() => {
-    obtenerCuotasYListas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoPagoSeleccionado, periodoSeleccionado]);
+    const t = setTimeout(() => setDebouncedBusqueda(busqueda), 300);
+    return () => clearTimeout(t);
+  }, [busqueda]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBusquedaId(busquedaId), 200);
+    return () => clearTimeout(t);
+  }, [busquedaId]);
 
+  // ===== Helpers de ID =====
   const getId = (c) => String(c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? '');
-
   const getIdNumber = (c) => {
     const n = Number(getId(c));
     return Number.isFinite(n) ? n : null;
   };
-
   const equalId = (c, needle) => {
     if (!needle.trim()) return true;
     const a = Number(getId(c));
@@ -103,26 +118,134 @@ const Cuotas = () => {
     return a === b;
   };
 
+  // =========================
+  // Carga de LISTAS (cacheado)
+  // =========================
+  const fetchListas = useCallback(async () => {
+    const listasCache = cacheRef.current.listas;
+    if (listasCache.data && isFresh(listasCache.ts)) {
+      // servir desde cache
+      const d = listasCache.data;
+      setMediosPago(d.mediosPago);
+      setPeriodos(d.periodos);
+      setEstados(d.estados);
+      return;
+    }
+    const dataListas = await api.get('/api.php?action=listas');
+    if (dataListas?.exito) {
+      const medios = (dataListas.listas.cobradores || []).map((c) => c.nombre);
+      const pers = (dataListas.listas.periodos || []).map((p) => ({ id: p.id, nombre: p.nombre }));
+      const ests = (dataListas.listas.estados || []).map((e) => e.descripcion);
+      cacheRef.current.listas = {
+        data: { mediosPago: medios, periodos: pers, estados: ests },
+        ts: Date.now(),
+      };
+      setMediosPago(medios);
+      setPeriodos(pers);
+      setEstados(ests);
+    }
+  }, []);
+
+  // ===================================
+  // Carga de CUOTAS (con cache por clave)
+  // ===================================
+  const fetchCuotas = useCallback(
+    async (estadoPago, periodoId, { force = false } = {}) => {
+      if (!periodoId) {
+        setCuotas([]);
+        return;
+      }
+      const key = getCuotasKey(estadoPago, periodoId);
+      const cached = cacheRef.current.cuotas[key];
+      if (!force && cached && isFresh(cached.ts)) {
+        setCuotas(cached.data);
+        return;
+      }
+
+      let qs = '';
+      if (estadoPago === 'pagado') qs = '&pagados=1';
+      else if (estadoPago === 'condonado') qs = '&condonados=1';
+      if (periodoId) qs += `&id_periodo=${encodeURIComponent(periodoId)}`;
+
+      setLoading(true);
+      try {
+        const dataCuotas = await api.get(`/api.php?action=cuotas${qs}`);
+        if (dataCuotas?.exito) {
+          const arr = dataCuotas.cuotas || [];
+          cacheRef.current.cuotas[key] = { data: arr, ts: Date.now() };
+          setCuotas(arr);
+        } else {
+          setCuotas([]);
+        }
+      } catch (e) {
+        console.error('Error al obtener cuotas:', e);
+        setCuotas([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [getCuotasKey]
+  );
+
+  // Invalidación quirúrgica tras mutaciones
+  const invalidateCuotas = useCallback(
+    (estadoPago, periodoId) => {
+      const key = getCuotasKey(estadoPago, periodoId);
+      delete cacheRef.current.cuotas[key];
+    },
+    [getCuotasKey]
+  );
+
+  // ==========
+  // Efectos
+  // ==========
+  // Listas: cargar una vez (o cuando expiren)
+  useEffect(() => {
+    fetchListas();
+  }, [fetchListas]);
+
+  // Cuotas: cargar cuando cambian pestaña/periodo
+  useEffect(() => {
+    fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado);
+  }, [estadoPagoSeleccionado, periodoSeleccionado, fetchCuotas]);
+
+  // =========================
+  // Filtrado y ordenamiento
+  // =========================
   const cuotasFiltradas = useMemo(() => {
     if (!periodoSeleccionado) return [];
 
     const lista = cuotas
-      .filter((c) => String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null)
+      .filter(
+        (c) =>
+          String(c.id_periodo) === String(periodoSeleccionado) ||
+          c.id_periodo === null
+      )
       .filter((c) => {
         const coincideBusqueda =
-          busqueda === '' ||
-          c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-          c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
-          c.documento?.toLowerCase().includes(busqueda.toLowerCase());
+          debouncedBusqueda === '' ||
+          c.nombre?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
+          c.domicilio?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
+          c.documento?.toLowerCase().includes(debouncedBusqueda.toLowerCase());
 
-        const coincideId = equalId(c, busquedaId);
-        const coincideEstadoSocio = estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
-        const coincideMedio = medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado;
-        const coincideEstadoPago = estadoPagoSeleccionado === '' || c.estado_pago === estadoPagoSeleccionado;
+        const coincideId = equalId(c, debouncedBusquedaId);
+        const coincideEstadoSocio =
+          estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
+        const coincideMedio =
+          medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado;
+        const coincideEstadoPago =
+          estadoPagoSeleccionado === '' || c.estado_pago === estadoPagoSeleccionado;
 
-        return coincideBusqueda && coincideId && coincideEstadoSocio && coincideMedio && coincideEstadoPago;
+        return (
+          coincideBusqueda &&
+          coincideId &&
+          coincideEstadoSocio &&
+          coincideMedio &&
+          coincideEstadoPago
+        );
       });
 
+    // Orden
     return lista.sort((a, b) => {
       if (orden.campo === 'id') {
         const ida = getIdNumber(a);
@@ -143,8 +266,8 @@ const Cuotas = () => {
     });
   }, [
     cuotas,
-    busqueda,
-    busquedaId,
+    debouncedBusqueda,
+    debouncedBusquedaId,
     estadoSocioSeleccionado,
     medioPagoSeleccionado,
     periodoSeleccionado,
@@ -152,62 +275,61 @@ const Cuotas = () => {
     orden
   ]);
 
-  const cantidadFiltradaDeudores = useMemo(() => {
-    return cuotas.filter(c =>
-      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
-      (busqueda === '' ||
-        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
-      equalId(c, busquedaId) &&
-      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
-      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
-      c.estado_pago === 'deudor'
-    ).length;
-  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
+  // Contadores (usan los mismos filtros, excepto estadoPago que se fija)
+  const buildCount = useCallback(
+    (estadoPagoFijo) =>
+      cuotas.filter(
+        (c) =>
+          (String(c.id_periodo) === String(periodoSeleccionado) ||
+            c.id_periodo === null) &&
+          (debouncedBusqueda === '' ||
+            c.nombre?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
+            c.domicilio?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
+            c.documento?.toLowerCase().includes(debouncedBusqueda.toLowerCase())) &&
+          equalId(c, debouncedBusquedaId) &&
+          (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
+          (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
+          c.estado_pago === estadoPagoFijo
+      ).length,
+    [
+      cuotas,
+      debouncedBusqueda,
+      debouncedBusquedaId,
+      estadoSocioSeleccionado,
+      medioPagoSeleccionado,
+      periodoSeleccionado
+    ]
+  );
 
-  const cantidadFiltradaPagados = useMemo(() => {
-    return cuotas.filter(c =>
-      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
-      (busqueda === '' ||
-        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
-      equalId(c, busquedaId) &&
-      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
-      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
-      c.estado_pago === 'pagado'
-    ).length;
-  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
-
-  const cantidadFiltradaCondonados = useMemo(() => {
-    return cuotas.filter(c =>
-      (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
-      (busqueda === '' ||
-        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.domicilio?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.documento?.toLowerCase().includes(busqueda.toLowerCase())) &&
-      equalId(c, busquedaId) &&
-      (estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado) &&
-      (medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado) &&
-      c.estado_pago === 'condonado'
-    ).length;
-  }, [cuotas, busqueda, busquedaId, estadoSocioSeleccionado, medioPagoSeleccionado, periodoSeleccionado]);
+  const cantidadFiltradaDeudores = useMemo(
+    () => buildCount('deudor'),
+    [buildCount]
+  );
+  const cantidadFiltradaPagados = useMemo(
+    () => buildCount('pagado'),
+    [buildCount]
+  );
+  const cantidadFiltradaCondonados = useMemo(
+    () => buildCount('condonado'),
+    [buildCount]
+  );
 
   const toggleOrden = (campo) => {
-    setOrden(prev => ({
+    setOrden((prev) => ({
       campo,
-      ascendente: prev.campo === campo ? !prev.ascendente : true
+      ascendente: prev.campo === campo ? !prev.ascendente : true,
     }));
   };
 
+  // =========================
+  // Impresión
+  // =========================
   const handleImprimirTodos = async () => {
     const ventanaImpresion = window.open('', '_blank');
     if (!ventanaImpresion) {
       alert('Por favor deshabilita el bloqueador de ventanas emergentes para esta página');
       return;
     }
-
     setLoadingPrint(true);
     try {
       await imprimirRecibos(cuotasFiltradas, periodoSeleccionado, ventanaImpresion);
@@ -219,32 +341,38 @@ const Cuotas = () => {
     }
   };
 
+  // =========================
+  // Acciones de filtros
+  // =========================
   const limpiarFiltros = () => {
     setBusqueda('');
     setBusquedaId('');
     setEstadoSocioSeleccionado('');
     setMedioPagoSeleccionado('');
-
     setToastTipo('exito');
     setToastMensaje('Filtros limpiados correctamente');
     setToastVisible(true);
   };
+  const toggleFiltros = () => setFiltrosExpandidos((s) => !s);
 
-  const toggleFiltros = () => setFiltrosExpandidos(!filtrosExpandidos);
-
+  // =========================
+  // Fila virtualizada
+  // =========================
   const Row = ({ index, style, data }) => {
     const cuota = data[index];
 
-    const claseEstadoSocio = {
-      activo: 'cuo_estado-activo',
-      pasivo: 'cuo_estado-pasivo'
-    }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
+    const claseEstadoSocio =
+      {
+        activo: 'cuo_estado-activo',
+        pasivo: 'cuo_estado-pasivo',
+      }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
 
-    const claseMedioPago = {
-      cobrador: 'cuo_pago-cobrador',
-      oficina: 'cuo_pago-oficina',
-      transferencia: 'cuo_pago-transferencia'
-    }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
+    const claseMedioPago =
+      {
+        cobrador: 'cuo_pago-cobrador',
+        oficina: 'cuo_pago-oficina',
+        transferencia: 'cuo_pago-transferencia',
+      }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
 
     return (
       <div
@@ -269,9 +397,7 @@ const Cuotas = () => {
 
         {/* Medio de pago: Cobrador/Oficina/Transferencia */}
         <div className="cuo_col-medio-pago">
-          <span className={`cuo_badge ${claseMedioPago}`}>
-            {cuota.medio_pago || 'Sin especificar'}
-          </span>
+          <span className={`cuo_badge ${claseMedioPago}`}>{cuota.medio_pago || 'Sin especificar'}</span>
         </div>
 
         <div className="cuo_col-acciones">
@@ -330,17 +456,23 @@ const Cuotas = () => {
     );
   };
 
+  // =========================
+  // Utilidad de UI
+  // =========================
   const getNombrePeriodo = (id) => {
-    const periodo = periodos.find(p => String(p.id) === String(id));
+    const periodo = periodos.find((p) => String(p.id) === String(id));
     return periodo ? periodo.nombre : id;
   };
+  const etiquetaPestaña =
+    {
+      deudor: 'Deudores',
+      pagado: 'Pagados',
+      condonado: 'Condonados',
+    }[estadoPagoSeleccionado] || '';
 
-  const etiquetaPestaña = {
-    deudor: 'Deudores',
-    pagado: 'Pagados',
-    condonado: 'Condonados',
-  }[estadoPagoSeleccionado] || '';
-
+  // =========================
+  // Render
+  // =========================
   return (
     <div className="cuo_app-container">
       <div className={`cuo_filtros-panel ${!filtrosExpandidos ? 'cuo_filtros-colapsado' : ''}`}>
@@ -375,7 +507,9 @@ const Cuotas = () => {
               >
                 <option value="">Seleccionar período</option>
                 {periodos.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
                 ))}
               </select>
             </div>
@@ -391,21 +525,30 @@ const Cuotas = () => {
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
                 >
-                  Deudores <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaDeudores})</span>
+                  Deudores{' '}
+                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
+                    ({cantidadFiltradaDeudores})
+                  </span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
                 >
-                  Pagados <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaPagados})</span>
+                  Pagados{' '}
+                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
+                    ({cantidadFiltradaPagados})
+                  </span>
                 </button>
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'condonado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('condonado')}
                   disabled={loading}
                 >
-                  Condonados <span style={{ display: 'inline-block', textAlign: 'right' }}>({cantidadFiltradaCondonados})</span>
+                  Condonados{' '}
+                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
+                    ({cantidadFiltradaCondonados})
+                  </span>
                 </button>
               </div>
             </div>
@@ -423,7 +566,9 @@ const Cuotas = () => {
               >
                 <option value="">Todos los estados</option>
                 {estados.map((estado, i) => (
-                  <option key={i} value={estado}>{estado}</option>
+                  <option key={i} value={estado}>
+                    {estado}
+                  </option>
                 ))}
               </select>
             </div>
@@ -441,24 +586,18 @@ const Cuotas = () => {
               >
                 <option value="">Todos los medios</option>
                 {mediosPago.map((m, i) => (
-                  <option key={i} value={m}>{m}</option>
+                  <option key={i} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
 
-            <div className="cuo_filtro-acciones" >
-              <button
-                className="cuo_boton cuo_boton-light cuo_boton-limpiar"
-                onClick={limpiarFiltros}
-                disabled={loading}
-              >
+            <div className="cuo_filtro-acciones">
+              <button className="cuo_boton cuo_boton-light cuo_boton-limpiar" onClick={limpiarFiltros} disabled={loading}>
                 Limpiar Filtros
               </button>
-              <button
-                className="cuo_boton cuo_boton-secondary"
-                onClick={() => navigate('/panel')}
-                disabled={loading}
-              >
+              <button className="cuo_boton cuo_boton-secondary" onClick={() => navigate('/panel')} disabled={loading}>
                 <FaUndo style={{ marginRight: '5px' }} /> Volver
               </button>
             </div>
@@ -467,11 +606,7 @@ const Cuotas = () => {
       </div>
 
       {!filtrosExpandidos && (
-        <button
-          className="cuo_boton-flotante-abrir cuo_flotante-fuera"
-          onClick={toggleFiltros}
-          title="Mostrar filtros"
-        >
+        <button className="cuo_boton-flotante-abrir cuo_flotante-fuera" onClick={toggleFiltros} title="Mostrar filtros">
           <FiChevronRight size={20} />
         </button>
       )}
@@ -484,9 +619,7 @@ const Cuotas = () => {
               {periodoSeleccionado && (
                 <>
                   <span className="cuo_periodo-seleccionado"> - {getNombrePeriodo(periodoSeleccionado)}</span>
-                  {etiquetaPestaña && (
-                    <span className="cuo_periodo-seleccionado"> — {etiquetaPestaña}</span>
-                  )}
+                  {etiquetaPestaña && <span className="cuo_periodo-seleccionado"> — {etiquetaPestaña}</span>}
                 </>
               )}
             </h2>
@@ -502,12 +635,14 @@ const Cuotas = () => {
           </div>
 
           <div className="cuo_header-bottom">
-            <div className='conteiner-buscador'>
+            <div className="conteiner-buscador">
               <div className="cuo_buscador-container">
                 {busqueda ? (
                   <button
                     className="cuo_buscador-clear"
-                    onClick={() => { setBusqueda(''); }}
+                    onClick={() => {
+                      setBusqueda('');
+                    }}
                     title="Limpiar búsqueda"
                   >
                     <FaTimes />
@@ -533,7 +668,9 @@ const Cuotas = () => {
                 {busquedaId ? (
                   <button
                     className="cuo_buscador-clear"
-                    onClick={() => { setBusquedaId(''); }}
+                    onClick={() => {
+                      setBusquedaId('');
+                    }}
                     title="Limpiar ID"
                   >
                     <FaTimes />
@@ -560,11 +697,7 @@ const Cuotas = () => {
             </div>
 
             <div className="cuo_content-actions">
-              <button
-                className="cuo_boton cuo_boton-success"
-                onClick={() => setMostrarModalCodigoBarras(true)}
-                disabled={loading}
-              >
+              <button className="cuo_boton cuo_boton-success" onClick={() => setMostrarModalCodigoBarras(true)} disabled={loading}>
                 <FaBarcode /> Código de Barras
               </button>
 
@@ -590,31 +723,19 @@ const Cuotas = () => {
         <div className="cuo_tabla-container">
           <div className="cuo_tabla-wrapper">
             <div className="cuo_tabla-header cuo_grid-container">
-              <div
-                className="cuo_col-id cuo_col-clickable"
-                onClick={() => toggleOrden('id')}
-                title="Ordenar por ID"
-              >
+              <div className="cuo_col-id cuo_col-clickable" onClick={() => toggleOrden('id')} title="Ordenar por ID">
                 ID
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'id' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'id' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
 
-              <div
-                className="cuo_col-nombre cuo_col-clickable"
-                onClick={() => toggleOrden('nombre')}
-                title="Ordenar por nombre"
-              >
+              <div className="cuo_col-nombre cuo_col-clickable" onClick={() => toggleOrden('nombre')} title="Ordenar por nombre">
                 Socio
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'nombre' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'nombre' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
               </div>
 
-              <div
-                className="cuo_col-domicilio cuo_col-clickable"
-                onClick={() => toggleOrden('domicilio')}
-                title="Ordenar por dirección"
-              >
+              <div className="cuo_col-domicilio cuo_col-clickable" onClick={() => toggleOrden('domicilio')} title="Ordenar por dirección">
                 Dirección
                 <FaSort className={`cuo_icono-orden ${orden.campo === 'domicilio' ? 'cuo_icono-orden-activo' : ''}`} />
                 {orden.campo === 'domicilio' && (orden.ascendente ? <FiChevronUp size={14} /> : <FiChevronDown size={14} />)}
@@ -643,11 +764,7 @@ const Cuotas = () => {
                 <AutoSizer>
                   {({ height, width }) => {
                     const OuterElement = React.forwardRef((props, ref) => (
-                      <div
-                        ref={ref}
-                        {...props}
-                        style={{ ...props.style, overflowX: 'hidden' }}
-                      />
+                      <div ref={ref} {...props} style={{ ...props.style, overflowX: 'hidden' }} />
                     ));
                     return (
                       <List
@@ -669,12 +786,19 @@ const Cuotas = () => {
         </div>
       </div>
 
+      {/* ===== Modales ===== */}
       {mostrarModalPagos && (
         <ModalPagos
           socio={socioParaPagar}
-          onClose={(refetch) => {
+          onClose={async (refetch) => {
             setMostrarModalPagos(false);
-            if (refetch) obtenerCuotasYListas();
+            if (refetch) {
+              // invalidación selectiva del periodo actual para la pestaña 'deudor' y 'pagado' (ambas pueden verse afectadas)
+              invalidateCuotas('deudor', periodoSeleccionado);
+              invalidateCuotas('pagado', periodoSeleccionado);
+              invalidateCuotas('condonado', periodoSeleccionado);
+              await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, { force: true });
+            }
           }}
         />
       )}
@@ -684,7 +808,11 @@ const Cuotas = () => {
           onClose={() => setMostrarModalCodigoBarras(false)}
           periodo={getNombrePeriodo(periodoSeleccionado)}
           periodoId={periodoSeleccionado}
-          onPagoRealizado={obtenerCuotasYListas}
+          onPagoRealizado={async () => {
+            invalidateCuotas('deudor', periodoSeleccionado);
+            invalidateCuotas('pagado', periodoSeleccionado);
+            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, { force: true });
+          }}
         />
       )}
 
@@ -694,7 +822,11 @@ const Cuotas = () => {
           periodo={periodoSeleccionado}
           periodoTexto={getNombrePeriodo(periodoSeleccionado)}
           onClose={() => setMostrarModalEliminarPago(false)}
-          onEliminado={obtenerCuotasYListas}
+          onEliminado={async () => {
+            invalidateCuotas('pagado', periodoSeleccionado);
+            invalidateCuotas('deudor', periodoSeleccionado);
+            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, { force: true });
+          }}
         />
       )}
 
@@ -704,17 +836,16 @@ const Cuotas = () => {
           periodo={periodoSeleccionado}
           periodoTexto={getNombrePeriodo(periodoSeleccionado)}
           onClose={() => setMostrarModalEliminarCond(false)}
-          onEliminado={obtenerCuotasYListas}
+          onEliminado={async () => {
+            invalidateCuotas('condonado', periodoSeleccionado);
+            invalidateCuotas('deudor', periodoSeleccionado);
+            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, { force: true });
+          }}
         />
       )}
 
       {toastVisible && (
-        <Toast
-          tipo={toastTipo}
-          mensaje={toastMensaje}
-          duracion={3000}
-          onClose={() => setToastVisible(false)}
-        />
+        <Toast tipo={toastTipo} mensaje={toastMensaje} duracion={3000} onClose={() => setToastVisible(false)} />
       )}
     </div>
   );
