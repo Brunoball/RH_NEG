@@ -99,9 +99,15 @@ const Principal = () => {
   const pedirConfirmacion = () => setShowConfirm(true);
 
   const doLogout = useCallback(() => {
-    localStorage.removeItem('usuario');
+    try {
+      sessionStorage.clear();
+    } catch {}
+    try {
+      localStorage.removeItem('usuario');
+      localStorage.removeItem('token'); // 🔒 por si usás token
+    } catch {}
     setShowConfirm(false);
-    navigate('/');
+    navigate('/', { replace: true });
   }, [navigate]);
 
   const redirectTo3Devs = () => {

@@ -40,7 +40,6 @@ html, body {
   margin-bottom: 30px;
   flex-shrink: 0;
 }
-
 .contable-title {
   font-size: 1.8rem;
   color: var(--soc-primary);
@@ -49,7 +48,6 @@ html, body {
   align-items: center;
   gap: 12px;
 }
-
 .contable-title svg { font-size: 1.6rem; }
 
 /* MESSAGES */
@@ -91,7 +89,6 @@ html, body {
   margin-bottom: 30px;
   flex-shrink: 0;
 }
-
 .contable-summary-card {
   flex: 1;
   background-color: #fefefe;
@@ -108,7 +105,6 @@ html, body {
   transform: translateY(-3px);
   box-shadow: var(--soc-shadow-md);
 }
-
 .contable-card-icon {
   font-size: 28px;
   color: var(--soc-primary);
@@ -138,7 +134,6 @@ html, body {
   flex-direction: column;
   overflow: visible;
 }
-
 .contable-section-header {
   display: flex;
   justify-content: space-between;
@@ -150,13 +145,13 @@ html, body {
   color: var(--soc-dark); margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 
+/* SELECTORES */
 .contable-selectors-container {
   display: flex;
   gap: 15px;
   align-items: center;
   flex-wrap: wrap;
 }
-
 .contable-month-selector,
 .contable-payment-selector,
 .contable-entity-selector {
@@ -169,7 +164,6 @@ html, body {
   box-shadow: var(--soc-shadow-sm);
   border: 1px solid var(--soc-gray-200);
 }
-
 .contable-month-selector svg,
 .contable-payment-selector svg,
 .contable-entity-selector svg {
@@ -177,7 +171,6 @@ html, body {
   font-size: 1.1rem;
   min-width: 16px;
 }
-
 .contable-month-selector select,
 .contable-payment-selector select,
 .contable-entity-select {
@@ -191,13 +184,9 @@ html, body {
   color: var(--soc-dark);
   transition: all 0.2s ease;
 }
+.contable-payment-select { width: 220px; min-width: 220px; }
 
-.contable-payment-select {
-  width: 220px;
-  min-width: 220px;
-}
-
-/* BOTÓN VOLVER */
+/* BOTONES */
 .contable-back-button {
   background-color: var(--soc-primary);
   color: #ffffff;
@@ -214,7 +203,6 @@ html, body {
 }
 .contable-back-button:hover { transform: scale(1.05); }
 
-/* BOTÓN DETALLE/RESUMEN */
 .contable-detail-view-button {
   display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--soc-border-radius-sm); border: none;
   background-color: var(--soc-primary); color: white; font-weight: 500; cursor: pointer; transition: var(--soc-transition);
@@ -228,7 +216,6 @@ html, body {
 }
 .contable-detail-view-button svg { font-size: 0.95rem; }
 
-/* BOTÓN VER GRÁFICOS */
 .contable-charts-button {
   display: flex; align-items: center; gap: 8px; padding: 8px 16px;
   border-radius: var(--soc-border-radius-sm); border: none; background-color: var(--soc-dark); color: #fff;
@@ -239,7 +226,11 @@ html, body {
 .contable-charts-button:disabled { opacity: .6; cursor: not-allowed; }
 
 /* TABLA DETALLE */
-.contable-detail-table-container { overflow-x: auto; margin-top: 15px; }
+.contable-detail-table-container { 
+  position: relative; /* para overlay */
+  overflow-x: auto; 
+  margin-top: 15px; 
+}
 .contable-detail-table { width: 100%; border-collapse: collapse; }
 .contable-detail-table th {
   background-color: var(--soc-gray-100); color: var(--soc-gray-600); font-weight: 600;
@@ -250,29 +241,29 @@ html, body {
 }
 .contable-detail-table tr:hover { background-color: var(--soc-gray-100); }
 
-/* SPINNER */
+/* OVERLAY LOADING (aparece al instante; no bloquea interacción) */
+.contable-categories-scroll-container.is-loading .contable-detail-table {
+  opacity: 0.55;
+  transition: opacity .12s ease;
+}
+.contable-table-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(transparent 45%, rgba(255,255,255,0.75));
+}
 .contable-spinner {
-  width: 20px; height: 20px; border: 3px solid rgba(37, 99, 235, 0.3); border-radius: 50%;
-  border-top-color: var(--soc-primary); animation: spin 1s ease-in-out infinite; margin-right: 10px;
+  width: 28px; height: 28px;
+  border: 3px solid rgba(37, 99, 235, 0.25);
+  border-radius: 50%;
+  border-top-color: var(--soc-primary);
+  animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* MEDIA QUERIES – las dejo igual porque solo cambian layouts */
-@media (min-width: 769px) {
-  html, body { overflow: hidden; }
-  .dashboard-contable-fullscreen { height: 100vh; }
-  .contable-fullscreen-container { height: 100%; overflow: hidden; }
-  .contable-categories-section { flex: 1; overflow: hidden; }
-  .contable-categories-scroll-container {
-    height: 100%; overflow-y: auto; padding: 10px 10px 10px 0; margin: 0;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-/* … resto de responsive igual, no cambian colores */
-
-/* =========================
-   DESKTOP: ALTURA 100% + SCROLL INTERNO
-   ========================= */
+/* ALTURA 100% + SCROLL INTERNO (DESKTOP) */
 @media (min-width: 769px) {
   html, body { overflow: hidden; }
   .dashboard-contable-fullscreen { height: 100vh; }
@@ -284,9 +275,7 @@ html, body {
   }
 }
 
-/* =========================
-   RESPONSIVE (DESKTOP INTACTO)
-   ========================= */
+/* RESPONSIVE */
 @media (max-width: 1200px) {
   .contable-categories-cards { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 }
@@ -320,28 +309,22 @@ html, body {
   .contable-selectors-container {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;
   }
-
   .contable-month-selector,
   .contable-payment-selector,
   .contable-entity-selector {
     width: 100%; padding: 10px 12px;
   }
-  .contable-month-selector{
-    grid-column: 1/-1;
-  }
- .contable-charts-button{
-  grid-column: 1/-1;
- }
+  .contable-month-selector { grid-column: 1/-1; }
+  .contable-charts-button { grid-column: 1/-1; }
+
   .contable-month-selector select,
   .contable-payment-selector select,
   .contable-entity-select {
     width: 100%; font-size: 0.98rem; padding: 10px 12px;
   }
 
-  /* Medio de pago ocupa toda la fila */
   .full-row-mobile { grid-column: 1 / -1; }
 
-  /* Botones lado a lado */
   .contable-detail-view-button,
   .contable-charts-button {
     width: 100%;
@@ -350,16 +333,7 @@ html, body {
     font-size: 0.98rem;
   }
 
-  .contable-categories-cards { grid-template-columns: 1fr 1fr; gap: 12px; }
-
   .contable-categories-scroll-container { padding: 8px 6px 12px 0; margin: 0; overflow: visible; }
-  .contable-category-card { min-height: 150px; }
-  .contable-category-header { padding: 14px; }
-  .contable-category-header h3, .monthly-price { font-size: 1.05rem; }
-  .contable-category-body { padding: 14px; }
-  .contable-category-label { font-size: 0.95rem; }
-  .contable-category-value { font-size: 1rem; }
-
   .contable-detail-table { display: block; }
   .contable-detail-table thead { display: none; }
   .contable-detail-table tbody { display: grid; gap: 12px; }
@@ -392,27 +366,15 @@ html, body {
 }
 
 @media (max-width: 576px) {
-  .contable-categories-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  .contable-category-card { min-height: 140px; }
   .contable-title { font-size: 1.25rem; }
   .contable-card-content p { font-size: 1.2rem; }
-
-  .contable-detail-table td {
-    grid-template-columns: 46% 54%;
-    padding: 5px 0;
-  }
+  .contable-detail-table td { grid-template-columns: 46% 54%; padding: 5px 0; }
   .contable-detail-table td[colspan] { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 480px) {
   .contable-title { font-size: 1.18rem; }
   .contable-back-button { padding: 7px 10px; font-size: 0.85rem; }
-
-  .contable-detail-table td {
-    grid-template-columns: 48% 52%;
-    gap: 5px;
-  }
+  .contable-detail-table td { grid-template-columns: 48% 52%; gap: 5px; }
   .contable-detail-table td[colspan] { grid-template-columns: 1fr !important; }
 }
-

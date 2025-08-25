@@ -243,7 +243,6 @@
   display: flex;
   flex-direction: column;
   border-bottom: 2px solid var(--soc-primary);
-  /* IMPORTANTE: sin fondo aquí para que no tape el contador */
   background: transparent;
 }
 
@@ -254,7 +253,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  background: transparent; /* <- antes era blanco */
+  background: transparent;
 }
 
 /* encabezado azul */
@@ -280,16 +279,16 @@
 .soc-tabla-header > div:last-child { justify-content: center; }
 .soc-tabla-fila > div:last-child { justify-content: flex-end; }
 
-/* ÁREA DE FILAS: aquí sí va el BLANCO */
+/* ÁREA DE FILAS */
 .soc-list-container{
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #fff;                          /* <- blanco solo en registros */
+  background: #fff;
   border-radius: 0 0 var(--soc-border-radius) var(--soc-border-radius);
 }
 
-/* Filas */
+/* Filas (sin transición de background para evitar “fade” al scroll) */
 .soc-tabla-fila {
   display: grid;
   grid-template-columns: 60px 1.5fr 1.5fr 1fr 140px;
@@ -297,16 +296,20 @@
   border-bottom: 1px solid rgba(237,242,247,.7);
   align-items: center;
   cursor: pointer;
-  background: rgba(255,255,255,.9);
   position: relative;
   font-size: .9rem;
   will-change: transform, opacity;
   animation-fill-mode: forwards !important;
-  transition: background .5s;
-  animation-duration: .5s;
+  /* NO transition de background */
 }
-.soc-tabla-fila:nth-child(even){ background: rgba(179,180,181,.47); }
-.soc-tabla-fila:hover{ background: rgba(226,232,240,.7) !important; }
+
+/* ✅ Rayado estable con clases del JSX (NO usar :nth-child con react-window) */
+.soc-row-odd  { background: rgba(255,255,255,.95); }
+.soc-row-even { background: rgba(179,180,181,.47); }
+
+/* (REMOVIDO) .soc-tabla-fila:hover: sin efecto hover en filas */
+
+/* Seleccionada */
 .soc-fila-seleccionada{ background: rgba(210,218,235,.7) !important; box-shadow: inset 3px 0 0 var(--soc-primary); }
 
 /* Animaciones */
@@ -369,7 +372,7 @@
 .soc-boton-mostrar-container{
   position:absolute; top:0; left:0; right:0; bottom:0;
   display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; z-index:2;
-  background:#fff; /* siguen siendo blancas pero solo dentro del área de filas */
+  background:#fff;
 }
 .soc-sin-resultados{ color: var(--soc-gray-700); font-size:.9rem; border-top: 1px solid rgba(254,215,215,.7); }
 .soc-boton-mostrar-container{ flex-direction:column; gap:15px; border-radius:0 0 var(--soc-border-radius) var(--soc-border-radius); border:1px solid rgba(255,255,255,.4); }
@@ -394,7 +397,7 @@
 .soc-barra-inferior{ display:flex; justify-content:space-between; align-items:center; padding:1rem; }
 .soc-botones-derecha{ display:flex; gap:1rem; }
 .soc-boton{ padding:.75rem 1.5rem; border-radius:var(--soc-border-radius); font-weight:600; cursor:pointer; transition:var(--soc-transition); display:flex; align-items:center; gap:.5rem; border:none; }
-.soc-boton-volver{ background:#fff; color:var(--soc-primary); border:2px solid var(--soc-primary); }
+.soc-boton-volver{ background:#fff; color:#2563EB; border:2px solid var(--soc-primary); }
 .soc-boton-volver:hover{ background: var(--soc-primary); color:#fff; }
 .soc-boton-agregar{ background: var(--soc-success); color:#fff; }
 .soc-boton-agregar:hover{ background:#0da271; transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
@@ -434,7 +437,7 @@
   .soc-buscador-id-container{ width:100%; }
 
   .soc-tabla-header{ display:none; }
-  .soc-list-container{ border-radius: var(--soc-border-radius); } /* móvil: caja completa */
+  .soc-list-container{ border-radius: var(--soc-border-radius); }
   .soc-tabla-fila{ display:flex; flex-direction:column; align-items:flex-start; padding:12px; gap:6px; }
   .soc-tabla-fila > div{ width:100%; padding:4px 0; justify-content:flex-start; }
   .soc-col-nombre, .soc-col-domicilio, .soc-col-comentario{ white-space:normal; max-width:100%; text-transform:capitalize; }

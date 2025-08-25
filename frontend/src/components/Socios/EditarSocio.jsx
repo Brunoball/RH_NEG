@@ -230,7 +230,8 @@ const EditarSocio = () => {
     };
     loadCobradores();
     return () => { cancel = true; ctrl.abort(); };
-  }, [activeTab, loadingCobradores, cobradores.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // === Handlers ===
   const handleNumberChange = useCallback((e) => {
@@ -242,7 +243,6 @@ const EditarSocio = () => {
   // Micro-opt: no uppercasemos todo en cada keypress; sólo normalizamos lo básico
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    // Mantener mayúsculas pero sin crear GC excesivo
     const v = typeof value === 'string' ? value.toUpperCase() : value;
     setFormData(prev => (prev[name] === v ? prev : { ...prev, [name]: v }));
   }, []);
@@ -279,7 +279,6 @@ const EditarSocio = () => {
       const data = await res.json();
       if (data?.exito) {
         showToast('Socio actualizado correctamente', 'exito');
-        // volvemos — en Socios.jsx ya restaurás filtros/scroll
         setTimeout(() => navigate('/socios', { state: { refresh: true } }), 600);
       } else {
         showToast('Error al actualizar' + (data?.mensaje ? `: ${data.mensaje}` : ''), 'error');
@@ -454,7 +453,7 @@ const EditarSocio = () => {
                         <span className="edit-socio-input-highlight"></span>
                       </div>
 
-                      {/* Categoría (carga paralela; si aún carga, spinner inline) */}
+                      {/* Categoría */}
                       <div className="edit-socio-input-wrapper always-active has-value">
                         <label className="edit-socio-label">
                           <FontAwesomeIcon icon={faUserTag} className="input-icon" />
@@ -615,14 +614,19 @@ const EditarSocio = () => {
                         <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
                         Medios de Pago {loadingCobradores && <MiniSpinner />}
                       </label>
+                      {/* HABILITADO SIEMPRE (quitamos disabled) */}
                       <select 
                         name="id_cobrador" 
                         value={formData.id_cobrador || ''} 
                         onChange={handleChange}
                         className="edit-socio-input"
-                        disabled={loadingCobradores}
                       >
-                        <option value="" disabled hidden>Seleccione cobrador</option>
+                        {/* Si aún no hay lista, mantenemos una opción fallback editable */}
+                        {!cobradores.length && (
+                          <option value={formData.id_cobrador || ''}>
+                            {formData.id_cobrador ? `Actual: ${formData.id_cobrador}` : 'Cargando opciones...'}
+                          </option>
+                        )}
                         {cobradores.map(c => (
                           <option key={c.id} value={c.id}>{c.nombre}</option>
                         ))}
