@@ -15,7 +15,10 @@ import {
   FaUndo,
   FaSort,
   FaUsers,
-  FaTimes
+  FaTimes,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaExclamationTriangle,
 } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
@@ -196,15 +199,11 @@ const Cuotas = () => {
     [getCuotasKey]
   );
 
-  // ==========
-  // Efectos
-  // ==========
-  // Listas: cargar una vez (o cuando expiren)
+  // ========== Efectos ==========
   useEffect(() => {
     fetchListas();
   }, [fetchListas]);
 
-  // Cuotas: cargar cuando cambian pestaña/periodo
   useEffect(() => {
     fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado);
   }, [estadoPagoSeleccionado, periodoSeleccionado, fetchCuotas]);
@@ -257,8 +256,8 @@ const Cuotas = () => {
       }
       if (orden.campo === 'domicilio') {
         const A = a.domicilio || '';
-        const B = b.domicilio || '';
-        return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
+        const theB = b.domicilio || '';
+        return orden.ascendente ? A.localeCompare(theB) : theB.localeCompare(A);
       }
       const A = a.nombre || '';
       const B = b.nombre || '';
@@ -524,31 +523,30 @@ const Cuotas = () => {
                   className={`cuo_tab ${estadoPagoSeleccionado === 'deudor' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('deudor')}
                   disabled={loading}
+                  title="Deudores"
                 >
-                  Deudores{' '}
-                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
-                    ({cantidadFiltradaDeudores})
-                  </span>
+                  <FaTimesCircle style={{ marginRight: 6, color: '#dc2626' }} />
+                  <span>({cantidadFiltradaDeudores})</span>
                 </button>
+
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'pagado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('pagado')}
                   disabled={loading}
+                  title="Pagados"
                 >
-                  Pagados{' '}
-                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
-                    ({cantidadFiltradaPagados})
-                  </span>
+                  <FaCheckCircle style={{ marginRight: 6, color: '#16a34a' }} />
+                  <span>({cantidadFiltradaPagados})</span>
                 </button>
+
                 <button
                   className={`cuo_tab ${estadoPagoSeleccionado === 'condonado' ? 'cuo_tab-activo' : ''}`}
                   onClick={() => setEstadoPagoSeleccionado('condonado')}
                   disabled={loading}
+                  title="Condonados"
                 >
-                  Condonados{' '}
-                  <span style={{ display: 'inline-block', textAlign: 'right' }}>
-                    ({cantidadFiltradaCondonados})
-                  </span>
+                  <FaExclamationTriangle style={{ marginRight: 6, color: '#f59e0b' }} />
+                  <span>({cantidadFiltradaCondonados})</span>
                 </button>
               </div>
             </div>

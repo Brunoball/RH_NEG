@@ -329,6 +329,7 @@ body {
   border: none; background-color: transparent; color: var(--soc-gray-400);
   font-size: 0.875rem; font-weight: 500; cursor: pointer;
   transition: var(--soc-transition); white-space: nowrap;
+  display: flex; justify-content: center; align-items: center ; 
 }
 .cuo_tab:hover { background-color: var(--soc-gray-700); color: white; }
 .cuo_tab-activo { background-color: var(--soc-primary); color: white; }
