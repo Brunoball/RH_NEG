@@ -483,3 +483,9 @@ html, body {
     gap: 6px;
   }
 }
+
+@media (max-width: 1280px) {
+    .ini_contenedor{
+      gap: 0.5rem; padding: 1rem;
+    }
+}
