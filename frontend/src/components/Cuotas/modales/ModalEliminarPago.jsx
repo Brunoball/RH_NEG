@@ -1,19 +1,26 @@
-// src/components/Cuotas/modales/ModalEliminarPago.jsx
 import React, { useState } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
-import './ModalEliminarPago.css'; // usa las mismas clases que el de socio
+import './ModalEliminarPago.css';
 
 /**
  * Props:
  * - socio: { id_socio, nombre, ... }
- * - periodo: string|number (ID del período seleccionado)
- * - periodoTexto: string (lo que se ve en el select, ej: "1 y 2")
+ * - periodo: string|number (ID del período seleccionado en la UI)
+ * - periodoTexto: string (texto visible del período)
+ * - esPagoAnual: boolean  -> true si el estado "pagado" proviene de un registro ANUAL
  * - onClose: fn
- * - onEliminado: fn
+ * - onEliminado: fn(affectedPeriods: number[])
  */
-const ModalEliminarPago = ({ socio, periodo, periodoTexto, onClose, onEliminado }) => {
+const ModalEliminarPago = ({
+  socio,
+  periodo,
+  periodoTexto,
+  esPagoAnual = false,
+  onClose,
+  onEliminado
+}) => {
   const [toast, setToast] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -29,17 +36,21 @@ const ModalEliminarPago = ({ socio, periodo, periodoTexto, onClose, onEliminado 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_socio: socio.id_socio,
-          id_periodo: periodo, // enviamos el ID, no el texto
+          id_periodo: periodo,
         }),
       });
 
       const data = await res.json();
       if (data.exito) {
-        mostrarToast('exito', 'Pago eliminado correctamente');
+        mostrarToast('exito', data.mensaje || 'Pago eliminado correctamente');
+        const affected = Array.isArray(data.affected_periods)
+          ? data.affected_periods
+          : [periodo];
+
         setTimeout(() => {
-          onEliminado?.({ ...socio, estado_pago: 'deudor', medio_pago: '' });
+          onEliminado?.(affected);
           onClose?.();
-        }, 1000);
+        }, 900);
       } else {
         mostrarToast('error', 'Error: ' + (data.mensaje ?? 'No se pudo eliminar'));
       }
@@ -53,9 +64,18 @@ const ModalEliminarPago = ({ socio, periodo, periodoTexto, onClose, onEliminado 
 
   if (!socio) return null;
 
+  // ID del período ANUAL (contado anual)
+  const ID_CONTADO_ANUAL = 7;
+
+  // Si el modal se abrió parado en un bimestre (1..6)
+  const esBimestre = String(periodo) !== String(ID_CONTADO_ANUAL);
+
+  // Mostrar “CONTADO ANUAL” si el pago real proviene de ANUAL aunque estemos en un bimestre
+  const etiquetaPeriodo =
+    esPagoAnual && esBimestre ? 'CONTADO ANUAL' : (periodoTexto ?? periodo);
+
   return (
     <>
-      {/* Toast fijo arriba de todo */}
       <div className="toast-fixed-container">
         {toast && (
           <Toast
@@ -67,17 +87,27 @@ const ModalEliminarPago = ({ socio, periodo, periodoTexto, onClose, onEliminado 
         )}
       </div>
 
-      {/* Mismas clases del modal de eliminar socio */}
       <div className="soc-modal-overlay-eliminar" role="dialog" aria-modal="true">
         <div className="soc-modal-contenido-eliminar" role="document">
           <div className="soc-modal-icono-eliminar" aria-hidden="true">
             <FaExclamationTriangle />
           </div>
+
           <h3 className="soc-modal-titulo-eliminar">Eliminar Pago</h3>
+
           <p className="soc-modal-texto-eliminar">
-            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para el período{' '}
-            <strong>{periodoTexto ?? periodo}</strong>?
+            ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para{' '}
+            <strong>{etiquetaPeriodo}</strong>?
           </p>
+
+          {/* Aviso requerido cuando el pago real es ANUAL pero el usuario está parado en un bimestre */}
+          {esPagoAnual && esBimestre && (
+            <div className="soc-alert soc-alert-danger" role="alert">
+              Este pago corresponde a <strong>CONTADO ANUAL</strong>.{' '}
+              Al eliminarlo, se borra el <strong>registro de todo el año</strong>.
+            </div>
+          )}
+
           <div className="soc-modal-botones-eliminar">
             <button
               className="soc-boton-cancelar-eliminar"

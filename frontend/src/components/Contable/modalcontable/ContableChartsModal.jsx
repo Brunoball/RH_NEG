@@ -1,4 +1,4 @@
-// ContableChartsModal.jsx
+// src/components/Contable/modalcontable/ContableChartsModal.jsx
 import React, { useMemo, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faChartPie } from "@fortawesome/free-solid-svg-icons";
@@ -31,14 +31,9 @@ ChartJS.register(
 );
 
 /**
- * Props:
- * - open
- * - onClose
- * - datosMeses: [{ nombre: "PERÍODO 1 Y 2", pagos: [...] }]
- * - datosEmpresas: (no usado)
- * - mesSeleccionado: etiqueta del período seleccionado (p.ej. "PERÍODO 7 Y 8")
- * - medioSeleccionado: nombre de cobrador o "todos"
- * - totalSocios: número total de socios (activos)
+ * ✔️ Si NO hay período seleccionado, la línea muestra TODOS los períodos canónicos
+ *    desde el inicio del año HASTA el período que contiene el mes actual (incluido).
+ * ✔️ La suma SIEMPRE es por FECHA DE PAGO.
  */
 export default function ContableChartsModal({
   open,
@@ -52,13 +47,6 @@ export default function ContableChartsModal({
   // ===== utils =====
   const norm = (s) => (s || "").toString().trim().toLowerCase();
 
-  const periodoRank = (label) => {
-    const nums = (label || "").match(/\d{1,2}/g);
-    if (!nums || nums.length === 0) return 999;
-    const ints = nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n));
-    return ints.length ? Math.min(...ints) : 999;
-  };
-
   const extractMonthsFromPeriodLabel = (label) => {
     const nums = (label || "").match(/\d{1,2}/g) || [];
     const months = nums
@@ -67,10 +55,36 @@ export default function ContableChartsModal({
     return Array.from(new Set(months));
   };
 
-  const monthFromDate = (yyyy_mm_dd) => {
-    if (!yyyy_mm_dd || typeof yyyy_mm_dd !== "string" || yyyy_mm_dd.length < 7) return null;
-    const mm = parseInt(yyyy_mm_dd.substring(5, 7), 10);
+  const periodoRank = (label) => {
+    const nums = (label || "").match(/\d{1,2}/g);
+    if (!nums || nums.length === 0) return 999;
+    const ints = nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n));
+    return ints.length ? Math.min(...ints) : 999;
+  };
+
+  const getMonthFromPago = (p) => {
+    const f =
+      p?.fechaPago ??
+      p?.fecha_pago ??
+      p?.Fecha_Pago ??
+      p?.FECHA_PAGO ??
+      null;
+    if (!f || typeof f !== "string" || f.length < 7) return null;
+    const mm = parseInt(f.substring(5, 7), 10);
     return Number.isNaN(mm) ? null : mm;
+  };
+
+  const getIdSocio = (p) => {
+    const raw =
+      p?.ID_Socio ??
+      p?.id_socio ??
+      p?.idSocio ??
+      p?.idsocio ??
+      p?.idSocios ??
+      p?.IdSocio ??
+      null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : raw ?? null;
   };
 
   const nombreCobrador = (p) =>
@@ -93,21 +107,26 @@ export default function ContableChartsModal({
     return () => document.removeEventListener("keydown", onEsc);
   }, [open, onClose]);
 
-  // ===== períodos disponibles (según labels que trae el backend) =====
-  const periodosOrdenados = useMemo(() => {
-    const labels = (datosMeses || []).map((b) => b?.nombre).filter(Boolean);
-    const uniq = Array.from(new Set(labels));
-    return uniq.sort((a, b) => periodoRank(a) - periodoRank(b));
-  }, [datosMeses]);
+  // ===== Períodos canónicos del año (para ejes/orden) =====
+  const periodosCanonicos = useMemo(
+    () => [
+      "PERÍODO 1 Y 2",
+      "PERÍODO 3 Y 4",
+      "PERÍODO 5 Y 6",
+      "PERÍODO 7 Y 8",
+      "PERÍODO 9 Y 10",
+      "PERÍODO 11 Y 12",
+    ],
+    []
+  );
 
-  // Mapa período -> meses que representa (e.g. "PERÍODO 7 Y 8" -> [7,8])
-  const mapaPeriodoMeses = useMemo(() => {
-    const m = new Map();
-    for (const per of periodosOrdenados) m.set(per, extractMonthsFromPeriodLabel(per));
-    return m;
-  }, [periodosOrdenados]);
+  // ⚠️ Importante: NO mutar el array fuente
+  const periodosOrdenados = useMemo(
+    () => periodosCanonicos.slice().sort((a, b) => periodoRank(a) - periodoRank(b)),
+    [periodosCanonicos]
+  );
 
-  // Todos los pagos (solo socios) unificados
+  // Todos los pagos (solo socios) unificados (sin importar bloque)
   const todosLosPagos = useMemo(() => {
     const out = [];
     for (const b of datosMeses || []) if (Array.isArray(b?.pagos)) out.push(...b.pagos);
@@ -122,10 +141,11 @@ export default function ContableChartsModal({
 
   // ===== helper: sumar por período usando FECHA DE PAGO =====
   const sumaPeriodoPorFecha = (labelPeriodo) => {
-    const meses = mapaPeriodoMeses.get(labelPeriodo) || [];
+    const meses = extractMonthsFromPeriodLabel(labelPeriodo);
     if (!meses.length) return 0;
+
     const lista = pagosFiltradosPorCobrador.filter((p) => {
-      const m = monthFromDate(p?.fechaPago);
+      const m = getMonthFromPago(p);
       return m !== null && meses.includes(m);
     });
     return lista.reduce((acc, p) => acc + (parseFloat(p?.Precio) || 0), 0);
@@ -136,30 +156,39 @@ export default function ContableChartsModal({
 
   // Períodos hasta el actual (incluye el que contiene el mes actual)
   const periodosHastaActual = useMemo(() => {
-    return periodosOrdenados.filter((per) => {
-      const meses = mapaPeriodoMeses.get(per) || [];
+    const list = periodosOrdenados.filter((per) => {
+      const meses = extractMonthsFromPeriodLabel(per);
       if (!meses.length) return false;
       const minMes = Math.min(...meses);
-      // incluir todos los períodos cuyo mínimo mes sea <= mes actual
       return minMes <= currentMonth;
     });
-  }, [periodosOrdenados, mapaPeriodoMeses, currentMonth]);
+    // Fallback defensivo por si algo quedara vacío
+    return list.length ? list : periodosOrdenados.slice(0, 1);
+  }, [periodosOrdenados, currentMonth]);
 
-  // Cuando hay selección: solo [anterior, seleccionado]. Si no hay anterior, solo [seleccionado].
+  // ¿Hay selección válida?
+  const haySeleccion =
+    mesSeleccionado &&
+    mesSeleccionado !== "Selecciona un periodo" &&
+    periodosOrdenados.some((l) => norm(l) === norm(mesSeleccionado));
+
+  // ✔️ Sin selección: todos hasta el actual (incluido)
+  // ✔️ Con selección: seleccionado y su anterior
   const lineLabels = useMemo(() => {
-    if (mesSeleccionado && mesSeleccionado !== "Selecciona un periodo") {
-      // buscar índice del seleccionado dentro de todos los períodos ordenados
+    if (haySeleccion) {
       const idxSel = periodosOrdenados.findIndex((l) => norm(l) === norm(mesSeleccionado));
-      if (idxSel === -1) return [mesSeleccionado]; // por si el label no está en la lista
       const prev = idxSel > 0 ? periodosOrdenados[idxSel - 1] : null;
       return prev ? [prev, periodosOrdenados[idxSel]] : [periodosOrdenados[idxSel]];
     }
-    // sin selección: mostrar hasta el período actual
     return periodosHastaActual;
-  }, [mesSeleccionado, periodosOrdenados, periodosHastaActual]);
+  }, [haySeleccion, mesSeleccionado, periodosOrdenados, periodosHastaActual]);
 
-  // Serie para esos labels
-  const serieSocios = useMemo(() => lineLabels.map((per) => sumaPeriodoPorFecha(per)), [lineLabels]);
+  // Serie para esos labels (por fecha de pago)
+  // 🔧 FIX: incluir pagosFiltradosPorCobrador en dependencias para evitar valores 0 por cierre obsoleto
+  const serieSocios = useMemo(
+    () => lineLabels.map((per) => sumaPeriodoPorFecha(per)),
+    [lineLabels, pagosFiltradosPorCobrador]
+  );
 
   const maxSocios = useMemo(() => Math.max(0, ...serieSocios), [serieSocios]);
 
@@ -168,7 +197,7 @@ export default function ContableChartsModal({
     labels: lineLabels,
     datasets: [
       {
-        label: "Socios",
+        label: "Recaudación",
         data: serieSocios,
         borderColor: "#0ea5e9",
         backgroundColor: "rgba(14,165,233,0.12)",
@@ -196,7 +225,10 @@ export default function ContableChartsModal({
     },
     scales: {
       x: { ticks: { autoSkip: false } },
-      y: { ticks: { callback: (v) => "$" + Number(v).toLocaleString("es-AR") } },
+      y: {
+        beginAtZero: true,
+        ticks: { callback: (v) => "$" + Number(v).toLocaleString("es-AR") },
+      },
     },
   };
 
@@ -212,52 +244,56 @@ export default function ContableChartsModal({
       const pct = prevVal === 0 ? 0 : (diff / prevVal) * 100;
       const signo = diff > 0 ? "aumentó" : diff < 0 ? "cayó" : "se mantuvo";
       arr.push(
-        `De ${prevLabel} a ${currLabel} ${signo} $${Math.abs(diff).toLocaleString("es-AR")} (${(diff >= 0 ? "+" : "")}${pct.toFixed(1)}%).`
+        `De ${prevLabel} a ${currLabel} ${signo} $${Math.abs(diff).toLocaleString(
+          "es-AR"
+        )} (${(diff >= 0 ? "+" : "")}${pct.toFixed(1)}%).`
       );
     }
     return arr;
   }, [lineLabels, serieSocios]);
 
   /* ========= PIE CHART (Pagaron vs No pagaron por FECHA de pago) ========= */
-  // Período efectivo del pie: seleccionado o, si no hay selección, el período actual (último de periodosHastaActual)
   const periodoEfectivo = useMemo(() => {
-    if (mesSeleccionado && mesSeleccionado !== "Selecciona un periodo") return mesSeleccionado;
+    if (haySeleccion) return mesSeleccionado;
     if (periodosHastaActual.length > 0) return periodosHastaActual[periodosHastaActual.length - 1];
     return periodosOrdenados[periodosOrdenados.length - 1] || undefined;
-  }, [mesSeleccionado, periodosHastaActual, periodosOrdenados]);
+  }, [haySeleccion, mesSeleccionado, periodosHastaActual, periodosOrdenados]);
 
-  // Socios únicos que pagaron en los meses del período efectivo (fechaPago)
+  // Socios únicos que pagaron en los meses del período efectivo (fecha de pago)
   const pagaronEnPeriodo = useMemo(() => {
     if (!periodoEfectivo) return 0;
-    const meses = mapaPeriodoMeses.get(periodoEfectivo) || [];
+    const meses = extractMonthsFromPeriodLabel(periodoEfectivo);
     if (!meses.length) return 0;
 
     const pagos = pagosFiltradosPorCobrador.filter((p) => {
-      const m = monthFromDate(p?.fechaPago);
+      const m = getMonthFromPago(p);
       return m !== null && meses.includes(m);
     });
 
     const setSocios = new Set(
       pagos
-        .map((p) => p?.ID_Socio ?? p?.id_socio ?? null)
-        .filter((id) => id !== null && id !== undefined)
+        .map((p) => getIdSocio(p))
+        .filter((id) => id !== null && id !== undefined && id !== "")
     );
     return setSocios.size;
-  }, [periodoEfectivo, pagosFiltradosPorCobrador, mapaPeriodoMeses]);
+  }, [periodoEfectivo, pagosFiltradosPorCobrador]);
 
-  // Universo total para el pie (si no llega totalSocios, usar unión de todos los socios observados)
-  const universoTotal = totalSocios > 0 ? totalSocios : (() => {
-    const s = new Set();
-    for (const p of todosLosPagos || []) {
-      const id = p?.ID_Socio ?? p?.id_socio ?? null;
-      if (id !== null && id !== undefined) s.add(id);
-    }
-    return s.size;
-  })();
+  // Universo total para el pie
+  const universoTotal =
+    totalSocios > 0
+      ? totalSocios
+      : (() => {
+          const s = new Set();
+          for (const p of todosLosPagos || []) {
+            const id = getIdSocio(p);
+            if (id !== null && id !== undefined && id !== "") s.add(id);
+          }
+          return s.size;
+        })();
 
   const noPagaron = Math.max(universoTotal - pagaronEnPeriodo, 0);
 
-  // Mostrar siempre verde/rojo (mínimo visual 2%) — solo visual
+  // Mínimo visual (solo visual; tooltips muestran valores reales)
   const realPie = [pagaronEnPeriodo, noPagaron];
   const MIN_PCT = 0.02;
   let displayPie = realPie.slice();
@@ -278,12 +314,12 @@ export default function ContableChartsModal({
     labels: ["Pagaron", "No pagaron"],
     datasets: [
       {
-        data: displayPie,                      // datos para dibujar (con mínimo visual)
-        backgroundColor: ["#22c55e", "#ef4444"], // VERDE/ROJO rellenos
+        data: displayPie,
+        backgroundColor: ["#22c55e", "#ef4444"],
         borderColor: "#ffffff",
         borderWidth: 1,
-        spacing: 0,                            // torta sin separación
-        cutout: "0%",                          // 0% => PIE (no dona)
+        spacing: 0,
+        cutout: "0%",
         rotation: -90,
         hoverOffset: 6,
       },
@@ -297,7 +333,6 @@ export default function ContableChartsModal({
       legend: { position: "bottom" },
       tooltip: {
         callbacks: {
-          // Mostrar siempre los valores reales
           label: (ctx) => {
             const idx = ctx.dataIndex;
             const realVal = realPie[idx] || 0;
@@ -329,7 +364,7 @@ export default function ContableChartsModal({
           {/* ===== LÍNEAS ===== */}
           <div className="contable-chart-card">
             <h4>
-              {mesSeleccionado && mesSeleccionado !== "Selecciona un periodo"
+              {haySeleccion
                 ? "Comparativa de períodos (seleccionado vs anterior)"
                 : "Evolución por período (hasta el período actual)"}
             </h4>
@@ -347,7 +382,7 @@ export default function ContableChartsModal({
             )}
 
             <small className="contable-chart-footnote">
-              {mesSeleccionado && mesSeleccionado !== "Selecciona un periodo"
+              {haySeleccion
                 ? "Se comparan únicamente el período seleccionado y su anterior. La suma usa la fecha de pago."
                 : "Se muestran los períodos desde el inicio del año hasta el período actual. La suma usa la fecha de pago."}
             </small>
@@ -356,7 +391,7 @@ export default function ContableChartsModal({
           {/* ===== PIE ===== */}
           <div className="contable-chart-card">
             <h4>
-              Pagos en {periodoEfectivo || "—"} · {universoTotal.toLocaleString("es-AR")} socios
+              Pagos en {periodoEfectivo || "—"} · {Number(universoTotal).toLocaleString("es-AR")} socios
             </h4>
             <div className="contable-chart-wrapper contable-chart-wrapper--pie">
               <Pie data={pieData} options={pieOptions} />
@@ -365,22 +400,23 @@ export default function ContableChartsModal({
             <div className="contable-pie-totals">
               <div className="contable-pie-totals__item socios">
                 <span className="label">Pagaron:</span>
-                <span className="value">{realPie[0].toLocaleString("es-AR")}</span>
+                <span className="value">{Number(realPie[0]).toLocaleString("es-AR")}</span>
               </div>
               <div className="contable-pie-totals__item empresas">
                 <span className="label">No pagaron:</span>
-                <span className="value">{realPie[1].toLocaleString("es-AR")}</span>
+                <span className="value">{Number(realPie[1]).toLocaleString("es-AR")}</span>
               </div>
               <div className="contable-pie-totals__item total">
                 <span className="label">Total socios:</span>
-                <span className="value">{(realPie[0] + realPie[1]).toLocaleString("es-AR")}</span>
+                <span className="value">{Number(realPie[0] + realPie[1]).toLocaleString("es-AR")}</span>
               </div>
             </div>
 
             <small className="contable-chart-footnote">
-              El circular usa la <b>fecha de pago</b> para contar socios que pagaron en el período.
-              Se aplica un <i>mínimo visual</i> para que siempre se vean ambas franjas (verde/rojo);
-              los valores reales se muestran en cifras y tooltips.
+              El circular usa la <b>fecha de pago</b> para contar socios que pagaron en el período
+              (incluye <b>CONTADO ANUAL</b> si su fecha cae dentro de los meses del período).
+              Se aplica un <i>mínimo visual</i> para que siempre se vean ambas franjas; los valores
+              reales se muestran en cifras y tooltips.
             </small>
           </div>
         </div>

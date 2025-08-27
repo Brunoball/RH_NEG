@@ -1,10 +1,9 @@
-/* COPIAMOS el estilo del modal de socio para que luzca igual */
+/* src/components/Cuotas/modales/ModalEliminarPago.css */
+
+/* Overlay */
 .soc-modal-overlay-eliminar {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
@@ -14,13 +13,14 @@
   animation: soc-fadeIn 0.3s ease-out;
 }
 
+/* Card */
 .soc-modal-contenido-eliminar {
-  background-color: white;
+  background-color: #fff;
   padding: 2rem;
   border-radius: var(--soc-border-radius-lg);
   box-shadow: var(--soc-shadow-xl);
-  max-width: 450px;
-  width: 90%;
+  max-width: 460px;
+  width: 92%;
   text-align: center;
   position: relative;
   border-top: 4px solid var(--soc-danger);
@@ -30,44 +30,62 @@
 .soc-modal-icono-eliminar {
   font-size: 2.5rem;
   color: var(--soc-danger);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .soc-modal-titulo-eliminar {
   color: var(--soc-danger);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: .2px;
 }
 
 .soc-modal-texto-eliminar {
   color: var(--soc-gray-700);
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
+  margin-bottom: 1rem;
+  line-height: 1.55;
 }
 
 .soc-modal-texto-eliminar strong {
   color: var(--soc-dark);
-  font-weight: 600;
+  font-weight: 700;
 }
 
+/* ---- Alerta estética (sin ícono) ---- */
+.soc-alert {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #FCA5A5;   /* borde rojo claro */
+  background: #FEF2F2;          /* fondo rojo muy suave */
+  color: #991B1B;               /* texto rojo oscuro */
+  text-align: left;
+  margin: 0.5rem 0 1rem;
+  box-shadow: inset 0 1px 0 rgba(153, 27, 27, 0.04);
+}
+
+.soc-alert strong {
+  font-weight: 700;
+}
+
+/* Buttons */
 .soc-modal-botones-eliminar {
   display: flex;
   justify-content: center;
   gap: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 .soc-boton-confirmar-eliminar {
   padding: 0.75rem 1.5rem;
   border-radius: var(--soc-border-radius);
   font-family: 'Inter', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: var(--soc-transition);
   border: none;
   background-color: var(--soc-danger);
-  color: white;
+  color: #fff;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -86,11 +104,11 @@
   padding: 0.75rem 1.5rem;
   border-radius: var(--soc-border-radius);
   font-family: 'Inter', sans-serif;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: var(--soc-transition);
   border: 1px solid var(--soc-gray-300);
-  background-color: white;
+  background-color: #fff;
   color: var(--soc-gray-700);
   display: flex;
   align-items: center;
@@ -106,21 +124,15 @@
   box-shadow: 0 4px 6px rgba(203, 213, 225, 0.3);
 }
 
-/* Animaciones */
+/* Animations */
 @keyframes soc-fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 @keyframes soc-modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Responsive */
@@ -128,26 +140,23 @@
   .soc-modal-botones-eliminar {
     flex-direction: column;
   }
-  
   .soc-boton-confirmar-eliminar,
   .soc-boton-cancelar-eliminar {
     max-width: 100%;
     width: 100%;
   }
-  
   .soc-modal-contenido-eliminar {
     padding: 1.5rem;
   }
-  
   .soc-modal-titulo-eliminar {
     font-size: 1.3rem;
   }
 }
 
-/* Toast siempre por arriba del overlay */
+/* Toast siempre arriba del overlay */
 .toast-fixed-container {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 1100; /* encima del modal (1000) */
+  z-index: 1100;
 }

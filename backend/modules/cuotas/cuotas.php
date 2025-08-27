@@ -2,36 +2,33 @@
 require_once __DIR__ . '/../../config/db.php';
 header('Content-Type: application/json');
 
+// ===== CONFIG =====
+const ID_CONTADO_ANUAL = 7;
+
 /** Mapeo nombre mes (ES) -> número (1-12) */
 function obtenerMesNumero($nombreMes) {
     static $meses = [
-        'ENERO' => 1, 'FEBRERO' => 2, 'MARZO' => 3, 'ABRIL' => 4,
-        'MAYO' => 5, 'JUNIO' => 6, 'JULIO' => 7, 'AGOSTO' => 8,
-        'SEPTIEMBRE' => 9, 'OCTUBRE' => 10, 'NOVIEMBRE' => 11, 'DICIEMBRE' => 12
+        'ENERO'=>1,'FEBRERO'=>2,'MARZO'=>3,'ABRIL'=>4,'MAYO'=>5,'JUNIO'=>6,
+        'JULIO'=>7,'AGOSTO'=>8,'SEPTIEMBRE'=>9,'OCTUBRE'=>10,'NOVIEMBRE'=>11,'DICIEMBRE'=>12
     ];
     $k = strtoupper(trim($nombreMes));
     return $meses[$k] ?? null;
 }
 
 /**
- * Dado el campo periodo.meses (p.ej. "JULIO - AGOSTO", "ENERO Y FEBRERO", "MAYO/JUNIO"),
- * devuelve [mesInicio, mesFin]. Si no puede parsear, intenta fallback por id_periodo bimestral 1..6.
+ * Dado periodo.meses (p.ej. "JULIO - AGOSTO", "ENERO Y FEBRERO", "MAYO/JUNIO"),
+ * devuelve [mesInicio, mesFin]. Si no puede parsear, fallback por id_periodo bimestral 1..6.
  */
 function obtenerRangoMeses($textoMeses, $idPeriodo = null) {
     $texto = strtoupper($textoMeses ?? '');
-    // Extraer nombres de meses presentes en el string (robusto a " - ", " Y ", "/", etc)
     $encontrados = [];
     foreach (['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'] as $mes) {
         if (strpos($texto, $mes) !== false) $encontrados[] = $mes;
     }
     if (!empty($encontrados)) {
         $nums = array_map('obtenerMesNumero', $encontrados);
-        $mesInicio = min($nums);
-        $mesFin    = max($nums);
-        return [$mesInicio, $mesFin];
+        return [min($nums), max($nums)];
     }
-
-    // Fallback por id_periodo (1:1-2, 2:3-4, 3:5-6, 4:7-8, 5:9-10, 6:11-12)
     if ($idPeriodo !== null) {
         $map = [
             1 => [1, 2], 2 => [3, 4], 3 => [5, 6],
@@ -39,30 +36,16 @@ function obtenerRangoMeses($textoMeses, $idPeriodo = null) {
         ];
         if (isset($map[$idPeriodo])) return $map[$idPeriodo];
     }
-
-    // Último fallback: 1-12 (inclusivo) para no excluir por error de formato
     return [1, 12];
 }
 
-/**
- * Verifica si el socio ya estaba activo antes o durante el período:
- * elegible si fechaIngreso <= último día del mes FIN del período (año actual).
- */
+/** Elegible si fechaIngreso <= último día del mes FIN del período (año actual). */
 function socioElegibleEnPeriodo($fechaIngreso, $mesFin, $anioPeriodo) {
-    // Si no hay fecha de ingreso, asumir que puede pagar desde el inicio del año
     if (!$fechaIngreso) return true;
-
-    try {
-        $ingreso = new DateTime($fechaIngreso);
-    } catch (Exception $e) {
-        return true; // ante formato raro, no excluir
-    }
-
-    // Último día del mes FIN del período del año consultado
+    try { $ingreso = new DateTime($fechaIngreso); } catch (Exception $e) { return true; }
     $finPeriodo = DateTime::createFromFormat('Y-n-j', $anioPeriodo . '-' . $mesFin . '-1');
     if ($finPeriodo === false) return true;
     $finPeriodo->modify('last day of this month');
-
     return $ingreso <= $finPeriodo;
 }
 
@@ -71,7 +54,9 @@ try {
     $idPeriodoFilter   = isset($_GET['id_periodo']) ? (int)$_GET['id_periodo'] : 0;
     $verPagados        = isset($_GET['pagados']);
     $verCondonados     = isset($_GET['condonados']);
-    $incluirInactivos  = ($verPagados || $verCondonados); // pestañas Pagados/Condonados
+
+    // Incluir inactivos solo en pestañas Pagados/Condonados
+    $incluirInactivos  = ($verPagados || $verCondonados);
 
     // =========================
     //   SOCIOS
@@ -93,23 +78,28 @@ try {
     ";
 
     if ($incluirInactivos) {
-        $sociosSql .= "
-            WHERE s.activo = 1
-               OR EXISTS (
-                    SELECT 1 FROM pagos p
-                    WHERE p.id_socio = s.id_socio
-                    " . ($idPeriodoFilter > 0 ? " AND p.id_periodo = :pp2 " : "") . "
-               )
-        ";
+        if ($idPeriodoFilter > 0) {
+            // Si filtra período, incluí inactivos que tengan pago de ese período o ANUAL
+            $sociosSql .= "
+                WHERE s.activo = 1
+                   OR EXISTS (
+                        SELECT 1 FROM pagos p
+                         WHERE p.id_socio = s.id_socio
+                           AND p.id_periodo IN (:pp2, :anual2)
+                   )
+            ";
+        } else {
+            $sociosSql .= " WHERE s.activo = 1 ";
+        }
     } else {
         $sociosSql .= " WHERE s.activo = 1 ";
     }
 
     $sociosSql .= " ORDER BY s.nombre ASC ";
-
     $stmt = $pdo->prepare($sociosSql);
     if ($incluirInactivos && $idPeriodoFilter > 0) {
         $stmt->bindValue(':pp2', $idPeriodoFilter, PDO::PARAM_INT);
+        $stmt->bindValue(':anual2', ID_CONTADO_ANUAL, PDO::PARAM_INT);
     }
     $stmt->execute();
     $socios = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -117,53 +107,73 @@ try {
     // =========================
     //   PERIODOS
     // =========================
-    $periodosSql = "SELECT id_periodo, nombre, meses FROM periodo";
-    if ($idPeriodoFilter > 0) $periodosSql .= " WHERE id_periodo = :p";
-    $periodosSql .= " ORDER BY id_periodo ASC";
-    $periodosStmt = $pdo->prepare($periodosSql);
-    if ($idPeriodoFilter > 0) $periodosStmt->bindValue(':p', $idPeriodoFilter, PDO::PARAM_INT);
-    $periodosStmt->execute();
+    $periodosStmt = $pdo->query("SELECT id_periodo, nombre, meses FROM periodo ORDER BY id_periodo ASC");
     $periodos = $periodosStmt->fetchAll(PDO::FETCH_ASSOC);
 
     // =========================
     //   PAGOS
     // =========================
-    $pagosSql = "SELECT id_socio, id_periodo, estado FROM pagos";
-    if ($idPeriodoFilter > 0) $pagosSql .= " WHERE id_periodo = :pp";
-    $pagosStmt = $pdo->prepare($pagosSql);
-    if ($idPeriodoFilter > 0) $pagosStmt->bindValue(':pp', $idPeriodoFilter, PDO::PARAM_INT);
-    $pagosStmt->execute();
+    // Siempre precisamos 7 para propagar
+    if ($idPeriodoFilter > 0 && $idPeriodoFilter !== ID_CONTADO_ANUAL) {
+        $pagosStmt = $pdo->prepare("
+            SELECT id_socio, id_periodo, estado
+              FROM pagos
+             WHERE id_periodo IN (:pp, :anual)
+        ");
+        $pagosStmt->bindValue(':pp', $idPeriodoFilter, PDO::PARAM_INT);
+        $pagosStmt->bindValue(':anual', ID_CONTADO_ANUAL, PDO::PARAM_INT);
+        $pagosStmt->execute();
+    } else {
+        $pagosStmt = $pdo->query("SELECT id_socio, id_periodo, estado FROM pagos");
+    }
     $pagos = $pagosStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $pagosPorSocio = []; // [id_socio][id_periodo] => 'pagado'|'condonado'
+    $pagoDirecto = []; // [id_socio][id_periodo(1..6)] => 'pagado'|'condonado'
+    $pagoAnual   = []; // [id_socio] => 'pagado'|'condonado' (7)
     foreach ($pagos as $p) {
-        $pagosPorSocio[(int)$p['id_socio']][(int)$p['id_periodo']] = $p['estado'] ?: 'pagado';
+        $sid = (int)$p['id_socio'];
+        $pid = (int)$p['id_periodo'];
+        $est = $p['estado'] ?: 'pagado';
+        if ($pid === ID_CONTADO_ANUAL) {
+            $pagoAnual[$sid] = $est;
+        } else {
+            $pagoDirecto[$sid][$pid] = $est;
+        }
     }
 
     // =========================
     //   ARMADO DE CUOTAS
     // =========================
     $cuotas = [];
-    foreach ($socios as $socio) {
-        $id = (int)$socio['id_socio'];
 
-        foreach ($periodos as $periodo) {
-            $idPeriodo     = (int)$periodo['id_periodo'];
-            $nombrePeriodo = $periodo['nombre'];
-            [$mesInicio, $mesFin] = obtenerRangoMeses($periodo['meses'] ?? '', $idPeriodo);
+    // ----- Caso especial: filtro por CONTADO ANUAL (7) -----
+    if ($idPeriodoFilter === ID_CONTADO_ANUAL) {
+        $nombreAnual = 'CONTADO ANUAL';
+        foreach ($periodos as $pp) {
+            if ((int)$pp['id_periodo'] === ID_CONTADO_ANUAL) {
+                $nombreAnual = $pp['nombre'] ?: 'CONTADO ANUAL';
+                break;
+            }
+        }
 
-            // ✔ Elegibilidad por ingreso: hasta el fin del período (no solo el primer mes)
-            if (!socioElegibleEnPeriodo($socio['ingreso'] ?? null, $mesFin, $anioActual)) {
+        foreach ($socios as $socio) {
+            $idSocio = (int)$socio['id_socio'];
+
+            // Elegibilidad anual: hasta diciembre
+            if (!socioElegibleEnPeriodo($socio['ingreso'] ?? null, 12, $anioActual)) {
                 continue;
             }
 
-            // Estado de pago
             $estadoPago = 'deudor';
-            if (isset($pagosPorSocio[$id][$idPeriodo])) {
-                $estadoPago = ($pagosPorSocio[$id][$idPeriodo] === 'condonado') ? 'condonado' : 'pagado';
+            $origenAnual = false;
+            if (isset($pagoAnual[$idSocio])) {
+                $estadoPago  = ($pagoAnual[$idSocio] === 'condonado') ? 'condonado' : 'pagado';
+                $origenAnual = true; // viene de un registro anual
             }
 
-            // Domicilio final
+            if ($verPagados && $estadoPago !== 'pagado') continue;
+            if ($verCondonados && $estadoPago !== 'condonado') continue;
+
             $domicilioFinal = '';
             if (!empty($socio['domicilio_cobro'])) {
                 $domicilioFinal = $socio['domicilio_cobro'];
@@ -172,19 +182,82 @@ try {
             }
 
             $cuotas[] = [
-                'id_socio'    => $id,
-                'nombre'      => $socio['nombre'],
-                'domicilio'   => $domicilioFinal,
-                'estado'      => $socio['estado'] ?? 'No definido',
-                'medio_pago'  => $socio['cobrador'] ?? 'No definido',
-                'mes'         => $nombrePeriodo,
-                'id_periodo'  => $idPeriodo,
-                'estado_pago' => $estadoPago, // 'deudor' | 'pagado' | 'condonado'
+                'id_socio'     => $idSocio,
+                'nombre'       => $socio['nombre'],
+                'domicilio'    => $domicilioFinal,
+                'estado'       => $socio['estado'] ?? 'No definido',
+                'medio_pago'   => $socio['cobrador'] ?? 'No definido',
+                'mes'          => $nombreAnual,
+                'id_periodo'   => ID_CONTADO_ANUAL,
+                'estado_pago'  => $estadoPago,
+                'origen_anual' => $origenAnual, // <- agregado
+            ];
+        }
+
+        echo json_encode(['exito' => true, 'cuotas' => $cuotas], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // ----- Caso normal: períodos 1..6 (propaga anual si no hay pago directo) -----
+    $periodos16 = array_values(array_filter($periodos, function($p){
+        return (int)$p['id_periodo'] !== ID_CONTADO_ANUAL;
+    }));
+
+    foreach ($socios as $socio) {
+        $idSocio = (int)$socio['id_socio'];
+        $tieneAnual = isset($pagoAnual[$idSocio]);
+
+        foreach ($periodos16 as $periodo) {
+            $idPeriodo     = (int)$periodo['id_periodo'];
+            $nombrePeriodo = $periodo['nombre'];
+
+            if ($idPeriodoFilter > 0 && $idPeriodo !== $idPeriodoFilter) continue;
+
+            [$mesInicio, $mesFin] = obtenerRangoMeses($periodo['meses'] ?? '', $idPeriodo);
+            if (!socioElegibleEnPeriodo($socio['ingreso'] ?? null, $mesFin, $anioActual)) {
+                continue;
+            }
+
+            $estadoPago  = 'deudor';
+            $origenAnual = false;
+            if (isset($pagoDirecto[$idSocio][$idPeriodo])) {
+                $estadoPago  = ($pagoDirecto[$idSocio][$idPeriodo] === 'condonado') ? 'condonado' : 'pagado';
+                $origenAnual = false; // directo
+            } elseif ($tieneAnual) {
+                $estadoPago  = ($pagoAnual[$idSocio] === 'condonado') ? 'condonado' : 'pagado';
+                $origenAnual = true; // proviene de anual
+            }
+
+            if ($verPagados && $estadoPago !== 'pagado') continue;
+            if ($verCondonados && $estadoPago !== 'condonado') continue;
+
+            $domicilioFinal = '';
+            if (!empty($socio['domicilio_cobro'])) {
+                $domicilioFinal = $socio['domicilio_cobro'];
+            } elseif (!empty($socio['domicilio']) || !empty($socio['numero'])) {
+                $domicilioFinal = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));
+            }
+
+            $cuotas[] = [
+                'id_socio'     => $idSocio,
+                'nombre'       => $socio['nombre'],
+                'domicilio'    => $domicilioFinal,
+                'estado'       => $socio['estado'] ?? 'No definido',
+                'medio_pago'   => $socio['cobrador'] ?? 'No definido',
+                'mes'          => $nombrePeriodo,
+                'id_periodo'   => $idPeriodo,
+                'estado_pago'  => $estadoPago,
+                'origen_anual' => $origenAnual, // <- agregado
             ];
         }
     }
 
-    echo json_encode(['exito' => true, 'cuotas' => $cuotas]);
+    echo json_encode(['exito' => true, 'cuotas' => $cuotas], JSON_UNESCAPED_UNICODE);
+
 } catch (PDOException $e) {
-    echo json_encode(['exito' => false, 'mensaje' => 'Error al obtener cuotas: ' . $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode(['exito' => false, 'mensaje' => 'Error al obtener cuotas: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['exito' => false, 'mensaje' => 'Error inesperado: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }

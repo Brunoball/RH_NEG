@@ -41,15 +41,9 @@ import '../Global/roots.css';
    CONSTANTES / PERFORMANCE
 ============================ */
 const MIN_SPINNER_MS = 0;
-
-// Limito animación en listas grandes
 const MAX_CASCADE = 14;
 const CASCADE_DISABLE_ABOVE = 200;
-
-// UX de buscador
 const NAME_DEBOUNCE_MS = 20;
-
-// Tamaño de fila virtualizada
 const ITEM_SIZE = 44;
 
 /* ============================
@@ -61,10 +55,10 @@ const SS_KEYS = {
   TS: 'socios_last_ts',
   FILTERS: 'socios_last_filters'
 };
-const LS_FILTERS = 'filtros_socios';
+const LS_FILTERS = 'filtros_socios_v2'; // <- nueva versión (con showAll)
 
 /* ============================
-   HELPERS PUROS (sin estado)
+   HELPERS
 ============================ */
 const buildAddress = (domicilio, numero) => {
   const calle = String(domicilio ?? '').trim();
@@ -79,52 +73,6 @@ const getFirstLetter = (name) => {
   return s ? s[0].toUpperCase() : '';
 };
 
-/* ============================
-   BOTONES INFERIORES
-============================ */
-const BotonesInferiores = React.memo(({
-  cargando,
-  navigate,
-  sociosFiltrados,
-  socios,
-  exportarExcel,
-  filtroActivo,
-}) => (
-  <div className="soc-barra-inferior">
-    <button
-      className="soc-boton soc-boton-volver"
-      onClick={() => navigate('/panel')}
-    >
-      <FaArrowLeft className="soc-boton-icono" /> Volver
-    </button>
-
-    <div className="soc-botones-derecha">
-      <button
-        className="soc-boton soc-boton-agregar"
-        onClick={() => navigate('/socios/agregar')}
-      >
-        <FaUserPlus className="soc-boton-icono" /> Agregar Socio
-      </button>
-      <button
-        className="soc-boton soc-boton-exportar"
-        onClick={exportarExcel}
-        disabled={cargando || sociosFiltrados.length === 0 || socios.length === 0 || filtroActivo === null}
-      >
-        <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
-      </button>
-      <button
-        className="soc-boton soc-boton-baja"
-        onClick={() => navigate('/socios/baja')}
-      >
-        <FaUserSlash className="soc-boton-icono" /> Dados de Baja
-      </button>
-    </div>
-  </div>
-));
-
-/* ============================
-   BARRA SUPERIOR
-============================ */
 const BarraSuperior = React.memo(({
   cargando,
   busquedaInput,
@@ -136,10 +84,8 @@ const BarraSuperior = React.memo(({
   filtrosRef,
   mostrarFiltros,
   setMostrarFiltros,
-  filtroActivo,
-  ultimoFiltroActivo,
   categorias,
-  startTransition // <-- para actualizaciones suaves
+  startTransition
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -161,78 +107,41 @@ const BarraSuperior = React.memo(({
       setFiltros(prev => ({
         ...prev,
         letraSeleccionada: letra,
-        categoriaSeleccionada: 'OPCIONES',
-        busqueda: '',
-        busquedaId: '',
-        filtroActivo: 'letra'
+        showAll: false, // si elige letra, deja de estar en "mostrar todos"
       }));
-      setBusquedaInput('');
-      setMostrarSubmenuAlfabetico(false);
-      setMostrarFiltros(false);
     });
-  }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
+    setMostrarSubmenuAlfabetico(false);
+    setMostrarFiltros(false);
+  }, [setFiltros, setMostrarFiltros, startTransition]);
 
   const handleCategoriaClick = useCallback((value) => {
     startTransition(() => {
       setFiltros(prev => ({
         ...prev,
         categoriaSeleccionada: value,
-        letraSeleccionada: 'TODOS',
-        busqueda: '',
-        busquedaId: '',
-        filtroActivo: value === 'OPCIONES' ? null : 'categoria'
+        showAll: false,
       }));
-      setBusquedaInput('');
-      setMostrarSubmenuCategoria(false);
-      setMostrarFiltros(false);
     });
-  }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
+    setMostrarSubmenuCategoria(false);
+    setMostrarFiltros(false);
+  }, [setFiltros, setMostrarFiltros, startTransition]);
 
   const handleMostrarTodos = useCallback(() => {
     startTransition(() => {
       setFiltros(prev => ({
         ...prev,
-        letraSeleccionada: 'TODOS',
-        categoriaSeleccionada: 'OPCIONES',
         busqueda: '',
         busquedaId: '',
-        filtroActivo: 'todos'
+        letraSeleccionada: 'TODOS',
+        categoriaSeleccionada: 'OPCIONES',
+        showAll: true,
       }));
       setBusquedaInput('');
-      setMostrarSubmenuAlfabetico(false);
-      setMostrarSubmenuCategoria(false);
-      setMostrarFiltros(false);
     });
+    setMostrarSubmenuAlfabetico(false);
+    setMostrarSubmenuCategoria(false);
+    setMostrarFiltros(false);
   }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
-
-  const limpiarFiltro = useCallback((tipo) => {
-    startTransition(() => {
-      setFiltros(prev => {
-        if (tipo === 'busqueda') {
-          return { ...prev, busqueda: '', filtroActivo: null };
-        } else if (tipo === 'id') {
-          return { ...prev, busquedaId: '', filtroActivo: null };
-        } else if (tipo === 'letra') {
-          return { ...prev, letraSeleccionada: 'TODOS', filtroActivo: null };
-        } else if (tipo === 'categoria') {
-          return { ...prev, categoriaSeleccionada: 'OPCIONES', filtroActivo: null };
-        }
-        return prev;
-      });
-      if (tipo === 'busqueda') setBusquedaInput('');
-    });
-  }, [setFiltros, setBusquedaInput, startTransition]);
-
-  const truncar2 = useCallback((txt) => {
-    if (!txt) return '';
-    const t = String(txt);
-    return t.length > 3 ? `${t.slice(0,3)}..` : t;
-  }, []);
-
-  const truncarId2 = useCallback((txt) => {
-    const t = String(txt ?? '');
-    return t.length > 3 ? `${t.slice(0,3)}..` : t;
-  }, []);
 
   return (
     <div className="soc-barra-superior">
@@ -258,7 +167,7 @@ const BarraSuperior = React.memo(({
                 onClick={() => {
                   setBusquedaInput('');
                   startTransition(() => {
-                    setFiltros(prev => ({ ...prev, busqueda: '', busquedaId: '', filtroActivo: null }));
+                    setFiltros(prev => ({ ...prev, busqueda: '', showAll: false }));
                   });
                 }}
               />
@@ -282,13 +191,9 @@ const BarraSuperior = React.memo(({
                 setFiltros(prev => ({
                   ...prev,
                   busquedaId: onlyNums,
-                  busqueda: '',
-                  letraSeleccionada: 'TODOS',
-                  categoriaSeleccionada: 'OPCIONES',
-                  filtroActivo: onlyNums.length >= 1 ? 'id' : null
+                  showAll: false,
                 }));
               });
-              if (onlyNums.length >= 1) setBusquedaInput('');
             }}
             className="soc-buscador soc-buscador-id"
             disabled={cargando}
@@ -300,7 +205,7 @@ const BarraSuperior = React.memo(({
               className="soc-buscador-icono"
               onClick={() => {
                 startTransition(() => {
-                  setFiltros(prev => ({ ...prev, busquedaId: '', filtroActivo: null }));
+                  setFiltros(prev => ({ ...prev, busquedaId: '', showAll: false }));
                 });
               }}
             />
@@ -310,77 +215,8 @@ const BarraSuperior = React.memo(({
         </div>
       </div>
 
-      {/* Filtros (chips + botón) */}
+      {/* Filtros (botón + panel) */}
       <div className="soc-filtros-container" ref={filtrosRef}>
-        {/* Chips */}
-        <div className="soc-filtros-activos-container">
-          {(filtroActivo === 'busqueda' || ultimoFiltroActivo === 'busqueda') && !!busquedaInput && (
-            <div className="soc-filtro-activo" key="busqueda" title={busquedaInput}>
-              <span className="soc-filtro-activo-busqueda">
-                <FaSearch className="soc-filtro-activo-busqueda-icono" size={12} />
-                {truncar2(busquedaInput)}
-              </span>
-              <button
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => { e.stopPropagation(); limpiarFiltro('busqueda'); }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'id' || ultimoFiltroActivo === 'id') && busquedaId && (
-            <div className="soc-filtro-activo" key="id" title={`ID: ${busquedaId}`}>
-              <span className="soc-filtro-activo-id">ID: {truncarId2(busquedaId)}</span>
-              <button
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => { e.stopPropagation(); limpiarFiltro('id'); }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'letra' || ultimoFiltroActivo === 'letra') && letraSeleccionada !== 'TODOS' && (
-            <div className="soc-filtro-activo" key="letra">
-              <span className="soc-filtro-activo-letra">{letraSeleccionada}</span>
-              <button
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => { e.stopPropagation(); limpiarFiltro('letra'); }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-          {(filtroActivo === 'categoria' || ultimoFiltroActivo === 'categoria') && categoriaSeleccionada !== 'OPCIONES' && (
-            <div
-              className="soc-filtro-activo"
-              key="categoria"
-              title={(() => {
-                const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
-                return found ? found.descripcion : categoriaSeleccionada;
-              })()}
-            >
-              <span className="soc-filtro-activo-categoria">
-                {(() => {
-                  const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
-                  const label = found ? found.descripcion : String(categoriaSeleccionada);
-                  return label ? (label.length > 2 ? `${label.slice(0,2)}..` : label) : '';
-                })()}
-              </span>
-              <button
-                className="soc-filtro-activo-cerrar"
-                onClick={(e) => { e.stopPropagation(); limpiarFiltro('categoria'); }}
-                title="Quitar filtro"
-              >
-                <FaTimes size={10} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Botón filtros */}
         <button
           className="soc-boton-filtros soc-boton-filtros--emp"
           onClick={(e) => {
@@ -398,7 +234,6 @@ const BarraSuperior = React.memo(({
           <FaChevronDown className={`soc-chevron-icon ${mostrarFiltros ? 'soc-rotate' : ''}`} />
         </button>
 
-        {/* Panel menú */}
         {mostrarFiltros && (
           <div
             className="soc-menu-filtros soc-menu-filtros--emp"
@@ -461,12 +296,11 @@ const BarraSuperior = React.memo(({
               className="soc-filtros-menu-item soc-filtros-menu-item__mostrar-todas"
               onClick={(e) => { e.stopPropagation(); handleMostrarTodos(); }}
             >
-              <span>Mostrar Todas</span>
+              <span>Mostrar Todos</span>
             </div>
           </div>
         )}
       </div>
-      {/* FIN FILTROS */}
     </div>
   );
 });
@@ -475,7 +309,7 @@ const BarraSuperior = React.memo(({
            COMPONENTE
 ============================ */
 const Socios = () => {
-  const [socios, setSocios] = useState([]);              // <- enriquecidos
+  const [socios, setSocios] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
@@ -487,10 +321,8 @@ const Socios = () => {
   const [socioDarBaja, setSocioDarBaja] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
-  // Animación de cascada controlada
   const [animacionActiva, setAnimacionActiva] = useState(false);
   const [tablaVersion, setTablaVersion] = useState(0);
-  const [ultimoFiltroActivo, setUltimoFiltroActivo] = useState(null);
   const [needsRefresh, setNeedsRefresh] = useState(false);
 
   const filtrosRef = useRef(null);
@@ -502,7 +334,7 @@ const Socios = () => {
 
   const [toast, setToast] = useState({ mostrar: false, tipo: '', mensaje: '' });
 
-  // 1) Estado de filtros inicial desde localStorage
+  // 1) Estado de filtros con showAll y SIN 'filtroActivo' (combina todos)
   const [filtros, setFiltros] = useState(() => {
     try {
       const saved = localStorage.getItem(LS_FILTERS);
@@ -511,7 +343,7 @@ const Socios = () => {
         busquedaId: '',
         letraSeleccionada: 'TODOS',
         categoriaSeleccionada: 'OPCIONES',
-        filtroActivo: null
+        showAll: false
       };
     } catch {
       return {
@@ -519,12 +351,12 @@ const Socios = () => {
         busquedaId: '',
         letraSeleccionada: 'TODOS',
         categoriaSeleccionada: 'OPCIONES',
-        filtroActivo: null
+        showAll: false
       };
     }
   });
 
-  const { busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, filtroActivo } = filtros;
+  const { busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, showAll } = filtros;
 
   // 2) Input controlado + debounce → actualiza filtros.busqueda
   const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || '');
@@ -536,10 +368,7 @@ const Socios = () => {
         setFiltros(prev => ({
           ...prev,
           busqueda: busquedaInput || '',
-          busquedaId: '',
-          letraSeleccionada: 'TODOS',
-          categoriaSeleccionada: 'OPCIONES',
-          filtroActivo: busquedaInput ? 'busqueda' : (prev.filtroActivo === 'busqueda' ? null : prev.filtroActivo)
+          showAll: false,
         }));
       });
     }, NAME_DEBOUNCE_MS);
@@ -567,10 +396,6 @@ const Socios = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (filtroActivo !== null) setUltimoFiltroActivo(filtroActivo);
-  }, [filtroActivo]);
-
   const mostrarToast = useCallback((mensaje, tipo = 'exito') => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
@@ -578,7 +403,6 @@ const Socios = () => {
   /* ============================
          PRE-INDEXACIÓN
   ============================ */
-  // Índices rápidos por ID / Letra / Categoría
   const idxById = useMemo(() => {
     const m = new Map();
     for (const s of socios) m.set(String(s._idStr), s);
@@ -609,64 +433,57 @@ const Socios = () => {
   /* ============================
             FILTRADO
   ============================ */
+  const activeFilters = useMemo(() => ({
+    byId: !!busquedaId,
+    bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
+    byLetter: letraSeleccionada && letraSeleccionada !== 'TODOS',
+    byCategory: categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES',
+  }), [busquedaId, deferredBusqueda, letraSeleccionada, categoriaSeleccionada]);
+
+  const activeFiltersCount = useMemo(() =>
+    Object.values(activeFilters).filter(Boolean).length
+  , [activeFilters]);
+
   const sociosFiltrados = useMemo(() => {
-    // Arranco de activos
-    const exigirEstadoActivo = filtroActivo === 'categoria';
+    // Base: solo activos
+    let arr = socios.filter(s => s._isActive);
 
-    // ID -> O(1)
-    if (filtroActivo === 'id' && busquedaId) {
+    if (showAll) return arr;
+
+    // ID exacto
+    if (activeFilters.byId) {
       const found = idxById.get(String(busquedaId));
-      if (!found) return [];
-      if (!(found._isActive)) return [];
-      if (exigirEstadoActivo && Number(found.id_estado) !== 2) return [];
-      return [found];
+      arr = found && found._isActive ? [found] : [];
+      // si no hay match por ID ya no hace falta seguir
+      if (arr.length === 0) return arr;
     }
 
-    // Letra -> O(k)
-    if (filtroActivo === 'letra' && letraSeleccionada && letraSeleccionada !== 'TODOS') {
-      const bucket = idxByLetter.get(letraSeleccionada) || [];
-      const arr = exigirEstadoActivo
-        ? bucket.filter(s => s._isActive && Number(s.id_estado) === 2)
-        : bucket.filter(s => s._isActive);
-      return arr;
+    // Letra
+    if (activeFilters.byLetter) {
+      // Filtramos por la primera letra del nombre
+      arr = arr.filter(s => s._first === letraSeleccionada);
     }
 
-    // Categoría -> O(k)
-    if (filtroActivo === 'categoria' && categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES') {
-      const bucket = idxByCat.get(String(categoriaSeleccionada)) || [];
-      const arr = exigirEstadoActivo
-        ? bucket.filter(s => s._isActive && Number(s.id_estado) === 2)
-        : bucket.filter(s => s._isActive);
-      return arr;
+    // Categoría
+    if (activeFilters.byCategory) {
+      arr = arr.filter(s => String(s.id_categoria) === String(categoriaSeleccionada));
     }
 
-    // Búsqueda por nombre -> incluye (ya en minúsculas)
-    if (filtroActivo === 'busqueda' && deferredBusqueda) {
+    // Búsqueda por nombre (includes, minúsculas)
+    if (activeFilters.bySearch) {
       const q = deferredBusqueda.toLowerCase();
-      if (!q) return [];
-      const arr = exigirEstadoActivo
-        ? socios.filter(s => s._isActive && s._name.includes(q) && Number(s.id_estado) === 2)
-        : socios.filter(s => s._isActive && s._name.includes(q));
-      return arr;
+      arr = arr.filter(s => s._name.includes(q));
     }
 
-    // Mostrar todos activos
-    if (filtroActivo === 'todos') {
-      return socios.filter(s => s._isActive);
-    }
+    // Si no hay filtros activos y no está showAll => UX: vacío hasta que aplique alguno
+    if (activeFiltersCount === 0) return [];
 
-    // Sin filtro aplicado -> vacío para forzar UX “Aplicá un filtro”
-    return [];
+    return arr;
   }, [
-    socios,
-    filtroActivo,
-    busquedaId,
-    letraSeleccionada,
-    categoriaSeleccionada,
-    deferredBusqueda,
-    idxById,
-    idxByLetter,
-    idxByCat
+    socios, idxById,
+    activeFilters, activeFiltersCount,
+    busquedaId, letraSeleccionada, categoriaSeleccionada,
+    deferredBusqueda, showAll
   ]);
 
   /* ============================
@@ -681,17 +498,15 @@ const Socios = () => {
     return () => clearTimeout(t);
   }, [allowCascade]);
 
-  // Dispara cascada solo cuando cambia el tipo de filtro o el recuento (barato)
-  const lastSigRef = useRef({ tipo: null, count: 0 });
+  // Disparo simple cuando cambia cantidad de filas
+  const lastCountRef = useRef(0);
   useEffect(() => {
-    if (!filtroActivo) return;
-    const sig = { tipo: filtroActivo, count: sociosFiltrados.length };
-    if (lastSigRef.current.tipo !== sig.tipo || lastSigRef.current.count !== sig.count) {
-      lastSigRef.current = sig;
+    if (lastCountRef.current !== sociosFiltrados.length) {
+      lastCountRef.current = sociosFiltrados.length;
       requestAnimationFrame(() => triggerCascade(320));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroActivo, sociosFiltrados.length]);
+  }, [sociosFiltrados.length]);
 
   /* ============================
      EVENTOS GLOBALES / CLICK OUT
@@ -727,6 +542,7 @@ const Socios = () => {
       sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
       sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
       sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
+      // Guarda filtros actuales (incluye showAll y combinaciones)
       sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
       sessionStorage.setItem(`socio_prefetch_${socio.id_socio}`, JSON.stringify(socio));
     } catch {}
@@ -761,7 +577,6 @@ const Socios = () => {
       const rSoc = await fetch(`${BASE_URL}/api.php?action=socios`, { signal: ctrlSoc.signal, cache: 'no-store' });
       const data = await rSoc.json();
       if (data?.exito) {
-        // Enriquecemos de una
         const enriched = (data.socios || []).map((s) => {
           const _idStr = String(s?.id_socio ?? s?.id ?? '').trim();
           const _name = String(s?.nombre ?? '').toLowerCase();
@@ -830,7 +645,6 @@ const Socios = () => {
     if (restoredOnceRef.current) return;
     if (cargando) return;
     if (!listRef.current) return;
-    if (!sociosFiltrados || sociosFiltrados.length === 0) return;
 
     try {
       const rawFilters = sessionStorage.getItem(SS_KEYS.FILTERS);
@@ -843,13 +657,43 @@ const Socios = () => {
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
       const savedOffset = Number(sessionStorage.getItem(SS_KEYS.SCROLL) || '0');
 
-      if (selId) {
-        const idx = sociosFiltrados.findIndex(s => String(s.id_socio) === String(selId));
+      // si hay filtros activos quizá la lista esté vacía aún; hacemos scroll directo
+      if (selId && socios.length > 0) {
+        const currentList = (() => {
+          // reconstruimos con filtros actuales rápidamente (mismo algoritmo)
+          let arr = socios.filter(s => s._isActive);
+          const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
+
+          if (parsed.showAll) return arr;
+
+          if (parsed.busquedaId) {
+            const found = arr.find(s => String(s.id_socio) === String(parsed.busquedaId));
+            arr = found ? [found] : [];
+          }
+          if (parsed.letraSeleccionada && parsed.letraSeleccionada !== 'TODOS') {
+            arr = arr.filter(s => s._first === parsed.letraSeleccionada);
+          }
+          if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
+            arr = arr.filter(s => String(s.id_categoria) === String(parsed.categoriaSeleccionada));
+          }
+          if (parsed.busqueda) {
+            const q = String(parsed.busqueda).toLowerCase();
+            arr = arr.filter(s => s._name.includes(q));
+          }
+          return arr;
+        })();
+
+        const idx = currentList.findIndex(s => String(s.id_socio) === String(selId));
         if (idx >= 0) {
-          setSocioSeleccionado(sociosFiltrados[idx]);
-          listRef.current.scrollToItem(idx, 'smart');
+          setSocioSeleccionado(currentList[idx]);
+          // diferimos el scroll para cuando la lista exista
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToItem?.(idx, 'smart');
+          });
         } else {
-          listRef.current.scrollTo(savedOffset);
+          requestAnimationFrame(() => {
+            listRef.current?.scrollTo?.(savedOffset);
+          });
         }
       }
 
@@ -862,7 +706,7 @@ const Socios = () => {
     } catch {
       // no-op
     }
-  }, [cargando, sociosFiltrados, setFiltros]);
+  }, [cargando, socios, filtros]);
 
   /* ============================
        HANDLERS / EXPORTACIÓN
@@ -922,8 +766,8 @@ const Socios = () => {
       mostrarToast('No hay socios registrados para exportar.', 'error');
       return;
     }
-    if (filtroActivo === null) {
-      mostrarToast('Aplicá al menos un filtro para exportar los socios.', 'error');
+    if (!showAll && activeFiltersCount === 0) {
+      mostrarToast('Aplicá al menos un filtro o "Mostrar todos" para exportar.', 'error');
       return;
     }
     if (sociosFiltrados.length === 0) {
@@ -949,12 +793,12 @@ const Socios = () => {
 
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Socios (visibles)");
+    XLSX.utils.book_append_sheet(wb, ws, showAll ? "Socios (todos activos)" : "Socios (filtrados)");
 
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, 'Socios_visibles.xlsx');
-  }, [socios, sociosFiltrados, filtroActivo, mostrarToast]);
+    saveAs(blob, 'Socios.xlsx');
+  }, [socios, sociosFiltrados, showAll, activeFiltersCount, mostrarToast]);
 
   /* ============================
         FILA VIRTUALIZADA
@@ -963,7 +807,6 @@ const Socios = () => {
     const socio = data[index];
     const esFilaPar = (index & 1) === 0;
 
-    // Animar SOLO los primeros N si está activa
     const shouldAnimate = animacionActiva && index < MAX_CASCADE;
     const animationDelay = shouldAnimate ? `${index * 0.035}s` : '0s';
 
@@ -1039,17 +882,49 @@ const Socios = () => {
 
   const Row = React.memo(RowBase, areEqual);
 
-  // Contenedor outer estable para evitar remount del List
   const Outer = useMemo(() => {
-    // eslint-disable-next-line react/display-name
     return React.forwardRef((props, ref) => (
       <div ref={ref} {...props} style={{ ...props.style, overflowX: 'hidden' }} />
     ));
   }, []);
 
   /* ============================
-             RENDER
+          RENDER + ISLA
   ============================ */
+  const limpiarChip = useCallback((tipo) => {
+    setFiltros(prev => {
+      if (tipo === 'busqueda') return { ...prev, busqueda: '', showAll: false };
+      if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
+      if (tipo === 'letra') return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
+      if (tipo === 'categoria') return { ...prev, categoriaSeleccionada: 'OPCIONES', showAll: false };
+      if (tipo === 'showAll') return { ...prev, showAll: false };
+      return prev;
+    });
+    if (tipo === 'busqueda') setBusquedaInput('');
+  }, [setFiltros]);
+
+  const chips = useMemo(() => {
+    const arr = [];
+    if (showAll) {
+      arr.push({ key: 'showAll', label: 'Mostrar todos' });
+      return arr;
+    }
+    if (busqueda && busqueda.trim()) {
+      arr.push({ key: 'busqueda', label: `Texto: "${busqueda.trim()}"` });
+    }
+    if (busquedaId) {
+      arr.push({ key: 'id', label: `ID: ${busquedaId}` });
+    }
+    if (letraSeleccionada && letraSeleccionada !== 'TODOS') {
+      arr.push({ key: 'letra', label: `Letra: ${letraSeleccionada}` });
+    }
+    if (categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES') {
+      const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
+      arr.push({ key: 'categoria', label: `Categoría: ${found ? found.descripcion : categoriaSeleccionada}` });
+    }
+    return arr;
+  }, [showAll, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, categorias]);
+
   return (
     <div className="soc-main-container">
       <div className="soc-container">
@@ -1073,19 +948,69 @@ const Socios = () => {
           filtrosRef={filtrosRef}
           mostrarFiltros={mostrarFiltros}
           setMostrarFiltros={setMostrarFiltros}
-          filtroActivo={filtroActivo}
-          ultimoFiltroActivo={ultimoFiltroActivo}
           categorias={categorias}
           startTransition={startTransition}
         />
 
         <div className="soc-tabla-container">
-          <div className="soc-tabla-header-container">
-            <div className="soc-contador">
+          <div className="soc-tabla-header-container" style={{ position: 'relative' }}>
+            <div className="soc-contador" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <FaUsers className="soc-contador-icono" size={14} />
-              {filtroActivo === 'todos' ? 'Total visibles:' :
-               filtroActivo === null ? 'Filtrá para ver socios:' : 'Socios filtrados:'}
-              <strong>{filtroActivo === null ? 0 : sociosFiltrados.length}</strong>
+              {showAll
+                ? 'Total visibles:'
+                : (activeFiltersCount === 0 ? 'Filtrá para ver socios:' : 'Socios filtrados:')}
+              <strong>{showAll ? sociosFiltrados.length : (activeFiltersCount === 0 ? 0 : sociosFiltrados.length)}</strong>
+            </div>
+
+            {/* ISLA de chips flotante */}
+            <div
+              className="soc-filters-island"
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                position: 'absolute',
+                right: '12px',
+                top: '4px',
+                maxWidth: '55%',
+                alignItems: 'center',
+                justifyContent: 'flex-end'
+              }}
+            >
+              {chips.map(ch => (
+                <div
+                  key={ch.key}
+                  className="soc-chip"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '4px 8px',
+                    borderRadius: '999px',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    fontSize: 12,
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={ch.label}
+                >
+                  <span>{ch.label}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); limpiarChip(ch.key); }}
+                    className="soc-chip-close"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      lineHeight: 1,
+                      padding: 0
+                    }}
+                    title="Quitar filtro"
+                  >
+                    <FaTimes size={10} />
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="soc-tabla-header">
@@ -1102,7 +1027,7 @@ const Socios = () => {
             className={`soc-list-container ${animacionActiva ? 'soc-cascade-animation' : ''}`}
             style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
           >
-            {filtroActivo === null ? (
+            {(!showAll && activeFiltersCount === 0) ? (
               <div className="soc-boton-mostrar-container">
                 <div className="soc-mensaje-inicial">
                   Aplicá al menos un filtro para ver socios
@@ -1117,7 +1042,7 @@ const Socios = () => {
                         busquedaId: '',
                         letraSeleccionada: 'TODOS',
                         categoriaSeleccionada: 'OPCIONES',
-                        filtroActivo: 'todos'
+                        showAll: true
                       });
                     });
                     requestAnimationFrame(() => triggerCascade(320));
@@ -1163,15 +1088,39 @@ const Socios = () => {
           </div>
         </div>
 
-        <BotonesInferiores
-          cargando={cargando}
-          navigate={navigate}
-          sociosFiltrados={sociosFiltrados}
-          socios={socios}
-          exportarExcel={exportarExcel}
-          filtroActivo={filtroActivo}
-        />
+        {/* Barra inferior */}
+        <div className="soc-barra-inferior">
+          <button
+            className="soc-boton soc-boton-volver"
+            onClick={() => navigate('/panel')}
+          >
+            <FaArrowLeft className="soc-boton-icono" /> Volver
+          </button>
 
+          <div className="soc-botones-derecha">
+            <button
+              className="soc-boton soc-boton-agregar"
+              onClick={() => navigate('/socios/agregar')}
+            >
+              <FaUserPlus className="soc-boton-icono" /> Agregar Socio
+            </button>
+            <button
+              className="soc-boton soc-boton-exportar"
+              onClick={exportarExcel}
+              disabled={cargando || sociosFiltrados.length === 0 || socios.length === 0 || (!showAll && activeFiltersCount === 0)}
+            >
+              <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
+            </button>
+            <button
+              className="soc-boton soc-boton-baja"
+              onClick={() => navigate('/socios/baja')}
+            >
+              <FaUserSlash className="soc-boton-icono" /> Dados de Baja
+            </button>
+          </div>
+        </div>
+
+        {/* Modales */}
         {ReactDOM.createPortal(
           <ModalEliminarSocio
             mostrar={mostrarModalEliminar}

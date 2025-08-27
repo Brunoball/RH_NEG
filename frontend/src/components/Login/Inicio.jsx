@@ -81,7 +81,6 @@ const Inicio = () => {
           <img src={logoRH} alt="Logo RH" className="ini_logo" />
           <h1 className="ini_titulo">Iniciar Sesión</h1>
           <p className="ini_subtitulo">Ingresa tus credenciales para acceder al sistema</p>
-          <h2 className="ini_bienvenido">Bienvenido</h2>
         </div>
 
         {mensaje && <p className="ini_mensaje">{mensaje}</p>}

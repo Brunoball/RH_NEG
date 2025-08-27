@@ -1,0 +1,262 @@
+// src/utils/Recibosunicos.jsx
+import BASE_URL from '../config/config';
+
+/**
+ * Genera comprobantes (mismo diseño que imprimirRecibos) pero pensado para usarse
+ * desde el modal de pago (1 o pocos registros), con texto de período e importe
+ * que llegan desde el propio modal.
+ *
+ * - Si el período es CONTADO ANUAL => muestra exactamente "CONTADO ANUAL".
+ * - En otros casos => normaliza y ordena a "1/2 3/4 5/6" (espacio entre pares).
+ *
+ * @param {Array<Object>} listaSocios
+ * @param {string|number} periodoActual
+ * @param {Window|null} ventana
+ */
+export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ventana = null) => {
+  // ---- helpers ----
+  const getIdSocio = (obj) => {
+    const raw = obj?.id_socio ?? obj?.idSocio ?? obj?.idsocio ?? obj?.id ?? null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const formatARS = (monto) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
+  const limpiarPrefijoPeriodo = (txt = '') =>
+    String(txt).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
+
+  /**
+   * Normaliza listados de períodos a "1/2 3/4 5/6".
+   * Acepta entradas como:
+   *  - "1 Y 2 / 3 Y 4 / 5 Y 6"
+   *  - "1/2 3/4 5/6"
+   *  - "1/2 / 3/4 / 5/6"
+   *  - mezclas de las anteriores
+   */
+  const normalizarYOrdenarPeriodos = (txt = '') => {
+    const limpio = limpiarPrefijoPeriodo(txt);
+
+    // Unificar "y" -> "/"
+    const unificado = limpio.replace(/\s*[yY]\s*/g, '/');
+
+    // Extraer todos los pares n/m (permitiendo espacios alrededor del "/")
+    const pares = [];
+    const re = /(\d+)\s*\/\s*(\d+)/g;
+    let m;
+    while ((m = re.exec(unificado)) !== null) {
+      const a = parseInt(m[1], 10);
+      const b = parseInt(m[2], 10);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        pares.push([a, b]);
+      }
+    }
+
+    if (pares.length === 0) {
+      // fallback: devolver el texto limpio por si no hay pares reconocibles
+      return unificado.trim();
+    }
+
+    // Ordenar por el primer número y luego por el segundo
+    pares.sort((A, B) => (A[0] !== B[0] ? A[0] - B[0] : A[1] - B[1]));
+
+    // Volver a formatear, separando cada par por ESPACIO
+    return pares.map(([a, b]) => `${a}/${b}`).join(' ');
+  };
+
+  // --- enriquecer datos mínimos de cada socio (traer info para el comprobante) ---
+  const sociosCompletos = [];
+  for (let socio of (listaSocios || [])) {
+    const idNorm = getIdSocio(socio);
+
+    if (idNorm === null) {
+      sociosCompletos.push({
+        ...socio,
+        id_socio: socio.id_socio ?? socio.idSocio ?? socio.idsocio ?? socio.id ?? '',
+        nombre_cobrador: socio.medio_pago || '',
+        id_periodo: socio.id_periodo || periodoActual || ''
+      });
+      continue;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${idNorm}`);
+      const data = await res.json();
+      if (data.exito) {
+        sociosCompletos.push({
+          ...data.socio,
+          ...socio, // los datos del modal pisan a los de la API
+          id_socio: data.socio.id_socio ?? idNorm,
+          nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || socio.medio_pago || '',
+          id_periodo: socio.id_periodo || data.socio.id_periodo || periodoActual || ''
+        });
+      } else {
+        sociosCompletos.push({
+          ...socio,
+          id_socio: idNorm,
+          nombre_cobrador: socio.medio_pago || '',
+          id_periodo: socio.id_periodo || periodoActual || ''
+        });
+      }
+    } catch {
+      sociosCompletos.push({
+        ...socio,
+        id_socio: idNorm,
+        nombre_cobrador: socio.medio_pago || '',
+        id_periodo: socio.id_periodo || periodoActual || ''
+      });
+    }
+  }
+
+  // --- catálogos (fallback de textos) ---
+  let categorias = {}, estados = {}, periodos = {};
+  try {
+    const resListas = await fetch(`${BASE_URL}/api.php?action=listas`);
+    const dataListas = await resListas.json();
+    if (dataListas.exito) {
+      categorias = Object.fromEntries(dataListas.listas.categorias.map(c => [c.id_categoria, c.descripcion]));
+      estados    = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
+      periodos   = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
+    }
+  } catch {
+    /* seguimos con fallbacks */
+  }
+
+  // --- ventana de impresión ---
+  const win = ventana || window.open('', '', 'width=800,height=600');
+  if (!win) return;
+
+  const posicionesTop = [20, 68, 117, 166, 216, 264];
+
+  // --- construir el HTML ---
+  let pagesHTML = '';
+  const codigosBarra = []; // sólo para las copias con código
+
+  for (let p = 0; p < Math.ceil(sociosCompletos.length / 6); p++) {
+    const pageSocios = sociosCompletos.slice(p * 6, p * 6 + 6);
+    let pageHTML = '<div class="page">';
+
+    for (let i = 0; i < pageSocios.length; i++) {
+      const s = pageSocios[i];
+      const top = posicionesTop[i];
+
+      const id = getIdSocio(s) ?? '';
+      const nombre = (s.apellido ? `${String(s.apellido).toUpperCase()} ` : '') +
+                     (s.nombre ? String(s.nombre).toUpperCase() : '');
+      const domicilio = [s.domicilio, s.numero].filter(Boolean).join(' ').trim() || '';
+      const tel = typeof s.telefono === 'string' ? s.telefono.trim() : (s.telefono || '');
+      const cobro = typeof s.domicilio_cobro === 'string' ? s.domicilio_cobro.trim() : (s.domicilio_cobro || '');
+      const categoria = s.nombre_categoria || categorias[s.id_categoria] || '';
+      const estado = s.nombre_estado || estados[s.id_estado] || '';
+
+      const codigoPeriodo = String(s.id_periodo || periodoActual || '0');
+
+      // Normalización pedida:
+      const esAnual = codigoPeriodo === '7' ||
+        (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL'));
+      const textoPeriodo = esAnual
+        ? 'CONTADO ANUAL'
+        : normalizarYOrdenarPeriodos(
+            s.periodo_texto || periodos[codigoPeriodo] || `Período ${codigoPeriodo}`
+          );
+
+      const importeStr = (typeof s.importe_total === 'number')
+        ? formatARS(s.importe_total)
+        : (typeof s.importe === 'number' ? formatARS(s.importe) : (s.importe || '$4000'));
+
+      const codigoBarra = `${codigoPeriodo}-${id}`;
+      codigosBarra.push(codigoBarra);
+
+      const bloque = (conCodigo, barcodeIndex) => `
+        <div class="recibo-area" style="top:${top}mm; left:${conCodigo ? '5mm' : '110mm'};">
+          <div class="recibo">
+            <div class="row">
+              <div class="cell cell-full"><strong>Socio:</strong>&nbsp;${id || '-'} - ${nombre}</div>
+            </div>
+            <div class="row">
+              <div class="cell cell-full"><strong>Domicilio:</strong>&nbsp;${domicilio}</div>
+            </div>
+            <div class="row">
+              <div class="cell cell-full"><strong>Domicilio de cobro:</strong>&nbsp;${cobro}</div>
+            </div>
+            <div class="row">
+              <div class="cell"><strong>Tel:</strong>&nbsp;${tel}</div>
+              <div class="cell"><div class="importe">Importe: ${importeStr}</div></div>
+            </div>
+            <div class="row">
+              <div class="cell periodo-grupo">
+                <div><strong>Período:</strong>&nbsp;${textoPeriodo}</div>
+                <div><strong>Grupo:</strong>&nbsp;${categoria}&nbsp;<strong>Estado:</strong>&nbsp;${estado}</div>
+              </div>
+              <div class="cell cell-barcode">
+                ${
+                  conCodigo
+                    ? `<div class="barcode-container"><svg id="barcode-${barcodeIndex}" class="barcode"></svg></div>
+                       <div class="barcode-text">${codigoBarra}</div>`
+                    : `<div class="firma">Francisco José Meré -<br/>Tesorero</div>`
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const idx = codigosBarra.length - 1;
+      pageHTML += bloque(true, idx);   // con código
+      pageHTML += bloque(false, null); // con firma
+    }
+
+    pageHTML += '</div>';
+    pagesHTML += pageHTML;
+  }
+
+  const html =
+`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Recibos</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <style>
+    @page { size: A4 portrait; margin: 0; }
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 8pt; }
+    .page { width: 210mm; height: 297mm; position: relative; page-break-after: always; }
+    .recibo-area { width: 95mm; height: 30mm; box-sizing: border-box; position: absolute; padding: .5rem 0 0; font-size: .8rem; overflow: hidden; }
+    .recibo { width: 100%; height: 100%; display: flex; justify-content: center; flex-direction: column; box-sizing: border-box; font-size: .8rem; }
+    .row { padding: 0 0.2rem; display: flex; width: 100%; }
+    .cell { margin: 0; box-sizing: border-box; overflow: hidden; display: flex; flex: 1; white-space: nowrap; text-overflow: ellipsis; }
+    .cell-full { flex: 0 0 100%; }
+    .cell-barcode { flex: 1; padding: 0; height: 100%; min-height: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .barcode-container { display: flex; align-items: center; justify-content: center; width: 100%; height: 70%; }
+    .barcode { width: 100%; height: auto; max-height: 24px; }
+    .barcode-text { font-size: 6pt; text-align: center; margin: 0; height: 30%; display: flex; align-items: center; justify-content: center; }
+    .firma { font-size: 8pt; text-align: center; width: 100%; }
+    .importe { font-weight: bold; text-align: center; font-size: 8pt; width: 100%; }
+    .periodo-grupo { display: flex; flex-direction: column; justify-content: center; flex: 1; height: fit-content; }
+    .periodo-grupo div { flex: 1; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  ${pagesHTML}
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify(codigosBarra)};
+      for (var i = 0; i < codigos.length; i++) {
+        try {
+          JsBarcode("#barcode-" + i, codigos[i], {
+            format: "CODE128",
+            lineColor: "#000",
+            width: 2.5,
+            height: 50,
+            displayValue: false
+          });
+        } catch (e) { /* ignorar si no existe el nodo */ }
+      }
+      window.print();
+    })();
+  </script>
+</body>
+</html>`;
+
+  win.document.write(html);
+  win.document.close();
+};

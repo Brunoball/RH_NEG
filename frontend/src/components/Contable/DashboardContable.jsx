@@ -1,3 +1,4 @@
+// src/components/Contable/DashboardContable.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
@@ -25,9 +26,9 @@ export default function DashboardContable() {
   const [cobradorSeleccionado, setCobradorSeleccionado] = useState("todos");
 
   // ===== Datos base =====
-  const [periodosOpts, setPeriodosOpts] = useState([]);      // [{value:"PERÍODO 1 Y 2", months:[1,2]}]
+  const [periodosOpts, setPeriodosOpts] = useState([]);      // [{value:"PERÍODO 7 Y 8", months:[7,8]}]
   const [datosMeses, setDatosMeses] = useState([]);          // bloques por período con pagos
-  const [datosEmpresas, setDatosEmpresas] = useState([]);    // (no usado, pero lo conservamos)
+  const [datosEmpresas, setDatosEmpresas] = useState([]);    // (no usado)
   const [cobradores, setCobradores] = useState([]);
   const [totalSocios, setTotalSocios] = useState(0);
 
@@ -76,6 +77,7 @@ export default function DashboardContable() {
     const ints = nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n));
     return ints.length ? Math.min(...ints) : 999;
   };
+  const isAnualLabel = (s) => String(s || "").toUpperCase().includes("ANUAL");
 
   // ==== Carga inicial (abort + cache) ====
   useEffect(() => {
@@ -116,11 +118,21 @@ export default function DashboardContable() {
         let periodosSrv = [];
         let cobradoresSrv = [];
         if (rawListas && ok(rawListas) && rawListas.listas) {
+          // ===== Periodos: EXCLUIMOS el "CONTADO ANUAL" del SELECT (pero IGUAL se contabiliza por fecha en los gráficos)
           if (Array.isArray(rawListas.listas.periodos)) {
             periodosSrv = rawListas.listas.periodos
-              .map((p) => (p?.nombre || "").toString().trim())
+              .filter((p) => {
+                const id = typeof p === "object" && p ? String(p.id ?? "") : "";
+                const nombre = typeof p === "string" ? p : (p?.nombre || "");
+                if (id === "7") return false;            // excluir id_periodo 7 del combo
+                if (isAnualLabel(nombre)) return false;  // excluir "CONTADO ANUAL" del combo
+                return true;
+              })
+              .map((p) => (typeof p === "string" ? p : (p?.nombre || "")))
+              .map((s) => s.toString().trim())
               .filter(Boolean);
           }
+
           if (Array.isArray(rawListas.listas.cobradores)) {
             cobradoresSrv = rawListas.listas.cobradores
               .map((c) => c?.nombre)
@@ -129,9 +141,12 @@ export default function DashboardContable() {
               .sort((a, b) => a.localeCompare(b, "es"));
           }
         }
+
+        // Fallback si el backend no devolvió periodos
         if (periodosSrv.length === 0) {
           periodosSrv = Array.from({ length: 12 }, (_, i) => `PERÍODO ${i + 1}`);
         }
+
         const opts = periodosSrv.map((label) => ({
           value: label,
           months: extractMonthsFromPeriodLabel(label),
@@ -241,7 +256,6 @@ export default function DashboardContable() {
         top.val = arr[nextIdx];
         siftDown(0);
       } else {
-        // pop root
         const last = heads.pop();
         if (heads.length) {
           heads[0] = last;
@@ -307,23 +321,19 @@ export default function DashboardContable() {
 
   // Recalcular cuando cambian filtros — pero dejar que el spinner pinte primero
   useEffect(() => {
-    // ya hay datos preprocesados; si no, no mostrar loading
     if (!pagosPorMesSorted.some((arr) => arr.length)) {
       setIsLoadingTable(false);
       computeDerived(periodoSeleccionado, cobradorSeleccionado);
       return;
     }
 
-    // spinner ON inmediatamente
     setIsLoadingTable(true);
-
-    // doble rAF para asegurar primer paint con spinner
     cancelAnimationFrame(computeRAF1.current);
     cancelAnimationFrame(computeRAF2.current);
     computeRAF1.current = requestAnimationFrame(() => {
       computeRAF2.current = requestAnimationFrame(() => {
         computeDerived(periodoSeleccionado, cobradorSeleccionado);
-        setIsLoadingTable(false); // apagar spinner apenas termina
+        setIsLoadingTable(false);
       });
     });
 

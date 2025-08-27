@@ -1,3 +1,4 @@
+// src/components/Principal/Principal.jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoRH from '../../imagenes/Logo_rh.jpeg';
@@ -13,6 +14,45 @@ import {
   faSignOutAlt,
   faFileInvoiceDollar
 } from '@fortawesome/free-solid-svg-icons';
+
+/* ================================
+   Util: limpiar TODO lo de Socios
+===================================*/
+function clearSociosFiltersAndCaches() {
+  try {
+    // Claves históricas y actuales en localStorage
+    const LS_KEYS = [
+      'filtros_socios',        // legacy
+      'filtros_socios_v2',     // versión actual usada por Socios.jsx
+      'socios_cache',
+      'listas_cache',
+      'socios_cache_etag',
+      'socios_cache_exp',
+      'token_socios',          // por si hubiera alguno adicional
+    ];
+    LS_KEYS.forEach(k => localStorage.removeItem(k));
+  } catch {}
+
+  try {
+    // Claves de sesión que usa Socios.jsx para restaurar estado/scroll
+    const SS_KEYS = [
+      'filtros_socios',        // legacy
+      'socios_last_filters',
+      'socios_last_scroll',
+      'socios_last_sel_id',
+      'socios_last_ts',
+    ];
+    SS_KEYS.forEach(k => sessionStorage.removeItem(k));
+
+    // Borrar prefetch de socio puntual
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('socio_prefetch_')) {
+        sessionStorage.removeItem(key);
+      }
+    }
+  } catch {}
+}
 
 /* ===== Modal de confirmación (unificado con el estilo LALCEC) ===== */
 function ConfirmLogoutModal({ open, onConfirm, onCancel }) {
@@ -77,31 +117,26 @@ function ConfirmLogoutModal({ open, onConfirm, onCancel }) {
 }
 
 const Principal = () => {
-  const usuario = JSON.parse(localStorage.getItem('usuario'));
+  const usuario = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('usuario'));
+    } catch {
+      return null;
+    }
+  })();
+
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // 🧹 Al entrar a Principal, limpiar filtros/caches de Socios
+  // 🧹 Al entrar a Principal, limpiar SIEMPRE filtros/caches de Socios
   useEffect(() => {
-    const KEYS_A_LIMPIAR = [
-      'filtros_socios',
-      // Por si más adelante usás caches:
-      'socios_cache',
-      'listas_cache',
-      'socios_cache_etag',
-      'socios_cache_exp',
-    ];
-    KEYS_A_LIMPIAR.forEach((k) => localStorage.removeItem(k));
-    // Si usaste sessionStorage para algo relacionado a Socios:
-    sessionStorage.removeItem('filtros_socios');
+    clearSociosFiltersAndCaches();
   }, []);
 
   const pedirConfirmacion = () => setShowConfirm(true);
 
   const doLogout = useCallback(() => {
-    try {
-      sessionStorage.clear();
-    } catch {}
+    try { sessionStorage.clear(); } catch {}
     try {
       localStorage.removeItem('usuario');
       localStorage.removeItem('token'); // 🔒 por si usás token
@@ -114,11 +149,29 @@ const Principal = () => {
     window.open('https://3devsnet.com', '_blank');
   };
 
+  // Navegación garantizando limpieza inmediata antes de entrar a Socios
+  const goSocios = useCallback(() => {
+    clearSociosFiltersAndCaches();
+    navigate('/socios');
+  }, [navigate]);
+
+  const goCuotas = useCallback(() => {
+    navigate('/cuotas');
+  }, [navigate]);
+
+  const goContable = useCallback(() => {
+    navigate('/contable');
+  }, [navigate]);
+
+  const goRegistro = useCallback(() => {
+    navigate('/registro');
+  }, [navigate]);
+
   return (
     <div className="princ-contenedor-padre">
       <div className="princ-contenedor">
         <div className="princ-glass-effect"></div>
-        
+
         <div className="princ-encabezado">
           <div className="princ-logo-container">
             <img src={logoRH} alt="Logo RH Negativo" className="princ-logo" />
@@ -126,7 +179,7 @@ const Principal = () => {
           </div>
           <h1>Sistema de Gestión <span>Círculo RH Negativo</span></h1>
           <p className="princ-subtitulo">Panel de administración integral para la gestión eficiente de tu organización</p>
-          
+
           <div className="princ-usuario-info">
             <h2>Bienvenido, <span>{usuario?.Nombre_Completo || 'Usuario'}</span></h2>
             <div className="princ-usuario-status"></div>
@@ -134,7 +187,7 @@ const Principal = () => {
         </div>
 
         <div className="princ-grid-opciones">
-          <button className="princ-opcion princ-opcion-socios" onClick={() => navigate('/socios')}>
+          <button className="princ-opcion princ-opcion-socios" onClick={goSocios}>
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
                 <FontAwesomeIcon icon={faUsers} className="princ-opcion-icono" />
@@ -144,7 +197,7 @@ const Principal = () => {
             </div>
           </button>
 
-          <button className="princ-opcion princ-opcion-cuotas" onClick={() => navigate('/cuotas')}>
+          <button className="princ-opcion princ-opcion-cuotas" onClick={goCuotas}>
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
                 <FontAwesomeIcon icon={faMoneyBillWave} className="princ-opcion-icono" />
@@ -156,7 +209,7 @@ const Principal = () => {
 
           <button
             className="princ-opcion princ-opcion-categorias"
-            onClick={() => navigate('/contable')}
+            onClick={goContable}
           >
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
@@ -167,7 +220,7 @@ const Principal = () => {
             </div>
           </button>
 
-          <button className="princ-opcion princ-opcion-usuarios" onClick={() => navigate('/registro')}>
+          <button className="princ-opcion princ-opcion-usuarios" onClick={goRegistro}>
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
                 <FontAwesomeIcon icon={faUserPlus} className="princ-opcion-icono" />
@@ -181,7 +234,7 @@ const Principal = () => {
         <div className="princ-footer">
           <div className="princ-footer-container">
             <div className="princ-creditos-container">
-              <p 
+              <p
                 className="princ-creditos"
                 onClick={redirectTo3Devs}
               >
