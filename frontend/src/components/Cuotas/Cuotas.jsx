@@ -5,7 +5,6 @@ import React, {
   useMemo,
   useRef,
   useCallback,
-  useDeferredValue,
   useTransition,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +59,173 @@ api.interceptors.response.use(
 
 const PRECIO_MENSUAL = 4000;
 const PRECIO_ANUAL_CON_DESCUENTO = 21000;
+const ID_CONTADO_ANUAL_FALLBACK = 7;
+
+/* =========================
+ * Helpers de año/periodo
+ * ========================= */
+const currentYear = new Date().getFullYear();
+const nextYear = currentYear + 1;
+
+// Intenta extraer un año (YYYY) del nombre del periodo (p.ej. "Enero 2025")
+const extractYearFromPeriodoName = (nombre = '') => {
+  const m = String(nombre).match(/(20\d{2})/);
+  return m ? parseInt(m[1], 10) : null;
+};
+
+// Normalizador para detectar “ANUAL” por nombre
+const normalize = (s = '') =>
+  String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+const isAnualName = (nombre = '') => normalize(nombre).includes('ANUAL');
+
+/* =========================
+ * Row memoizado (estable)
+ * ========================= */
+const Row = React.memo(function Row({ index, style, data }) {
+  const { items, estadoPagoSeleccionado, getId } = data;
+  const cuota = items[index];
+
+  const claseEstadoSocio =
+    {
+      activo: 'cuo_estado-activo',
+      pasivo: 'cuo_estado-pasivo',
+    }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
+
+  const claseMedioPago =
+    {
+      cobrador: 'cuo_pago-cobrador',
+      oficina: 'cuo_pago-oficina',
+      transferencia: 'cuo_pago-transferencia',
+    }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
+
+  return (
+    <div
+      style={style}
+      className={`cuo_tabla-fila cuo_grid-container ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
+    >
+      <div className="cuo_col-id">{getId(cuota) || '-'}</div>
+
+      <div className="cuo_col-nombre">
+        <div className="cuo_nombre-socio">{cuota.nombre}</div>
+        {cuota.documento && <div className="cuo_documento">Doc: {cuota.documento}</div>}
+      </div>
+
+      <div className="cuo_col-domicilio">{cuota.domicilio || '-'}</div>
+
+      {/* SOLO estado del socio (Activo/Pasivo) */}
+      <div className="cuo_col-estado">
+        <span className={`cuo_badge ${claseEstadoSocio}`} title="Estado del socio">
+          {cuota.estado}
+        </span>
+      </div>
+
+      {/* Medio de pago: Cobrador/Oficina/Transferencia */}
+      <div className="cuo_col-medio-pago">
+        <span className={`cuo_badge ${claseMedioPago}`}>{cuota.medio_pago || 'Sin especificar'}</span>
+      </div>
+
+      <div className="cuo_col-acciones">
+        <div className="cuo_acciones-cell">
+          {estadoPagoSeleccionado === 'deudor' ? (
+            <button
+              className="cuo_boton-accion cuo_boton-accion-success"
+              onClick={data.onPagar(cuota)}
+              title="Registrar pago / condonar"
+            >
+              <FaDollarSign />
+            </button>
+          ) : estadoPagoSeleccionado === 'pagado' ? (
+            <button
+              className="cuo_boton-accion cuo_boton-accion-danger"
+              onClick={data.onEliminarPago(cuota)}
+              title="Eliminar pago"
+            >
+              <FaTimes />
+            </button>
+          ) : (
+            <button
+              className="cuo_boton-accion cuo_boton-accion-danger"
+              onClick={data.onEliminarCondonacion(cuota)}
+              title="Eliminar condonación"
+            >
+              <FaTimes />
+            </button>
+          )}
+
+          {/* Imprimir: abre el modal de selección de períodos para ESTE socio */}
+          <button
+            className="cuo_boton-accion cuo_boton-accion-primary"
+            onClick={data.onImprimir(cuota)}
+            title="Imprimir recibo"
+          >
+            <FaPrint />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* =========================
+ * Lista virtualizada memo
+ * ========================= */
+const CuotasList = React.memo(function CuotasList({
+  items,
+  estadoPagoSeleccionado,
+  onPagar,
+  onEliminarPago,
+  onEliminarCondonacion,
+  onImprimir,
+  listRef,
+  getId
+}) {
+  // Ocultar overflow-x
+  const OuterElement = React.useMemo(
+    () =>
+      React.forwardRef((props, ref) => (
+        <div ref={ref} {...props} style={{ ...props.style, overflowX: 'hidden' }} />
+      )),
+    []
+  );
+
+  const itemData = useMemo(
+    () => ({
+      items,
+      estadoPagoSeleccionado,
+      onPagar,
+      onEliminarPago,
+      onEliminarCondonacion,
+      onImprimir,
+      getId,
+    }),
+    [items, estadoPagoSeleccionado, onPagar, onEliminarPago, onEliminarCondonacion, onImprimir, getId]
+  );
+
+  const itemKey = useCallback((index, data) => {
+    const it = data.items[index];
+    return it ? (it._idnum ?? getId(it) ?? index) : index;
+  }, [getId]);
+
+  return (
+    <AutoSizer>
+      {({ height, width }) => (
+        <List
+          ref={listRef}
+          height={height}
+          itemCount={items.length}
+          itemSize={60}
+          width={width}
+          itemData={itemData}
+          outerElementType={OuterElement}
+          itemKey={itemKey}
+          overscanCount={2}
+        >
+          {Row}
+        </List>
+      )}
+    </AutoSizer>
+  );
+});
 
 const Cuotas = () => {
   const navigate = useNavigate();
@@ -75,8 +241,13 @@ const Cuotas = () => {
   const [estadoSocioSeleccionado, setEstadoSocioSeleccionado] = useState('');
   const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState('');
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
+
+  // Año y lista de años (del backend según pagos reales)
+  const [anioSeleccionado, setAnioSeleccionado] = useState('');
+  const [anios, setAnios] = useState([]); // arr de números
+
   const [mediosPago, setMediosPago] = useState([]);
-  const [periodos, setPeriodos] = useState([]);
+  const [periodos, setPeriodos] = useState([]); // [{id, nombre, anio?}]
   const [estados, setEstados] = useState([]);
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
@@ -99,7 +270,7 @@ const Cuotas = () => {
   const cacheRef = useRef({
     ttl: 30 * 60 * 1000, // 30 minutos
     mutationTs: 0,        // timestamp de la última mutación global
-    cuotas: {},           // clave: "estado|periodo" => {data, ts}
+    cuotas: {},           // clave: "anio|estado|periodo" => {data, ts}
     listas: { data: null, ts: 0 },
   });
   const [cacheVersion, setCacheVersion] = useState(0);
@@ -107,6 +278,9 @@ const Cuotas = () => {
 
   // Control de operaciones para ignorar respuestas viejas
   const currentOpIdRef = useRef(0);
+
+  // flag para evitar solapes entre cargas
+  const isFetchingAllRef = useRef(false);
 
   // ===== Scroll control =====
   const listRef = useRef(null);
@@ -124,43 +298,24 @@ const Cuotas = () => {
     return ts && ts >= mutationTs && (Date.now() - ts < ttl);
   };
 
+  // ⬇️ La key de cuotas incluye el año seleccionado
   const getCuotasKey = useCallback(
-    (estadoPago, periodoId) => `${estadoPago}|${periodoId || 'NO_PERIODO'}`,
-    []
+    (estadoPago, periodoId) => `${anioSeleccionado || 'NOYEAR'}|${estadoPago}|${periodoId || 'NO_PERIODO'}`,
+    [anioSeleccionado]
   );
 
-  // ===== Debounce =====
-  const [debouncedBusqueda, setDebouncedBusqueda] = useState('');
-  const [debouncedBusquedaId, setDebouncedBusquedaId] = useState('');
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedBusqueda(busqueda), 300);
-    return () => clearTimeout(t);
-  }, [busqueda]);
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedBusquedaId(busquedaId), 200);
-    return () => clearTimeout(t);
-  }, [busquedaId]);
-
-  // ===== Valores diferidos =====
-  const deferredBusqueda   = useDeferredValue(debouncedBusqueda);
-  const deferredBusquedaId = useDeferredValue(debouncedBusquedaId);
-
-  // ===== Helpers de ID =====
+  // ===== Helpers de ID (usan campos normalizados) =====
   const getId = (c) => String(c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? '');
-  const getIdNumber = (c) => {
-    const n = Number(getId(c));
-    return Number.isFinite(n) ? n : null;
-  };
+  const getIdNumber = (c) => (Number.isFinite(c?._idnum) ? c._idnum : null);
   const equalId = (c, needle) => {
     if (!needle.trim()) return true;
-    const a = Number(getId(c));
     const b = Number(needle);
-    if (Number.isNaN(a) || Number.isNaN(b)) return false;
-    return a === b;
+    if (!Number.isFinite(c?._idnum) || Number.isNaN(b)) return false;
+    return c._idnum === b;
   };
 
   // =========================
-  // Carga de LISTAS
+  // Carga de LISTAS (no toca años)
   // =========================
   const fetchListas = useCallback(async () => {
     const listasCache = cacheRef.current.listas;
@@ -186,6 +341,28 @@ const Cuotas = () => {
     }
   }, []);
 
+  // =========================
+  // NUEVO: Años con pagos reales
+  // =========================
+  const fetchAnios = useCallback(async () => {
+    try {
+      const res = await api.get('/api.php?action=cuotas&listar_anios=1');
+      if (res?.exito) {
+        const lista = Array.isArray(res.anios) ? res.anios.map((n) => Number(n)).filter(Boolean) : [];
+        const final = lista.length > 0 ? lista : [currentYear];
+        setAnios(final);
+        // Ajustar selección si no pertenece a la lista
+        if (!anioSeleccionado || !final.includes(parseInt(anioSeleccionado, 10))) {
+          setAnioSeleccionado(String(final[0]));
+        }
+      }
+    } catch (e) {
+      console.error('No se pudieron obtener los años:', e);
+      if (!anioSeleccionado) setAnioSeleccionado(String(currentYear));
+      if (anios.length === 0) setAnios([currentYear]);
+    }
+  }, [anioSeleccionado, anios.length]);
+
   // ===================================
   // Carga de CUOTAS
   // ===================================
@@ -194,8 +371,26 @@ const Cuotas = () => {
     if (resetScroll) scrollToTopSafe();
   }, [scrollToTopSafe, startTransition]);
 
+  const normalizeItems = (arr) =>
+    (arr || []).map((c) => {
+      const idstr = String(c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? '');
+      const idnum = Number(idstr);
+      return {
+        ...c,
+        _q_nombre: (c.nombre || '').toLowerCase(),
+        _q_dom: (c.domicilio || '').toLowerCase(),
+        _q_doc: (c.documento || '').toLowerCase(),
+        _idnum: Number.isFinite(idnum) ? idnum : null,
+      };
+    });
+
   const fetchCuotas = useCallback(
     async (estadoPago, periodoId, { force = false, setAsVisible = false, resetScroll = false } = {}) => {
+      // Hasta no tener año seleccionado, no consultamos
+      if (!anioSeleccionado) {
+        if (setAsVisible) applyVisibleData([], { resetScroll });
+        return [];
+      }
       if (!periodoId) {
         if (setAsVisible) applyVisibleData([], { resetScroll });
         return [];
@@ -212,13 +407,15 @@ const Cuotas = () => {
       if (estadoPago === 'pagado') qs = '&pagados=1';
       else if (estadoPago === 'condonado') qs = '&condonados=1';
       if (periodoId) qs += `&id_periodo=${encodeURIComponent(periodoId)}`;
+      if (anioSeleccionado) qs += `&anio=${encodeURIComponent(anioSeleccionado)}`;
 
       try {
         const dataCuotas = await api.get(`/api.php?action=cuotas${qs}`);
         const arr = dataCuotas?.exito ? (dataCuotas.cuotas || []) : [];
-        cacheRef.current.cuotas[key] = { data: arr, ts: Date.now() };
-        if (setAsVisible) applyVisibleData(arr, { resetScroll });
-        return arr;
+        const normalizados = normalizeItems(arr);
+        cacheRef.current.cuotas[key] = { data: normalizados, ts: Date.now() };
+        if (setAsVisible) applyVisibleData(normalizados, { resetScroll });
+        return normalizados;
       } catch (e) {
         console.error('Error al obtener cuotas:', e);
         cacheRef.current.cuotas[key] = { data: [], ts: Date.now() };
@@ -226,20 +423,25 @@ const Cuotas = () => {
         return [];
       }
     },
-    [getCuotasKey, applyVisibleData]
+    [getCuotasKey, applyVisibleData, anioSeleccionado]
   );
 
   const fetchCuotasAll = useCallback(
     async (periodoId, { force = false } = {}) => {
-      if (!periodoId) return;
-      await Promise.all([
-        fetchCuotas('deudor', periodoId, { force }),
-        fetchCuotas('pagado', periodoId, { force }),
-        fetchCuotas('condonado', periodoId, { force }),
-      ]);
-      bumpCacheVersion();
+      if (!periodoId || !anioSeleccionado) return;
+      isFetchingAllRef.current = true;
+      try {
+        await Promise.all([
+          fetchCuotas('deudor', periodoId, { force }),
+          fetchCuotas('pagado', periodoId, { force }),
+          fetchCuotas('condonado', periodoId, { force }),
+        ]);
+        bumpCacheVersion();
+      } finally {
+        isFetchingAllRef.current = false;
+      }
     },
-    [fetchCuotas, bumpCacheVersion]
+    [fetchCuotas, bumpCacheVersion, anioSeleccionado]
   );
 
   // Invalidación tras mutaciones
@@ -255,7 +457,8 @@ const Cuotas = () => {
   // ========== Efectos ==========
   useEffect(() => {
     fetchListas();
-  }, [fetchListas]);
+    fetchAnios();           // ⬅️ traemos los años reales de pagos
+  }, [fetchListas, fetchAnios]);
 
   const setVisibleFromCache = useCallback((estado, periodoId, { resetScroll = true } = {}) => {
     const key = getCuotasKey(estado, periodoId);
@@ -274,10 +477,11 @@ const Cuotas = () => {
     return ok('deudor') && ok('pagado') && ok('condonado');
   }, [getCuotasKey]);
 
-  // (A) Cambio de PERÍODO
+  // (A) Cambio de PERÍODO o AÑO
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      if (!anioSeleccionado) { applyVisibleData([], { resetScroll: true }); return; }
       if (!periodoSeleccionado) {
         applyVisibleData([], { resetScroll: true });
         return;
@@ -310,14 +514,17 @@ const Cuotas = () => {
     run();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodoSeleccionado]);
+  }, [periodoSeleccionado, anioSeleccionado]);
 
-  // (B) Cambio de pestaña de ESTADO DE PAGO
+  // (B) Cambio de pestaña de ESTADO DE PAGO o AÑO
   useEffect(() => {
+    if (!anioSeleccionado) { applyVisibleData([], { resetScroll: true }); return; }
     if (!periodoSeleccionado) {
       applyVisibleData([], { resetScroll: true });
       return;
     }
+    if (isFetchingAllRef.current) return;
+
     const key = getCuotasKey(estadoPagoSeleccionado, periodoSeleccionado);
     const cached = cacheRef.current.cuotas[key];
     if (cached && isFresh(cached.ts)) {
@@ -330,11 +537,13 @@ const Cuotas = () => {
       resetScroll: true,
     }).then(() => bumpCacheVersion()).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoPagoSeleccionado]);
+  }, [estadoPagoSeleccionado, anioSeleccionado]);
 
   // =========================
   // Filtrado y ordenamiento
   // =========================
+  const q = (busqueda || '').toLowerCase();
+
   const cuotasFiltradas = useMemo(() => {
     if (!periodoSeleccionado) return [];
     const lista = cuotas
@@ -345,11 +554,12 @@ const Cuotas = () => {
       )
       .filter((c) => {
         const coincideBusqueda =
-          debouncedBusqueda === '' ||
-          c.nombre?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
-          c.domicilio?.toLowerCase().includes(debouncedBusqueda.toLowerCase()) ||
-          c.documento?.toLowerCase().includes(debouncedBusqueda.toLowerCase());
-        const coincideId = equalId(c, debouncedBusquedaId);
+          q === '' ||
+          c._q_nombre.includes(q) ||
+          c._q_dom.includes(q) ||
+          c._q_doc.includes(q);
+
+        const coincideId = equalId(c, busquedaId);
         const coincideEstadoSocio =
           estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
         const coincideMedio =
@@ -376,21 +586,18 @@ const Cuotas = () => {
         return orden.ascendente ? ida - idb : idb - ida;
       }
       if (orden.campo === 'domicilio') {
-        const A = a.domicilio || '';
-        const B = b.domicilio || '';
-        return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
+        return orden.ascendente ? a._q_dom.localeCompare(b._q_dom) : b._q_dom.localeCompare(a._q_dom);
       }
-      const A = a.nombre || '';
-      const B = b.nombre || '';
-      return orden.ascendente ? A.localeCompare(B) : B.localeCompare(A);
+      // nombre
+      return orden.ascendente ? a._q_nombre.localeCompare(b._q_nombre) : b._q_nombre.localeCompare(a._q_nombre);
     });
   }, [
     cuotas,
-    debouncedBusqueda,
-    debouncedBusquedaId,
+    periodoSeleccionado,
+    q,
+    busquedaId,
     estadoSocioSeleccionado,
     medioPagoSeleccionado,
-    periodoSeleccionado,
     estadoPagoSeleccionado,
     orden
   ]);
@@ -433,17 +640,13 @@ const Cuotas = () => {
             c.estado_pago === estadoFijo
         )
         .filter((c) => {
-          const q = (c.nombre || '').toLowerCase();
-          const dom = (c.domicilio || '').toLowerCase();
-          const doc = (c.documento || '').toLowerCase();
-
           const coincideBusqueda =
-            deferredBusqueda === '' ||
-            q.includes(deferredBusqueda.toLowerCase()) ||
-            dom.includes(deferredBusqueda.toLowerCase()) ||
-            doc.includes(deferredBusqueda.toLowerCase());
+            q === '' ||
+            c._q_nombre.includes(q) ||
+            c._q_dom.includes(q) ||
+            c._q_doc.includes(q);
 
-          const coincideId = equalId(c, deferredBusquedaId);
+          const coincideId = equalId(c, busquedaId);
           const coincideEstadoSocio =
             estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
           const coincideMedio =
@@ -461,8 +664,8 @@ const Cuotas = () => {
   }, [
     periodoSeleccionado,
     getCachedListFor,
-    deferredBusqueda,
-    deferredBusquedaId,
+    q,
+    busquedaId,
     estadoSocioSeleccionado,
     medioPagoSeleccionado,
     cacheVersion
@@ -475,57 +678,164 @@ const Cuotas = () => {
     }));
   };
 
-  // ===== helpers período para impresión única =====
+  // ===== helpers período/importe para impresión =====
   const limpiarPrefijoPeriodo = (txt = '') =>
     String(txt).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
 
+  // IDs de períodos NO anuales (para detectar “6 meses = anual”)
+  const getNonAnualIds = useCallback(() => {
+    return periodos
+      .filter((p) => !isAnualName(p.nombre))
+      .map((p) => String(p.id));
+  }, [periodos]);
+
+  // Obtiene el período "Anual" (si existe)
+  const getAnualPeriodo = useCallback(
+    () => periodos.find((p) => isAnualName(p?.nombre || '')) || null,
+    [periodos]
+  );
+
+  // Construye el texto de período para el comprobante, con AÑO
   const construirPeriodoTexto = useCallback(
-    (ids) => {
-      const ordenados = [...ids].sort((a, b) => Number(a) - Number(b));
+    (ids, year) => {
+      if (!ids || ids.length === 0) return '';
+      const anual = getAnualPeriodo();
+      const idsStr = ids.map(String);
+
+      // ¿Incluye el ítem Anual?
+      const incluyeAnual = anual && idsStr.includes(String(anual.id));
+
+      // ¿Todas las no-anuales seleccionadas?
+      const nonAnual = getNonAnualIds();
+      const esSeisMeses = nonAnual.length > 0 && idsStr.length === nonAnual.length && nonAnual.every((id) => idsStr.includes(id));
+
+      if (incluyeAnual || esSeisMeses) return `CONTADO ANUAL ${year}`;
+
+      const ordenados = [...idsStr].sort((a, b) => Number(a) - Number(b));
       const partes = ordenados.map((id) => {
         const p = periodos.find((pp) => String(pp.id) === String(id));
         if (!p) return String(id);
         return limpiarPrefijoPeriodo(p.nombre)
           .replace(/\s*[yY]\s*/g, '/')
-          .replace(/\s+/g, '')
+          .replace(/\s+/g, ' ')
           .replace(/\/+/g, '/');
       });
-      return partes.join(' ');
+      return `${partes.join(' / ')} ${year}`;
     },
-    [periodos]
+    [periodos, getNonAnualIds, getAnualPeriodo]
   );
 
   const primerIdSeleccionado = (ids) =>
     ids.length ? String([...ids].sort((a, b) => Number(a) - Number(b))[0]) : '0';
-
-  const getAnualPeriodo = useCallback(
-    () => periodos.find((p) => String(p?.nombre || '').toUpperCase().includes('ANUAL')) || null,
-    [periodos]
-  );
 
   const calcularImportePorSeleccion = useCallback(
     (idsSeleccion) => {
       if (!idsSeleccion || idsSeleccion.length === 0) return 0;
       const anual = getAnualPeriodo();
       const idsStr = idsSeleccion.map(String);
+
       const esSoloAnual = anual && idsStr.length === 1 && idsStr[0] === String(anual.id);
-      if (esSoloAnual) return PRECIO_ANUAL_CON_DESCUENTO;
+
+      // Detectar “6 meses = anual”
+      const nonAnual = getNonAnualIds();
+      const esSeisMeses = nonAnual.length > 0 && idsStr.length === nonAnual.length && nonAnual.every((id) => idsStr.includes(id));
+
+      if (esSoloAnual || esSeisMeses) return PRECIO_ANUAL_CON_DESCUENTO;
       return idsSeleccion.length * PRECIO_MENSUAL;
     },
-    [getAnualPeriodo]
+    [getAnualPeriodo, getNonAnualIds]
   );
+
+  // =========================
+  // Periodos filtrados por año (UI)
+  // =========================
+  const periodosFiltrados = useMemo(() => {
+    if (!anioSeleccionado) return periodos;
+    const y = parseInt(anioSeleccionado, 10);
+    return periodos.filter((p) => {
+      const py = extractYearFromPeriodoName(p.nombre);
+      return py === null || py === y;
+    });
+  }, [periodos, anioSeleccionado]);
+
+  // Si el período seleccionado deja de existir para el año elegido, lo limpiamos
+  useEffect(() => {
+    if (!periodoSeleccionado) return;
+    const stillExists = periodosFiltrados.some((p) => String(p.id) === String(periodoSeleccionado));
+    if (!stillExists) {
+      setPeriodoSeleccionado('');
+    }
+  }, [anioSeleccionado, periodosFiltrados, periodoSeleccionado]);
 
   // =========================
   // Impresión
   // =========================
+
+  // Imprimir TODOS directo (período seleccionado y año actual seleccionado)
+  const handleImprimirTodosDirecto = async () => {
+    if (!periodoSeleccionado) {
+      setToastTipo('error');
+      setToastMensaje('Seleccioná un período antes de imprimir.');
+      setToastVisible(true);
+      return;
+    }
+    if (cuotasFiltradas.length === 0) {
+      setToastTipo('error');
+      setToastMensaje('No hay registros visibles para imprimir.');
+      setToastVisible(true);
+      return;
+    }
+
+    const ventanaImpresion = window.open('', '_blank');
+    if (!ventanaImpresion) {
+      alert('Por favor deshabilitá el bloqueador de ventanas emergentes para esta página');
+      return;
+    }
+
+    setLoadingPrint(true);
+    try {
+      const ids = [periodoSeleccionado];
+      const importeTotal = calcularImportePorSeleccion(ids);
+      const periodoTexto = construirPeriodoTexto(ids, anioSeleccionado);
+      const anual = getAnualPeriodo();
+      const periodoIdImpresion = (anual && ids.map(String).includes(String(anual.id)))
+        ? String(anual.id)
+        : primerIdSeleccionado(ids);
+      const anioNum = Number(anioSeleccionado) || new Date().getFullYear();
+
+      const listaEnriquecida = cuotasFiltradas.map((c) => ({
+        ...c,
+        id_periodo: periodoIdImpresion,
+        periodo_texto: periodoTexto,
+        importe_total: importeTotal,
+        anio: anioNum,
+      }));
+
+      await imprimirRecibosUnicos(listaEnriquecida, periodoIdImpresion, ventanaImpresion);
+    } catch (error) {
+      console.error('Error al imprimir:', error);
+      ventanaImpresion.close();
+    } finally {
+      setLoadingPrint(false);
+    }
+  };
+
+  // Abrir selector (para fila o masivo con selección manual)
   const handleAbrirSelectorImpresion = () => {
-    setCuotaParaImprimir(null); // impresión masiva
+    if (cuotasFiltradas.length === 0) {
+      setToastTipo('error');
+      setToastMensaje('No hay registros visibles para imprimir.');
+      setToastVisible(true);
+      return;
+    }
+    setCuotaParaImprimir(null); // impresión masiva (pero con selector)
     setPeriodosAImprimir(periodoSeleccionado ? [periodoSeleccionado] : []);
     setImprimirContable(false);
     setMostrarModalSeleccionPeriodos(true);
   };
 
-  const handleImprimirSeleccionados = async () => {
+  // ⬇️ NUEVO: recibe { anio, seleccionados } desde ModalMesCuotas
+  const handleImprimirSeleccionados = async ({ anio, seleccionados }) => {
     const ventanaImpresion = window.open('', '_blank');
     if (!ventanaImpresion) {
       alert('Por favor deshabilita el bloqueador de ventanas emergentes para esta página');
@@ -534,6 +844,7 @@ const Cuotas = () => {
 
     setLoadingPrint(true);
     try {
+      // Modo contable (se mantiene igual)
       if (imprimirContable) {
         if (cuotaParaImprimir) {
           await imprimirRecibos([cuotaParaImprimir], null, ventanaImpresion, true);
@@ -541,27 +852,36 @@ const Cuotas = () => {
           const lista = cuotasFiltradas;
           if (lista.length > 0) await imprimirRecibos(lista, null, ventanaImpresion, true);
         }
-      } else if (periodosAImprimir.length > 0) {
-        const listaOrdenada = [...periodosAImprimir].sort((a, b) => Number(a) - Number(b));
+      } else {
+        const anual = getAnualPeriodo();
+        const listaOrdenada = [...seleccionados].sort((a, b) => Number(a) - Number(b));
+        const idsStr = listaOrdenada.map(String);
         const importeTotal = calcularImportePorSeleccion(listaOrdenada);
+        const textoPeriodo = construirPeriodoTexto(listaOrdenada, anio);
+        const periodoCodigo = (anual && idsStr.includes(String(anual.id)))
+          ? String(anual.id)
+          : primerIdSeleccionado(listaOrdenada);
+        const anioNum = Number(anio) || Number(anioSeleccionado) || new Date().getFullYear();
 
         if (cuotaParaImprimir) {
           const socioConPeriodos = {
             ...cuotaParaImprimir,
-            id_periodo: primerIdSeleccionado(listaOrdenada),
-            periodo_texto: construirPeriodoTexto(listaOrdenada),
+            id_periodo: periodoCodigo,
+            periodo_texto: textoPeriodo,
             importe_total: importeTotal,
+            anio: anioNum,
           };
-          await imprimirRecibosUnicos([socioConPeriodos], socioConPeriodos.id_periodo, ventanaImpresion);
+          await imprimirRecibosUnicos([socioConPeriodos], periodoCodigo, ventanaImpresion);
         } else {
           const listaEnriquecida = cuotasFiltradas.map((c) => ({
             ...c,
-            id_periodo: primerIdSeleccionado(listaOrdenada),
-            periodo_texto: construirPeriodoTexto(listaOrdenada),
+            id_periodo: periodoCodigo,
+            periodo_texto: textoPeriodo,
             importe_total: importeTotal,
+            anio: anioNum,
           }));
           if (listaEnriquecida.length > 0) {
-            await imprimirRecibosUnicos(listaEnriquecida, primerIdSeleccionado(listaOrdenada), ventanaImpresion);
+            await imprimirRecibosUnicos(listaEnriquecida, periodoCodigo, ventanaImpresion);
           }
         }
       }
@@ -589,106 +909,25 @@ const Cuotas = () => {
   };
   const toggleFiltros = () => setFiltrosExpandidos((s) => !s);
 
-  // =========================
-  // Fila virtualizada
-  // =========================
-  const Row = ({ index, style, data }) => {
-    const cuota = data[index];
-
-    const claseEstadoSocio =
-      {
-        activo: 'cuo_estado-activo',
-        pasivo: 'cuo_estado-pasivo',
-      }[cuota.estado?.toLowerCase()] || 'cuo_badge-warning';
-
-    const claseMedioPago =
-      {
-        cobrador: 'cuo_pago-cobrador',
-        oficina: 'cuo_pago-oficina',
-        transferencia: 'cuo_pago-transferencia',
-      }[cuota.medio_pago?.toLowerCase()] || 'cuo_badge-warning';
-
-    return (
-      <div
-        style={style}
-        className={`cuo_tabla-fila cuo_grid-container ${index % 2 === 0 ? 'cuo_fila-par' : 'cuo_fila-impar'}`}
-      >
-        <div className="cuo_col-id">{getId(cuota) || '-'}</div>
-
-        <div className="cuo_col-nombre">
-          <div className="cuo_nombre-socio">{cuota.nombre}</div>
-          {cuota.documento && <div className="cuo_documento">Doc: {cuota.documento}</div>}
-        </div>
-
-        <div className="cuo_col-domicilio">{cuota.domicilio || '-'}</div>
-
-        {/* SOLO estado del socio (Activo/Pasivo) */}
-        <div className="cuo_col-estado">
-          <span className={`cuo_badge ${claseEstadoSocio}`} title="Estado del socio">
-            {cuota.estado}
-          </span>
-        </div>
-
-        {/* Medio de pago: Cobrador/Oficina/Transferencia */}
-        <div className="cuo_col-medio-pago">
-          <span className={`cuo_badge ${claseMedioPago}`}>{cuota.medio_pago || 'Sin especificar'}</span>
-        </div>
-
-        <div className="cuo_col-acciones">
-          <div className="cuo_acciones-cell">
-            {estadoPagoSeleccionado === 'deudor' ? (
-              <button
-                className="cuo_boton-accion cuo_boton-accion-success"
-                onClick={() => {
-                  setSocioParaPagar(cuota);
-                  setMostrarModalPagos(true);
-                }}
-                title="Registrar pago / condonar"
-              >
-                <FaDollarSign />
-              </button>
-            ) : estadoPagoSeleccionado === 'pagado' ? (
-              <button
-                className="cuo_boton-accion cuo_boton-accion-danger"
-                onClick={() => {
-                  setSocioParaPagar(cuota);
-                  setMostrarModalEliminarPago(true);
-                }}
-                title="Eliminar pago"
-              >
-                <FaTimes />
-              </button>
-            ) : (
-              <button
-                className="cuo_boton-accion cuo_boton-accion-danger"
-                onClick={() => {
-                  setSocioParaPagar(cuota);
-                  setMostrarModalEliminarCond(true);
-                }}
-                title="Eliminar condonación"
-              >
-                <FaTimes />
-              </button>
-            )}
-
-            {/* Imprimir: abre el modal de selección de períodos para ESTE socio */}
-            <button
-              className="cuo_boton-accion cuo_boton-accion-primary"
-              onClick={() => {
-                setCuotaParaImprimir(cuota);
-                setPeriodosAImprimir(periodoSeleccionado ? [periodoSeleccionado] : []);
-                setImprimirContable(false);
-                setMostrarModalSeleccionPeriodos(true);
-              }}
-              title="Imprimir recibo"
-            >
-              <FaPrint />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // Handlers estables para acciones de fila
+  const handlePagar = useCallback((cuota) => () => {
+    setSocioParaPagar(cuota);
+    setMostrarModalPagos(true);
+  }, []);
+  const handleEliminarPago = useCallback((cuota) => () => {
+    setSocioParaPagar(cuota);
+    setMostrarModalEliminarPago(true);
+  }, []);
+  const handleEliminarCondonacion = useCallback((cuota) => () => {
+    setSocioParaPagar(cuota);
+    setMostrarModalEliminarCond(true);
+  }, []);
+  const handleImprimirFila = useCallback((cuota) => () => {
+    setCuotaParaImprimir(cuota);
+    setPeriodosAImprimir(periodoSeleccionado ? [periodoSeleccionado] : []);
+    setImprimirContable(false);
+    setMostrarModalSeleccionPeriodos(true);
+  }, [periodoSeleccionado]);
 
   // =========================
   // Utilidad de UI
@@ -698,12 +937,17 @@ const Cuotas = () => {
     return periodo ? periodo.nombre : id;
   };
 
+  // ======= estado derivado para habilitar "Imprimir todos" =======
+  const imprimirTodosDeshabilitado = useMemo(
+    () => loadingPrint || loading || cuotasFiltradas.length === 0,
+    [loadingPrint, loading, cuotasFiltradas.length]
+  );
+
   // =========================
   // Render
   // =========================
-  // Helper: detectar si el pago mostrado es ANUAL (por período o por flags del socio)
   const anualRef = getAnualPeriodo();
-  const idAnual = anualRef?.id ?? '7'; // fallback por si acaso
+  const idAnual = anualRef?.id ?? ID_CONTADO_ANUAL_FALLBACK;
 
   return (
     <div className="cuo_app-container">
@@ -726,6 +970,24 @@ const Cuotas = () => {
 
         {filtrosExpandidos && (
           <>
+            {/* Filtro de Año (solo años con pagos) */}
+            <div className="cuo_filtro-grupo">
+              <label className="cuo_filtro-label">
+                <FaCalendarAlt className="cuo_filtro-icono" />
+                Año
+              </label>
+              <select
+                value={anioSeleccionado}
+                onChange={(e) => setAnioSeleccionado(e.target.value)}
+                className="cuo_filtro-select"
+                disabled={loading || anios.length === 0}
+              >
+                {anios.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="cuo_filtro-grupo">
               <label className="cuo_filtro-label">
                 <FaCalendarAlt className="cuo_filtro-icono" />
@@ -738,7 +1000,7 @@ const Cuotas = () => {
                 disabled={loading}
               >
                 <option value="">Seleccionar período</option>
-                {periodos.map((p) => (
+                {periodosFiltrados.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
                   </option>
@@ -954,8 +1216,9 @@ const Cuotas = () => {
 
               <button
                 className={`cuo_boton cuo_boton-primary ${loadingPrint ? 'cuo_boton-loading' : ''}`}
-                onClick={handleAbrirSelectorImpresion}
-                disabled={loadingPrint || periodos.length === 0 || loading}
+                onClick={handleImprimirTodosDirecto}
+                disabled={imprimirTodosDeshabilitado}
+                title={cuotasFiltradas.length === 0 ? 'No hay registros para imprimir' : 'Imprimir todos'}
               >
                 {loadingPrint ? (
                   <>
@@ -1012,26 +1275,16 @@ const Cuotas = () => {
                   </p>
                 </div>
               ) : (
-                <AutoSizer>
-                  {({ height, width }) => {
-                    const OuterElement = React.forwardRef((props, ref) => (
-                      <div ref={ref} {...props} style={{ ...props.style, overflowX: 'hidden' }} />
-                    ));
-                    return (
-                      <List
-                        ref={listRef}
-                        height={height}
-                        itemCount={cuotasFiltradas.length}
-                        itemSize={60}
-                        width={width}
-                        itemData={cuotasFiltradas}
-                        outerElementType={OuterElement}
-                      >
-                        {Row}
-                      </List>
-                    );
-                  }}
-                </AutoSizer>
+                <CuotasList
+                  items={cuotasFiltradas}
+                  estadoPagoSeleccionado={estadoPagoSeleccionado}
+                  onPagar={handlePagar}
+                  onEliminarPago={handleEliminarPago}
+                  onEliminarCondonacion={handleEliminarCondonacion}
+                  onImprimir={handleImprimirFila}
+                  listRef={listRef}
+                  getId={getId}
+                />
               )}
             </div>
           </div>
@@ -1046,15 +1299,15 @@ const Cuotas = () => {
             setMostrarModalPagos(false);
             if (refetch) {
               cacheRef.current.mutationTs = Date.now();
+              // invalidar todo el período (del año actual seleccionado)
               invalidateCuotas('deudor', periodoSeleccionado);
               invalidateCuotas('pagado', periodoSeleccionado);
               invalidateCuotas('condonado', periodoSeleccionado);
+              // una sola carga
               await fetchCuotasAll(periodoSeleccionado, { force: true });
-              await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, {
-                force: true,
-                setAsVisible: true,
-                resetScroll: false,
-              });
+              setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, { resetScroll: false });
+              // refrescamos años por si se creó pago en un año nuevo
+              fetchAnios();
             }
           }}
         />
@@ -1071,11 +1324,9 @@ const Cuotas = () => {
             invalidateCuotas('pagado', periodoSeleccionado);
             invalidateCuotas('condonado', periodoSeleccionado);
             await fetchCuotasAll(periodoSeleccionado, { force: true });
-            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, {
-              force: true,
-              setAsVisible: true,
-              resetScroll: false,
-            });
+            setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, { resetScroll: false });
+            // si apareció un año nuevo por este pago, lo agregamos
+            fetchAnios();
           }}
         />
       )}
@@ -1085,13 +1336,10 @@ const Cuotas = () => {
           socio={socioParaPagar}
           periodo={periodoSeleccionado}
           periodoTexto={getNombrePeriodo(periodoSeleccionado)}
-          // >>> PASAMOS esPagoAnual para que muestre el aviso si corresponde:
           esPagoAnual={
-            // 1) Si estamos parados en el período ANUAL
             String(periodoSeleccionado) === String(idAnual)
-            // 2) O si la cuota mostrada proviene/está marcada como pago anual (del backend u otros flags)
             || Boolean(
-              socioParaPagar?.origen_anual ||            // <- campo que devuelve el endpoint /cuotas
+              socioParaPagar?.origen_anual ||
               socioParaPagar?.es_pago_anual ||
               socioParaPagar?.pago_anual ||
               (socioParaPagar?.origen_pago && String(socioParaPagar.origen_pago).toLowerCase().includes('anual')) ||
@@ -1105,11 +1353,9 @@ const Cuotas = () => {
             invalidateCuotas('deudor', periodoSeleccionado);
             invalidateCuotas('condonado', periodoSeleccionado);
             await fetchCuotasAll(periodoSeleccionado, { force: true });
-            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, {
-              force: true,
-              setAsVisible: true,
-              resetScroll: false,
-            });
+            setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, { resetScroll: false });
+            // refrescar años por si al eliminar queda un año vacío
+            fetchAnios();
           }}
         />
       )}
@@ -1126,11 +1372,8 @@ const Cuotas = () => {
             invalidateCuotas('deudor', periodoSeleccionado);
             invalidateCuotas('pagado', periodoSeleccionado);
             await fetchCuotasAll(periodoSeleccionado, { force: true });
-            await fetchCuotas(estadoPagoSeleccionado, periodoSeleccionado, {
-              force: true,
-              setAsVisible: true,
-              resetScroll: false,
-            });
+            setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, { resetScroll: false });
+            fetchAnios();
           }}
         />
       )}
@@ -1138,7 +1381,7 @@ const Cuotas = () => {
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (
         <ModalMesCuotas
-          periodos={periodos}
+          periodos={periodosFiltrados}
           seleccionados={periodosAImprimir}
           onSeleccionadosChange={(nuevosSeleccionados) => {
             setPeriodosAImprimir(nuevosSeleccionados);
@@ -1148,7 +1391,10 @@ const Cuotas = () => {
             setCuotaParaImprimir(null);
             setMostrarModalSeleccionPeriodos(false);
           }}
-          onImprimir={handleImprimirSeleccionados}
+          onImprimir={handleImprimirSeleccionados}  
+          anios={anios}
+          anioSeleccionado={anioSeleccionado}
+          onAnioChange={setAnioSeleccionado}
         />
       )}
 

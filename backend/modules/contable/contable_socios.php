@@ -1,15 +1,47 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 
+header('Content-Type: application/json');
+
 try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    /* ===== Distintos años con pagos (solo estado 'pagado') ===== */
+    $yearsStmt = $pdo->query("
+        SELECT DISTINCT YEAR(fecha_pago) AS y
+          FROM pagos
+         WHERE estado = 'pagado'
+         ORDER BY y ASC
+    ");
+    $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
+
+    /* ===== Año solicitado ===== */
+    $anioParam = isset($_GET['anio']) ? (int)$_GET['anio'] : 0;
+    if ($anioParam > 0) {
+        $anioAplicado = $anioParam;
+    } else {
+        // Si no llega año, por defecto tomar el último disponible (si hay)
+        $anioAplicado = !empty($aniosDisponibles) ? max($aniosDisponibles) : 0;
+    }
 
     /* ===== Total de socios (activos) ===== */
     $stmtTot = $pdo->query("SELECT COUNT(*) AS c FROM socios WHERE activo = 1");
     $rowTot  = $stmtTot->fetch(PDO::FETCH_ASSOC);
     $totalSocios = (int)($rowTot['c'] ?? 0);
 
-    /* ===== Pagos (SOLO pagados) ===== */
+    /* ===== Si no hay años disponibles, devolver vacío ===== */
+    if ($anioAplicado === 0) {
+        echo json_encode([
+            'exito'         => true,
+            'datos'         => [],
+            'total_socios'  => $totalSocios,
+            'anios'         => $aniosDisponibles,
+            'anio_aplicado' => 0,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    /* ===== Pagos (SOLO 'pagado' del año aplicado) ===== */
     $sql = "
         SELECT
             p.id_pago,
@@ -26,29 +58,21 @@ try {
         INNER JOIN periodo per ON per.id_periodo  = p.id_periodo
         LEFT JOIN cobrador cb  ON cb.id_cobrador  = s.id_cobrador
         WHERE p.estado = 'pagado'
+          AND YEAR(p.fecha_pago) = :anio
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
     ";
-    $stmt = $pdo->query($sql);
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':anio', $anioAplicado, PDO::PARAM_INT);
+    $stmt->execute();
     $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     /* ===== Grouping por socio+mes (YYYY-MM) ===== */
-    // Estructura:
-    // groups[$key] = [
-    //   'id_socio' => int,
-    //   'ym' => 'YYYY-MM',
-    //   'rows' => [...pagos del mes...],
-    //   'periodos_set' => [1,2,...],
-    //   'has_anual' => bool,
-    //   'socio_nombre' => string,
-    //   'cobradores' => [ 'COBRADOR A', 'COBRADOR B', ... ],
-    //   'fechas' => [ 'YYYY-MM-DD', ... ],
-    // ]
     $groups = [];
     foreach ($pagos as $row) {
         $idSocio = (int)$row['id_socio'];
         $fecha   = (string)$row['fecha_pago'];
-        if ($fecha === '' || strlen($fecha) < 7) continue; // safety
-        $ym      = substr($fecha, 0, 7); // YYYY-MM
+        if ($fecha === '' || strlen($fecha) < 7) continue;
+        $ym      = substr($fecha, 0, 7);
         $key     = $idSocio . '#' . $ym;
 
         if (!isset($groups[$key])) {
@@ -73,14 +97,12 @@ try {
         if ($idPeriodo === 7) {
             $groups[$key]['has_anual'] = true;
         } else {
-            // Guardar IDs de periodos 1..6
             if ($idPeriodo >= 1 && $idPeriodo <= 6) {
                 $groups[$key]['periodos_set'][$idPeriodo] = true;
             }
         }
     }
 
-    // Helper: obtener el cobrador más frecuente del grupo
     $modoCobrador = function(array $lista) {
         if (empty($lista)) return '';
         $counts = [];
@@ -107,7 +129,6 @@ try {
             }
         }
 
-        // Fecha representativa: si hay anual, usar la del anual; si no, usar la última del mes
         $fechaRepresentativa = '';
         if ($g['has_anual']) {
             foreach ($g['rows'] as $r) {
@@ -118,16 +139,14 @@ try {
             }
         }
         if ($fechaRepresentativa === '') {
-            // última (máxima) fecha del mes
             $fechas = $g['fechas'];
             rsort($fechas);
             $fechaRepresentativa = $fechas[0] ?? null;
         }
 
         $cobradorNombre = $modoCobrador($g['cobradores']);
+        $tieneSeisPeriodos = (count($g['periodos_set']) === 6);
 
-        // ¿Debe colapsarse a CONTADO ANUAL?
-        $tieneSeisPeriodos = (count($g['periodos_set']) === 6); // 1..6 presentes
         if ($g['has_anual'] || $tieneSeisPeriodos) {
             $periodoNombre = 'CONTADO ANUAL';
             if (!isset($porPeriodo[$periodoNombre])) {
@@ -144,11 +163,9 @@ try {
                 'Nombre_Categoria' => null,
                 'Medio_Pago'       => null,
             ];
-            // No agregamos los 1..6 individuales: quedan colapsados
             continue;
         }
 
-        // Si NO es anual ni tiene los 6 pagos, mantener los registros tal cual (precio 4000)
         foreach ($g['rows'] as $r) {
             $periodoNombre = (string)$r['periodo_nombre'];
             if (!isset($porPeriodo[$periodoNombre])) {
@@ -168,13 +185,14 @@ try {
         }
     }
 
-    // Reindexar a lista
     $datos = array_values($porPeriodo);
 
     echo json_encode([
-        'exito'        => true,
-        'datos'        => $datos,
-        'total_socios' => $totalSocios,
+        'exito'         => true,
+        'datos'         => $datos,
+        'total_socios'  => $totalSocios,
+        'anios'         => $aniosDisponibles,
+        'anio_aplicado' => $anioAplicado
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

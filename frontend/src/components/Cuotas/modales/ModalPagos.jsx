@@ -1,6 +1,6 @@
 // src/components/Cuotas/modales/ModalPagos.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { FaCoins } from 'react-icons/fa';
+import { FaCoins, FaCalendarAlt } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalPagos.css';
@@ -11,12 +11,26 @@ const PRECIO_ANUAL_CON_DESCUENTO = 21000; // total con descuento si pagan todo e
 const MESES_ANIO = 6; // cuántos periodos bimestrales equivalen a "todo el año"
 const ID_CONTADO_ANUAL = 7;
 
+// Año mínimo a mostrar en el selector (el sistema existe desde 2025)
+const MIN_YEAR = 2025;
+
 const obtenerPrimerMesDesdeNombre = (nombre) => {
   const match = nombre.match(/\d+/);
   return match ? parseInt(match[0], 10) : 1;
 };
 
+// Genera años desde 2025 hasta (año actual + 4)
+const construirListaAnios = (nowYear) => {
+  const start = MIN_YEAR;
+  const end = nowYear + 4;
+  const arr = [];
+  for (let y = start; y <= end; y++) arr.push(y);
+  return arr;
+};
+
 const ModalPagos = ({ socio, onClose }) => {
+  const nowYear = new Date().getFullYear();
+
   const [periodos, setPeriodos] = useState([]);
   const [seleccionados, setSeleccionados] = useState([]);
   const [periodosPagados, setPeriodosPagados] = useState([]);
@@ -29,34 +43,44 @@ const ModalPagos = ({ socio, onClose }) => {
   // NUEVO: condonar
   const [condonar, setCondonar] = useState(false);
 
+  // NUEVO: año de trabajo + selector emergente
+  // Por defecto el año actual, pero nunca menos que 2025
+  const [anioTrabajo, setAnioTrabajo] = useState(Math.max(nowYear, MIN_YEAR));
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const yearOptions = useMemo(() => construirListaAnios(nowYear), [nowYear]);
+
   const mostrarToast = (tipo, mensaje, duracion = 3000) => {
     setToast({ tipo, mensaje, duracion });
   };
 
+  // Filtra periodos disponibles en función de la fecha de ingreso y el AÑO elegido
   const filtrarPeriodosPorIngreso = () => {
     if (!fechaIngreso) return periodos;
 
     const fecha = new Date(fechaIngreso);
     const mesIngreso = fecha.getMonth() + 1;
     const anioIngreso = fecha.getFullYear();
-    const anioActual = new Date().getFullYear();
 
     return periodos.filter((p) => {
       if (p.id === ID_CONTADO_ANUAL) return true; // siempre visible
       const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
-      return (anioIngreso < anioActual) || (anioIngreso === anioActual && primerMes >= mesIngreso);
+      // Si el socio ingresó antes del año elegido => todos los bimestres del año son válidos.
+      // Si ingresó en el mismo año => solo desde su mes de ingreso.
+      return (anioIngreso < anioTrabajo) || (anioIngreso === anioTrabajo && primerMes >= mesIngreso);
     });
   };
 
   const periodosDisponibles = filtrarPeriodosPorIngreso();
 
+  // Carga inicial + cuando cambia el año elegido
   useEffect(() => {
     const fetchDatos = async () => {
       setCargando(true);
       try {
         const [resListas, resPagados] = await Promise.all([
           fetch(`${BASE_URL}/api.php?action=listas`),
-          fetch(`${BASE_URL}/api.php?action=periodos_pagados&id_socio=${socio.id_socio}`)
+          // ⬇️ Filtramos periodos pagados por AÑO
+          fetch(`${BASE_URL}/api.php?action=periodos_pagados&id_socio=${socio.id_socio}&anio=${anioTrabajo}`)
         ]);
 
         const dataListas = await resListas.json();
@@ -68,10 +92,11 @@ const ModalPagos = ({ socio, onClose }) => {
         }
 
         if (dataPagados.exito) {
-          setPeriodosPagados(dataPagados.periodos_pagados); // pagados o condonados
+          setPeriodosPagados(dataPagados.periodos_pagados || []); // pagados o condonados (de ese año)
           setFechaIngreso(dataPagados.ingreso);
         } else {
-          mostrarToast('advertencia', 'Error al obtener períodos pagados/condonados');
+          setPeriodosPagados([]);
+          mostrarToast('advertencia', 'No se pudieron obtener períodos pagados/condonados para el año seleccionado');
         }
       } catch (error) {
         console.error('Error al obtener datos:', error);
@@ -82,7 +107,9 @@ const ModalPagos = ({ socio, onClose }) => {
     };
 
     if (socio?.id_socio) fetchDatos();
-  }, [socio]);
+    // limpiamos selección al cambiar el año
+    setSeleccionados([]);
+  }, [socio, anioTrabajo]);
 
   // ---- Helpers de selección ----
   const seleccionIncluyeAnual = seleccionados.includes(ID_CONTADO_ANUAL);
@@ -135,7 +162,11 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // Texto de períodos para el comprobante
   const periodoTextoFinal = useMemo(() => {
-    if (seleccionIncluyeAnual) return 'CONTADO ANUAL';
+    // 🔧 CAMBIO: si aplica el descuento anual (por 6 bimestres o por contar con "Contado Anual"),
+    // imprimimos "CONTADO ANUAL {anio}"
+    if (aplicaDescuentoAnual) return `CONTADO ANUAL ${anioTrabajo}`;
+
+    if (seleccionIncluyeAnual) return `CONTADO ANUAL ${anioTrabajo}`;
     if (seleccionSinAnual.length === 0) return '';
     const partes = seleccionSinAnual
       .map(id => {
@@ -143,8 +174,8 @@ const ModalPagos = ({ socio, onClose }) => {
         if (!p) return String(id);
         return p.nombre.replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
       });
-    return partes.join(' / ');
-  }, [seleccionIncluyeAnual, seleccionSinAnual, periodos]);
+    return `${partes.join(' / ')} ${anioTrabajo}`;
+  }, [aplicaDescuentoAnual, seleccionIncluyeAnual, seleccionSinAnual, periodos, anioTrabajo]);
 
   // ======= CONFIRMAR / ÉXITO =======
   const confirmar = async () => {
@@ -161,7 +192,8 @@ const ModalPagos = ({ socio, onClose }) => {
         body: JSON.stringify({
           id_socio: socio.id_socio,
           periodos: seleccionados,
-          condonar: condonar
+          condonar: condonar,
+          anio: anioTrabajo, // se registra en el año elegido
         })
       });
 
@@ -189,13 +221,17 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= COMPROBANTE / IMPRESIÓN =======
   const handleImprimirComprobante = async () => {
-    const periodoCodigo = seleccionIncluyeAnual ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
+    // 🔧 CAMBIO: si aplica anual (por 6 bimestres o por selección directa),
+    // forzamos el período a 7 (CONTADO ANUAL)
+    const esAnual = aplicaDescuentoAnual;
+    const periodoCodigo = esAnual ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
 
     const socioParaImprimir = {
       ...socio,
       id_periodo: periodoCodigo,
       periodo_texto: periodoTextoFinal,
-      importe_total: total
+      importe_total: total,
+      anio: anioTrabajo, // ayuda al código de barras a fijar el año correcto
     };
 
     const win = window.open('', '_blank');
@@ -316,7 +352,7 @@ const ModalPagos = ({ socio, onClose }) => {
               </div>
             </div>
 
-            {/* Toggle condonar (sin textos de ayuda) */}
+            {/* Caja condonar + selector de AÑO */}
             <div className={`condonar-box ${condonar ? 'is-active' : ''}`}>
               <label className="condonar-check">
                 <input
@@ -332,6 +368,37 @@ const ModalPagos = ({ socio, onClose }) => {
                   Marcar como <strong>Condonado</strong> (no genera cobro)
                 </span>
               </label>
+
+              {/* Panel derecho compacto: selector de año */}
+              <div className="year-picker">
+                <button
+                  type="button"
+                  className="year-button"
+                  onClick={() => setShowYearPicker((s) => !s)}
+                  disabled={cargando}
+                  title="Cambiar año"
+                >
+                  <FaCalendarAlt />
+                  <span>{anioTrabajo}</span>
+                </button>
+
+                {showYearPicker && (
+                  <div className="year-popover" onMouseLeave={() => setShowYearPicker(false)}>
+                    {yearOptions.map((y) => (
+                      <button
+                        key={y}
+                        className={`year-item ${y === anioTrabajo ? 'active' : ''}`}
+                        onClick={() => {
+                          setAnioTrabajo(y);
+                          setShowYearPicker(false);
+                        }}
+                      >
+                        {y}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="periodos-section">

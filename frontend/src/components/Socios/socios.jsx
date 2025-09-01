@@ -166,8 +166,9 @@ const BarraSuperior = React.memo(({
                 className="soc-buscador-icono"
                 onClick={() => {
                   setBusquedaInput('');
+                  // ⚠️ Antes forzaba showAll:false; ahora respeta el valor actual
                   startTransition(() => {
-                    setFiltros(prev => ({ ...prev, busqueda: '', showAll: false }));
+                    setFiltros(prev => ({ ...prev, busqueda: '' /*, showAll: prev.showAll */ }));
                   });
                 }}
               />
@@ -365,10 +366,13 @@ const Socios = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       startTransition(() => {
+        // ⚠️ Cambio clave:
+        // Solo apagamos showAll si HAY texto en el buscador.
+        // Si está vacío, mantenemos el valor actual de showAll (no lo forzamos a false).
         setFiltros(prev => ({
           ...prev,
           busqueda: busquedaInput || '',
-          showAll: false,
+          showAll: (busquedaInput && busquedaInput.trim().length > 0) ? false : prev.showAll,
         }));
       });
     }, NAME_DEBOUNCE_MS);
@@ -454,13 +458,11 @@ const Socios = () => {
     if (activeFilters.byId) {
       const found = idxById.get(String(busquedaId));
       arr = found && found._isActive ? [found] : [];
-      // si no hay match por ID ya no hace falta seguir
       if (arr.length === 0) return arr;
     }
 
     // Letra
     if (activeFilters.byLetter) {
-      // Filtramos por la primera letra del nombre
       arr = arr.filter(s => s._first === letraSeleccionada);
     }
 
@@ -469,13 +471,13 @@ const Socios = () => {
       arr = arr.filter(s => String(s.id_categoria) === String(categoriaSeleccionada));
     }
 
-    // Búsqueda por nombre (includes, minúsculas)
+    // Búsqueda por nombre
     if (activeFilters.bySearch) {
       const q = deferredBusqueda.toLowerCase();
       arr = arr.filter(s => s._name.includes(q));
     }
 
-    // Si no hay filtros activos y no está showAll => UX: vacío hasta que aplique alguno
+    // Si no hay filtros activos y no está showAll => vacío hasta que aplique alguno
     if (activeFiltersCount === 0) return [];
 
     return arr;
@@ -498,7 +500,6 @@ const Socios = () => {
     return () => clearTimeout(t);
   }, [allowCascade]);
 
-  // Disparo simple cuando cambia cantidad de filas
   const lastCountRef = useRef(0);
   useEffect(() => {
     if (lastCountRef.current !== sociosFiltrados.length) {
@@ -542,21 +543,25 @@ const Socios = () => {
       sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
       sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
       sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
-      // Guarda filtros actuales (incluye showAll y combinaciones)
+      // Guarda filtros actuales (incluye showAll)
       sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
       sessionStorage.setItem(`socio_prefetch_${socio.id_socio}`, JSON.stringify(socio));
     } catch {}
     navigate(`/socios/editar/${socio.id_socio}`, { state: { refresh: true, socio } });
   }, [navigate, filtros]);
 
+  const locationRef = useRef(location);
+  useEffect(() => { locationRef.current = location; }, [location]);
+
   useEffect(() => {
-    const state = location.state;
+    const state = locationRef.current.state;
     if (state && state.refresh) {
       setNeedsRefresh(true);
       restorePendingRef.current = true;
-      navigate(location.pathname, { replace: true, state: {} });
+      navigate(locationRef.current.pathname, { replace: true, state: {} });
     }
-  }, [location, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ============================
              FETCH
@@ -657,36 +662,34 @@ const Socios = () => {
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
       const savedOffset = Number(sessionStorage.getItem(SS_KEYS.SCROLL) || '0');
 
-      // si hay filtros activos quizá la lista esté vacía aún; hacemos scroll directo
-      if (selId && socios.length > 0) {
-        const currentList = (() => {
-          // reconstruimos con filtros actuales rápidamente (mismo algoritmo)
-          let arr = socios.filter(s => s._isActive);
-          const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
+      // reconstruimos con filtros actuales rápidamente (mismo algoritmo)
+      const currentList = (() => {
+        let arr = socios.filter(s => s._isActive);
+        const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
 
-          if (parsed.showAll) return arr;
+        if (parsed.showAll) return arr;
 
-          if (parsed.busquedaId) {
-            const found = arr.find(s => String(s.id_socio) === String(parsed.busquedaId));
-            arr = found ? [found] : [];
-          }
-          if (parsed.letraSeleccionada && parsed.letraSeleccionada !== 'TODOS') {
-            arr = arr.filter(s => s._first === parsed.letraSeleccionada);
-          }
-          if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
-            arr = arr.filter(s => String(s.id_categoria) === String(parsed.categoriaSeleccionada));
-          }
-          if (parsed.busqueda) {
-            const q = String(parsed.busqueda).toLowerCase();
-            arr = arr.filter(s => s._name.includes(q));
-          }
-          return arr;
-        })();
+        if (parsed.busquedaId) {
+          const found = arr.find(s => String(s.id_socio) === String(parsed.busquedaId));
+          arr = found ? [found] : [];
+        }
+        if (parsed.letraSeleccionada && parsed.letraSeleccionada !== 'TODOS') {
+          arr = arr.filter(s => s._first === parsed.letraSeleccionada);
+        }
+        if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
+          arr = arr.filter(s => String(s.id_categoria) === String(parsed.categoriaSeleccionada));
+        }
+        if (parsed.busqueda) {
+          const q = String(parsed.busqueda).toLowerCase();
+          arr = arr.filter(s => s._name.includes(q));
+        }
+        return arr;
+      })();
 
+      if (selId) {
         const idx = currentList.findIndex(s => String(s.id_socio) === String(selId));
         if (idx >= 0) {
           setSocioSeleccionado(currentList[idx]);
-          // diferimos el scroll para cuando la lista exista
           requestAnimationFrame(() => {
             listRef.current?.scrollToItem?.(idx, 'smart');
           });
@@ -893,7 +896,7 @@ const Socios = () => {
   ============================ */
   const limpiarChip = useCallback((tipo) => {
     setFiltros(prev => {
-      if (tipo === 'busqueda') return { ...prev, busqueda: '', showAll: false };
+      if (tipo === 'busqueda') return { ...prev, busqueda: '', showAll: prev.showAll };
       if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
       if (tipo === 'letra') return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
       if (tipo === 'categoria') return { ...prev, categoriaSeleccionada: 'OPCIONES', showAll: false };

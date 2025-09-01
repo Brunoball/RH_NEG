@@ -1,12 +1,12 @@
 /* ContableChartsModal.css */
 /* =========================
-   MODAL DE GRÁFICOS (aislado)
+   MODAL DE GRÁFICOS (sin scroll interno)
    ========================= */
 
 :root {
-  /* Altura base charts */
-  --chart-h-line: clamp(260px, 34vw, 360px);   /* line chart */
-  --chart-h-pie: clamp(220px, 28vw, 300px);    /* pie chart más chico */
+  /* Altura base charts (ligeramente más compactas) */
+  --chart-h-line: clamp(240px, 32vw, 340px);
+  --chart-h-pie:  clamp(200px, 26vw, 280px);
 }
 
 .contable-modal-overlay {
@@ -14,22 +14,27 @@
   inset: 0;
   background: rgba(0,0,0,.35);
   display: flex;
-  align-items: center;
+  align-items: center;          /* centrado vertical */
   justify-content: center;
   padding: 20px;
   z-index: 999;
+  /* ⬇️ Si el contenido superara el viewport, scrollea el overlay,
+     no el interior del modal */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .contable-modal {
   width: min(1100px, 96vw);
-  max-height: 90vh;
-  overflow: hidden;
+  /* ⬇️ Sin max-height y sin overflow escondido: nada de scroll interno */
+  height: auto;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,.22);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: visible; /* importante */
 }
 
 .contable-modal * {
@@ -62,8 +67,8 @@
 
 .contable-modal-body {
   padding: 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* ⬇️ Sin scroll interno */
+  overflow: visible;
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr 1fr;
@@ -101,9 +106,9 @@
   height: var(--chart-h-pie);
 }
 
-/* 🔽 Ajuste: bajar más el gráfico de círculo para alinear textos/footers */
+/* Ajuste visual del pie */
 .contable-chart-card:nth-of-type(2) .contable-chart-wrapper--pie {
-  margin-top: 28px; /* ← ajustá acá (22–36px) según tu gusto */
+  margin-top: 24px;
 }
 
 .contable-chart-wrapper canvas,
@@ -167,30 +172,24 @@
   }
 
   :root {
-    --chart-h-line: clamp(240px, 48vw, 320px);
-    --chart-h-pie: clamp(200px, 40vw, 260px);
+    --chart-h-line: clamp(220px, 44vw, 300px);
+    --chart-h-pie:  clamp(190px, 38vw, 240px);
   }
 
-  /* En stack vertical lo dejamos un poco menos agresivo */
   .contable-chart-card:nth-of-type(2) .contable-chart-wrapper--pie {
-    margin-top: 18px;
+    margin-top: 16px;
   }
 }
 
 @media (max-width: 768px) {
-  .contable-modal-overlay {
-    padding: 12px;
-  }
+  .contable-modal-overlay { padding: 12px; }
 
   .contable-modal {
     width: 96vw;
-    max-height: 92vh;
     border-radius: 12px;
   }
 
-  .contable-modal-header {
-    padding: 12px 14px;
-  }
+  .contable-modal-header { padding: 12px 14px; }
 
   .contable-modal-body {
     padding: 12px;
@@ -203,8 +202,8 @@
   }
 
   :root {
-    --chart-h-line: clamp(220px, 58vw, 300px);
-    --chart-h-pie: clamp(180px, 50vw, 240px);
+    --chart-h-line: clamp(200px, 54vw, 280px);
+    --chart-h-pie:  clamp(170px, 46vw, 220px);
   }
 
   .contable-chart-card:nth-of-type(2) .contable-chart-wrapper--pie {
@@ -213,19 +212,13 @@
 }
 
 @media (max-width: 420px) {
-  .contable-modal-header h3 {
-    font-size: 1rem;
-    gap: 6px;
-  }
+  .contable-modal-header h3 { font-size: 1rem; gap: 6px; }
 
-  .contable-chart-card {
-    padding: 10px;
-    gap: 8px;
-  }
+  .contable-chart-card { padding: 10px; gap: 8px; }
 
   :root {
-    --chart-h-line: clamp(210px, 66vw, 280px);
-    --chart-h-pie: clamp(170px, 60vw, 220px);
+    --chart-h-line: clamp(190px, 62vw, 260px);
+    --chart-h-pie:  clamp(160px, 56vw, 200px);
   }
 
   .contable-chart-card:nth-of-type(2) .contable-chart-wrapper--pie {

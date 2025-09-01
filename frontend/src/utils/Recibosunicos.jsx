@@ -24,42 +24,36 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
   const limpiarPrefijoPeriodo = (txt = '') =>
     String(txt).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
+  const extraerAnio = (txt = '') => {
+    const m = String(txt).match(/(20\d{2})/);
+    return m ? parseInt(m[1], 10) : null;
+  };
+
+  // Cuenta cuántos pares "n/m" hay en un texto de períodos (para detectar múltiples períodos)
+  const contarPares = (txt = '') => {
+    const unificado = String(txt).replace(/\s*[yY]\s*/g, '/');
+    let count = 0;
+    const re = /(\d+)\s*\/\s*(\d+)/g;
+    while (re.exec(unificado)) count++;
+    return count;
+  };
 
   /**
    * Normaliza listados de períodos a "1/2 3/4 5/6".
-   * Acepta entradas como:
-   *  - "1 Y 2 / 3 Y 4 / 5 Y 6"
-   *  - "1/2 3/4 5/6"
-   *  - "1/2 / 3/4 / 5/6"
-   *  - mezclas de las anteriores
    */
   const normalizarYOrdenarPeriodos = (txt = '') => {
     const limpio = limpiarPrefijoPeriodo(txt);
-
-    // Unificar "y" -> "/"
     const unificado = limpio.replace(/\s*[yY]\s*/g, '/');
-
-    // Extraer todos los pares n/m (permitiendo espacios alrededor del "/")
     const pares = [];
     const re = /(\d+)\s*\/\s*(\d+)/g;
     let m;
     while ((m = re.exec(unificado)) !== null) {
       const a = parseInt(m[1], 10);
       const b = parseInt(m[2], 10);
-      if (Number.isFinite(a) && Number.isFinite(b)) {
-        pares.push([a, b]);
-      }
+      if (Number.isFinite(a) && Number.isFinite(b)) pares.push([a, b]);
     }
-
-    if (pares.length === 0) {
-      // fallback: devolver el texto limpio por si no hay pares reconocibles
-      return unificado.trim();
-    }
-
-    // Ordenar por el primer número y luego por el segundo
+    if (pares.length === 0) return unificado.trim();
     pares.sort((A, B) => (A[0] !== B[0] ? A[0] - B[0] : A[1] - B[1]));
-
-    // Volver a formatear, separando cada par por ESPACIO
     return pares.map(([a, b]) => `${a}/${b}`).join(' ');
   };
 
@@ -117,9 +111,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
       estados    = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
       periodos   = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
     }
-  } catch {
-    /* seguimos con fallbacks */
-  }
+  } catch { /* fallbacks */ }
 
   // --- ventana de impresión ---
   const win = ventana || window.open('', '', 'width=800,height=600');
@@ -129,7 +121,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
 
   // --- construir el HTML ---
   let pagesHTML = '';
-  const codigosBarra = []; // sólo para las copias con código
+  const codigosBarra = []; // solo para los recibos que realmente muestren código
 
   for (let p = 0; p < Math.ceil(sociosCompletos.length / 6); p++) {
     const pageSocios = sociosCompletos.slice(p * 6, p * 6 + 6);
@@ -150,23 +142,35 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
 
       const codigoPeriodo = String(s.id_periodo || periodoActual || '0');
 
-      // Normalización pedida:
       const esAnual = codigoPeriodo === '7' ||
         (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL'));
-      const textoPeriodo = esAnual
-        ? 'CONTADO ANUAL'
-        : normalizarYOrdenarPeriodos(
-            s.periodo_texto || periodos[codigoPeriodo] || `Período ${codigoPeriodo}`
-          );
+      const textoBasePeriodo = s.periodo_texto || periodos[codigoPeriodo] || `Período ${codigoPeriodo}`;
+      const textoPeriodo = esAnual ? 'CONTADO ANUAL' : normalizarYOrdenarPeriodos(textoBasePeriodo);
 
+      // 💡 Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
       const importeStr = (typeof s.importe_total === 'number')
         ? formatARS(s.importe_total)
         : (typeof s.importe === 'number' ? formatARS(s.importe) : (s.importe || '$4000'));
 
-      const codigoBarra = `${codigoPeriodo}-${id}`;
-      codigosBarra.push(codigoBarra);
+      // === Reglas para mostrar/ocultar código de barras ===
+      // Mostrar solo si es ANUAL o si hay UN (1) par n/m. Si hay más de uno => ocultar.
+      const cantidadPares = contarPares(textoBasePeriodo);
+      const showBarcode = esAnual || cantidadPares === 1;
 
-      const bloque = (conCodigo, barcodeIndex) => `
+      // Código con 2 dígitos del año (aa)
+      const anioParaCodigo =
+        s.anio || s.anioTrabajo || extraerAnio(textoBasePeriodo) || new Date().getFullYear();
+      const anio2d = String(anioParaCodigo).slice(-2);
+      const codigoBarra = `${codigoPeriodo}${anio2d}-${id}`;
+
+      // Solo agrego a la lista si realmente voy a renderizarlo
+      let barcodeIndex = null;
+      if (showBarcode) {
+        barcodeIndex = codigosBarra.length;
+        codigosBarra.push(codigoBarra);
+      }
+
+      const bloque = (conCodigo) => `
         <div class="recibo-area" style="top:${top}mm; left:${conCodigo ? '5mm' : '110mm'};">
           <div class="recibo">
             <div class="row">
@@ -190,8 +194,10 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
               <div class="cell cell-barcode">
                 ${
                   conCodigo
-                    ? `<div class="barcode-container"><svg id="barcode-${barcodeIndex}" class="barcode"></svg></div>
-                       <div class="barcode-text">${codigoBarra}</div>`
+                    ? (showBarcode
+                        ? `<div class="barcode-container"><svg id="barcode-${barcodeIndex}" class="barcode"></svg></div>
+                           <div class="barcode-text">${codigoBarra}</div>`
+                        : ``)
                     : `<div class="firma">Francisco José Meré -<br/>Tesorero</div>`
                 }
               </div>
@@ -200,9 +206,8 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
         </div>
       `;
 
-      const idx = codigosBarra.length - 1;
-      pageHTML += bloque(true, idx);   // con código
-      pageHTML += bloque(false, null); // con firma
+      pageHTML += bloque(true);   // copia izquierda (con código si corresponde)
+      pageHTML += bloque(false);  // copia derecha (firma)
     }
 
     pageHTML += '</div>';
@@ -239,6 +244,72 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
   ${pagesHTML}
   <script>
     (function(){
+      var codigos = ${JSON.stringify([])}; // se rellenará abajo
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      var codigos = ${JSON.stringify([])};
+    })();
+  </script>
+  <script>
+    (function(){
+      // Relleno real de códigos
       var codigos = ${JSON.stringify(codigosBarra)};
       for (var i = 0; i < codigos.length; i++) {
         try {
@@ -249,7 +320,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
             height: 50,
             displayValue: false
           });
-        } catch (e) { /* ignorar si no existe el nodo */ }
+        } catch (e) { /* ignorar si falta el nodo */ }
       }
       window.print();
     })();

@@ -127,6 +127,17 @@ const Principal = () => {
 
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // Detectar cambios en el tamaño de la pantalla
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 🧹 Al entrar a Principal, limpiar SIEMPRE filtros/caches de Socios
   useEffect(() => {

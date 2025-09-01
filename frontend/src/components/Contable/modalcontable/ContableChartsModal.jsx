@@ -39,10 +39,12 @@ export default function ContableChartsModal({
   open,
   onClose,
   datosMeses = [],
-  datosEmpresas = [],
+  datosEmpresas = [], // no usado, pero lo dejamos para compat
   mesSeleccionado = "Selecciona un periodo",
   medioSeleccionado = "todos",
   totalSocios = 0,
+  // ⬇️ Año seleccionado para mostrar en la UI
+  anioSeleccionado = null,
 }) {
   // ===== utils =====
   const norm = (s) => (s || "").toString().trim().toLowerCase();
@@ -95,6 +97,7 @@ export default function ContableChartsModal({
     p?.Cobrador_Nombre ||
     "";
 
+  // Cerrar con ESC
   useEffect(() => {
     if (!open) return;
     const onEsc = (e) => {
@@ -120,13 +123,12 @@ export default function ContableChartsModal({
     []
   );
 
-  // ⚠️ Importante: NO mutar el array fuente
   const periodosOrdenados = useMemo(
     () => periodosCanonicos.slice().sort((a, b) => periodoRank(a) - periodoRank(b)),
     [periodosCanonicos]
   );
 
-  // Todos los pagos (solo socios) unificados (sin importar bloque)
+  // Unificar pagos de bloques
   const todosLosPagos = useMemo(() => {
     const out = [];
     for (const b of datosMeses || []) if (Array.isArray(b?.pagos)) out.push(...b.pagos);
@@ -139,7 +141,7 @@ export default function ContableChartsModal({
     return (todosLosPagos || []).filter((p) => norm(nombreCobrador(p)) === norm(medioSeleccionado));
   }, [todosLosPagos, medioSeleccionado]);
 
-  // ===== helper: sumar por período usando FECHA DE PAGO =====
+  // Suma por período usando FECHA DE PAGO
   const sumaPeriodoPorFecha = (labelPeriodo) => {
     const meses = extractMonthsFromPeriodLabel(labelPeriodo);
     if (!meses.length) return 0;
@@ -151,10 +153,9 @@ export default function ContableChartsModal({
     return lista.reduce((acc, p) => acc + (parseFloat(p?.Precio) || 0), 0);
   };
 
-  // ===== construir labels de la LÍNEA según selección / período actual =====
+  // Labels para la línea
   const currentMonth = new Date().getMonth() + 1; // 1..12
 
-  // Períodos hasta el actual (incluye el que contiene el mes actual)
   const periodosHastaActual = useMemo(() => {
     const list = periodosOrdenados.filter((per) => {
       const meses = extractMonthsFromPeriodLabel(per);
@@ -162,18 +163,14 @@ export default function ContableChartsModal({
       const minMes = Math.min(...meses);
       return minMes <= currentMonth;
     });
-    // Fallback defensivo por si algo quedara vacío
     return list.length ? list : periodosOrdenados.slice(0, 1);
   }, [periodosOrdenados, currentMonth]);
 
-  // ¿Hay selección válida?
   const haySeleccion =
     mesSeleccionado &&
     mesSeleccionado !== "Selecciona un periodo" &&
     periodosOrdenados.some((l) => norm(l) === norm(mesSeleccionado));
 
-  // ✔️ Sin selección: todos hasta el actual (incluido)
-  // ✔️ Con selección: seleccionado y su anterior
   const lineLabels = useMemo(() => {
     if (haySeleccion) {
       const idxSel = periodosOrdenados.findIndex((l) => norm(l) === norm(mesSeleccionado));
@@ -183,8 +180,6 @@ export default function ContableChartsModal({
     return periodosHastaActual;
   }, [haySeleccion, mesSeleccionado, periodosOrdenados, periodosHastaActual]);
 
-  // Serie para esos labels (por fecha de pago)
-  // 🔧 FIX: incluir pagosFiltradosPorCobrador en dependencias para evitar valores 0 por cierre obsoleto
   const serieSocios = useMemo(
     () => lineLabels.map((per) => sumaPeriodoPorFecha(per)),
     [lineLabels, pagosFiltradosPorCobrador]
@@ -252,14 +247,13 @@ export default function ContableChartsModal({
     return arr;
   }, [lineLabels, serieSocios]);
 
-  /* ========= PIE CHART (Pagaron vs No pagaron por FECHA de pago) ========= */
+  /* ========= PIE CHART ========= */
   const periodoEfectivo = useMemo(() => {
     if (haySeleccion) return mesSeleccionado;
     if (periodosHastaActual.length > 0) return periodosHastaActual[periodosHastaActual.length - 1];
     return periodosOrdenados[periodosOrdenados.length - 1] || undefined;
   }, [haySeleccion, mesSeleccionado, periodosHastaActual, periodosOrdenados]);
 
-  // Socios únicos que pagaron en los meses del período efectivo (fecha de pago)
   const pagaronEnPeriodo = useMemo(() => {
     if (!periodoEfectivo) return 0;
     const meses = extractMonthsFromPeriodLabel(periodoEfectivo);
@@ -278,7 +272,6 @@ export default function ContableChartsModal({
     return setSocios.size;
   }, [periodoEfectivo, pagosFiltradosPorCobrador]);
 
-  // Universo total para el pie
   const universoTotal =
     totalSocios > 0
       ? totalSocios
@@ -353,6 +346,7 @@ export default function ContableChartsModal({
         <div className="contable-modal-header">
           <h3>
             <FontAwesomeIcon icon={faChartPie} /> Gráficos de Recaudación
+            {anioSeleccionado ? ` · Año ${anioSeleccionado}` : ""}
             {medioSeleccionado !== "todos" ? ` · ${medioSeleccionado}` : ""}
           </h3>
           <button className="contable-modal-close" onClick={onClose} aria-label="Cerrar">
@@ -365,8 +359,8 @@ export default function ContableChartsModal({
           <div className="contable-chart-card">
             <h4>
               {haySeleccion
-                ? "Comparativa de períodos (seleccionado vs anterior)"
-                : "Evolución por período (hasta el período actual)"}
+                ? `Comparativa de períodos (seleccionado vs anterior) · Año ${anioSeleccionado ?? "—"}`
+                : `Evolución por período (hasta el período actual) · Año ${anioSeleccionado ?? "—"}`}
             </h4>
 
             <div className="contable-chart-wrapper">
@@ -391,7 +385,7 @@ export default function ContableChartsModal({
           {/* ===== PIE ===== */}
           <div className="contable-chart-card">
             <h4>
-              Pagos en {periodoEfectivo || "—"} · {Number(universoTotal).toLocaleString("es-AR")} socios
+              {`Pagos en ${periodoEfectivo || "—"} · Año ${anioSeleccionado ?? "—"} · ${Number(universoTotal).toLocaleString("es-AR")} socios`}
             </h4>
             <div className="contable-chart-wrapper contable-chart-wrapper--pie">
               <Pie data={pieData} options={pieOptions} />

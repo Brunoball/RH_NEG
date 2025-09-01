@@ -1,3 +1,4 @@
+/* src/components/Cuotas/modales/ModalPagos.css */
 :root{
   --primary:#4F46E5;--primary-hover:#4338CA;--primary-light:#EEF2FF;--primary-light-hover:#E0E7FF;
   --secondary:#6B7280;--secondary-hover:#4B5563;--success:#10B981;--success-strong:#059669;
@@ -10,7 +11,7 @@
   --shadow-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
   --shadow-xl:0 20px 25px -5px rgba(0,0,0,.1),0 10px 10px -5px rgba(0,0,0,.04);
   --periodos-gap:.6rem;
-  --periodo-item-h:60px; /* alto estimado de cada tarjeta para calcular 3 filas */
+  --periodo-item-h:60px;
 }
 *{box-sizing:border-box}
 
@@ -34,6 +35,7 @@
 .modal-body{padding:1rem 0;background:#fff;max-height:80vh;display:flex;flex-direction:column;min-height:120px}
 .modal-body>.success-card:only-child{margin:auto 1.5rem}
 
+/* Socio */
 .socio-info-card{background:var(--gray-50);border-radius:var(--border-radius);padding:1.25rem;margin:0 1.5rem 1.25rem;border-left:4px solid var(--primary)}
 .socio-info-header{display:flex;flex-direction:column;gap:.5rem}
 .socio-nombre{font-size:1.125rem;font-weight:600;color:var(--gray-900);margin:0}
@@ -41,10 +43,20 @@
 .fecha-label{font-weight:500}
 .fecha-valor{color:var(--gray-700);font-weight:500}
 
-/* Condonar */
-.condonar-box{margin:0 1.5rem 1rem;padding:1rem;border:1px solid var(--gray-200);border-radius:var(--border-radius);background:var(--gray-50);transition:background .2s,border-color .2s,box-shadow .2s}
+/* Condonar + panel derecho (achicado) */
+.condonar-box{
+  margin:0 1.5rem 1rem;
+  padding:1rem;
+  border:1px solid var(--gray-200);
+  border-radius:var(--border-radius);
+  background:var(--gray-50);
+  transition:background .2s,border-color .2s,box-shadow .2s;
+  display:flex;               /* ⬅️ ahora flex */
+  align-items:center;
+  gap:1rem;
+}
 .condonar-box.is-active{background:var(--warning-light);border-color:#FDE68A;box-shadow:0 1px 0 0 rgba(245,158,11,.12) inset}
-.condonar-check{display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none}
+.condonar-check{display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none;flex:1} /* ⬅️ ocupa el espacio principal */
 .condonar-check input{display:none}
 .switch{width:44px;height:24px;background:var(--gray-300);border-radius:999px;position:relative;transition:background .2s;flex:0 0 auto}
 .switch-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:var(--shadow-sm);transition:transform .2s}
@@ -52,11 +64,33 @@
 .condonar-check input:checked + .switch .switch-thumb{transform:translateX(20px)}
 .switch-label{color:var(--gray-800);font-size:.95rem}
 
+/* NUEVO: selector de año, compacto a la derecha */
+.year-picker{position:relative;flex:0 0 160px;display:flex;justify-content:flex-end}
+.year-button{
+  display:inline-flex;align-items:center;gap:.5rem;
+  background:var(--primary-light);color:var(--primary);
+  border:1px solid var(--primary);border-radius:9999px;
+  padding:.45rem .75rem;font-weight:600;cursor:pointer;
+}
+.year-button:disabled{opacity:.6;cursor:not-allowed}
+.year-popover{
+  position:absolute;top:110%;right:0;z-index:10;
+  background:#fff;border:1px solid var(--gray-200);border-radius:10px;
+  box-shadow:var(--shadow-lg);padding:.4rem;min-width:140px;
+  display:grid;grid-template-columns:1fr;gap:.25rem;
+}
+.year-item{
+  background:#fff;border:1px solid var(--gray-200);
+  border-radius:8px;padding:.4rem .5rem;text-align:center;cursor:pointer;
+}
+.year-item:hover{background:var(--gray-50)}
+.year-item.active{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700}
+
 /* Periodos */
-.periodos-section{padding:0 1.5rem;margin-top:.5rem} /* mismo padding lateral que el resto */
+.periodos-section{padding:0 1.5rem;margin-top:.5rem}
 .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
 .section-header-actions{display:flex;align-items:center;gap:1rem}
-.section-header-actions .btn{margin-right:0} /* borde derecho alineado con padding del section */
+.section-header-actions .btn{margin-right:0}
 .section-title{font-size:.875rem;font-weight:600;color:var(--gray-700);text-transform:uppercase;letter-spacing:.05em;margin:0}
 
 .loading-state{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:2rem;color:var(--gray-600)}
@@ -90,13 +124,13 @@
 .periodo-label{
   font-size:.9375rem;font-weight:500;color:var(--gray-800);
   cursor:pointer;display:flex;align-items:center;gap:1rem;
-  flex:1; /* ocupa el ancho restante para empujar el estado */
+  flex:1;
 }
 .periodo-status{
   display:flex;align-items:center;gap:.25rem;font-size:.7rem;font-weight:500;
   color:var(--success);background:var(--success-light);padding:.25rem .6rem;border-radius:9999px;white-space:nowrap;
-  margin-left:auto;            /* empuja completamente a la derecha */
-  margin-right:.25rem;         /* pequeño margen con el borde */
+  margin-left:auto;
+  margin-right:.25rem;
 }
 
 /* Footer */
@@ -131,10 +165,7 @@
   .btn{width:100%}
   .periodo-card{flex-basis:100%;max-width:100%}
   .section-header-actions{flex-direction:column;align-items:flex-end;gap:.5rem}
-}
-@media (max-width:400px){
-  .modal-header-content{flex-direction:column;align-items:flex-start;gap:.5rem}
-  .modal-icon-circle{display:none}
+  .year-picker{flex-basis:auto}
 }
 
 /* Éxito */

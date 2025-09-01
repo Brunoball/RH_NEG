@@ -19,7 +19,7 @@
   --soc-gray-700: #334155;
   --soc-gray-800: #1E293B;
   --soc-gray-900: #0F172A;
-  
+
   --soc-border-radius: 12px;
   --soc-border-radius-sm: 8px;
   --soc-border-radius-lg: 16px;
@@ -67,7 +67,7 @@
 }
 @keyframes soc-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-/* Loader de tabla (se pinta solo dentro de list-container) */
+/* Loader de tabla */
 .soc-cargando-tabla {
   position: absolute;
   inset: 0;
@@ -209,16 +209,94 @@
 }
 .soc-filtros-menu-item__mostrar-todas:hover { background: var(--soc-primary); color: #fff; }
 
-/* Chips de filtro */
+/* ===================== CHIPS (tarjetitas) ===================== */
+/* Contenedor de chips (isla) — mejor gestión del wrap */
+.soc-filters-island {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  max-width: 60% !important;
+}
+
+/* Tarjetita base: fondo transparente, borde definido, tipografía clara */
+.soc-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  border: 1px solid rgba(37, 99, 235, 0.5) !important; /* var(--soc-primary) con opacidad */
+  color: var(--soc-dark) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 0 rgba(13, 42, 148, 0.06) !important; /* sombra sutil bajo el borde */
+  transition: var(--soc-transition) !important;
+  backdrop-filter: none !important; /* 100% transparente */
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Hover/Focus: relleno muy leve para resaltar sin perder transparencia */
+.soc-chip:hover,
+.soc-chip:focus-within {
+  background: rgba(37, 99, 235, 0.06) !important;
+  border-color: rgba(37, 99, 235, 0.75) !important;
+  transform: translateY(-1px);
+}
+
+/* Estado activo (por si lo necesitás en algún momento) */
+.soc-chip.is-active {
+  background: rgba(37, 99, 235, 0.1) !important;
+  border-color: var(--soc-primary) !important;
+}
+
+/* Texto dentro del chip no se corta feo */
+.soc-chip > span {
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  max-width: 260px !important;
+}
+
+/* Botón de cerrar dentro del chip: fantasma/contorno */
+.soc-chip .soc-chip-close {
+  background: transparent !important;
+  border: 1px solid rgba(37, 99, 235, 0.35) !important;
+  color: rgba(15, 23, 42, 0.75) !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: var(--soc-transition) !important;
+  line-height: 1 !important;
+}
+.soc-chip .soc-chip-close:hover {
+  background: rgba(37, 99, 235, 0.1) !important;
+  border-color: rgba(37, 99, 235, 0.9) !important;
+  color: var(--soc-primary-dark) !important;
+  transform: scale(1.05);
+}
+
+/* ====== (legacy) chips antiguos: mantenidos por compatibilidad ====== */
 .soc-filtros-activos-container {
   transform: scale(.9);
   display: flex; gap: 8px; margin: 0; min-width: 100px; height: 32px; position: relative;
 }
 .soc-filtro-activo {
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(255,255,255,.8); padding: 8px; border-radius: 20px; font-size: .85rem; font-weight: 600; color: var(--soc-primary);
-  border: 1px solid rgba(26,54,93,.2); box-shadow: 0 1px 3px rgba(0,0,0,.05); backdrop-filter: blur(5px); animation: soc-fadeIn .3s ease-out;
-  max-width: 180px; height: 32px; box-sizing: border-box; position: absolute; white-space: nowrap; text-overflow: ellipsis;
+  background: transparent; /* transparente */
+  padding: 8px; border-radius: 20px; font-size: .85rem; font-weight: 600; color: var(--soc-primary);
+  border: 1px solid rgba(26,54,93,.25); box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  backdrop-filter: none; max-width: 180px; height: 32px; box-sizing: border-box; position: absolute; white-space: nowrap; text-overflow: ellipsis;
 }
 .soc-filtro-activo::before { content: 'Filtro:'; font-weight: 500; color: var(--soc-gray-500); margin-right: 4px; }
 .soc-filtro-activo-letra { display:flex; align-items:center; justify-content:center; width:25px; height:25px; background: var(--soc-gradient-primary); color:#fff; border-radius:50%; font-weight:700; }
@@ -226,12 +304,12 @@
 .soc-filtro-activo-busqueda-icono { color: var(--soc-primary); }
 .soc-filtro-activo-cerrar {
   position:absolute; top:0; left:0; transform: translateY(-50%);
-  background: var(--soc-danger); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,.15);
+  background: transparent; color: var(--soc-dark); border: 1px solid rgba(26,54,93,.25);
+  border-radius:50%; width:18px; height:18px; font-size:10px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,.05);
 }
 
 /* =================== TABLA =================== */
-
 .soc-tabla-container {
   position: relative;
   margin: 0 1rem 1rem;
@@ -246,7 +324,6 @@
   background: transparent;
 }
 
-/* arriba (contador + cabecera) sin fondo blanco */
 .soc-tabla-header-container {
   position: relative;
   z-index: 3;
@@ -256,7 +333,6 @@
   background: transparent;
 }
 
-/* encabezado azul */
 .soc-tabla-header {
   display: grid;
   border-radius: 14px 14px 0 0;
@@ -279,7 +355,6 @@
 .soc-tabla-header > div:last-child { justify-content: center; }
 .soc-tabla-fila > div:last-child { justify-content: flex-end; }
 
-/* ÁREA DE FILAS */
 .soc-list-container{
   flex: 1;
   position: relative;
@@ -288,7 +363,7 @@
   border-radius: 0 0 var(--soc-border-radius) var(--soc-border-radius);
 }
 
-/* Filas (sin transición de background para evitar “fade” al scroll) */
+/* Filas */
 .soc-tabla-fila {
   display: grid;
   grid-template-columns: 60px 1.5fr 1.5fr 1fr 140px;
@@ -300,19 +375,11 @@
   font-size: .9rem;
   will-change: transform, opacity;
   animation-fill-mode: forwards !important;
-  /* NO transition de background */
 }
-
-/* ✅ Rayado estable con clases del JSX (NO usar :nth-child con react-window) */
 .soc-row-odd  { background: rgba(255,255,255,.95); }
 .soc-row-even { background: rgba(179,180,181,.47); }
-
-/* (REMOVIDO) .soc-tabla-fila:hover: sin efecto hover en filas */
-
-/* Seleccionada */
 .soc-fila-seleccionada{ background: rgba(210,218,235,.7) !important; box-shadow: inset 3px 0 0 var(--soc-primary); }
 
-/* Animaciones */
 @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
 @keyframes soc-slideInUp { from { transform: translateY(20px);} to { transform: translateY(0);} }
 .soc-cascade-animation .soc-tabla-fila{ opacity:0; animation: fadeIn .4s ease-out forwards, soc-slideInUp .5s cubic-bezier(.2,.8,.3,1) forwards; }
@@ -367,7 +434,7 @@
 .soc-tooltip-cerrar{ position:absolute; top:10px; right:10px; background:none; border:none; color:var(--soc-gray-600); font-size:1.5rem; cursor:pointer; padding:0 8px 4px; border-radius:50%; transition:var(--soc-transition); }
 .soc-tooltip-cerrar:hover{ color:var(--soc-danger); background-color:rgba(239,68,68,.1); }
 
-/* Mensajes dentro del área de filas (blanco) */
+/* Mensajes */
 .soc-sin-resultados,
 .soc-boton-mostrar-container{
   position:absolute; top:0; left:0; right:0; bottom:0;
@@ -462,6 +529,10 @@
   .soc-filtros-submenu{ padding:.75rem; }
   .soc-alfabeto-filtros{ grid-template-columns: repeat(6,1fr); }
   .soc-letra-filtro{ padding:.4rem; font-size:.85rem; }
+
+  /* Chips: más compactos en mobile */
+  .soc-filters-island { max-width: 100% !important; justify-content: center !important; }
+  .soc-chip { padding: 6px 10px !important; font-size: 11px !important; }
 }
 @media (max-width: 576px){
   .soc-container{ padding:1rem; }
@@ -472,8 +543,8 @@
   .soc-boton-mostrar-todos{ padding:.5rem 1rem; font-size:.85rem; }
 
   .soc-boton-filtros{ padding:8px 12px; font-size:.8rem; }
-  .soc-filtro-activo{ font-size:.75rem; padding:4px 8px; min-width:80px; padding-right:26px; }
-  .soc-filtro-activo::before{ content:''; margin-right:0; }
+  .soc-chip { font-size: 10.5px !important; }
+  .soc-chip > span { max-width: 200px !important; }
 
   .soc-boton-mostrar-container{ height:200px; padding:10px; }
 }

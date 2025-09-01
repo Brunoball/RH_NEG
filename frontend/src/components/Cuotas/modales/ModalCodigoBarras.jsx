@@ -1,3 +1,4 @@
+// src/components/Cuotas/modales/ModalCodigoBarras.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   FaTimes, FaCheck, FaSpinner, FaBarcode,
@@ -39,15 +40,27 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         setSocioEncontrado(null);
         setEstadoPeriodo(null);
         setMensaje('');
+        setError(false);
         return;
       }
+
       const limpio = codigo.replace(/[^0-9]/g, '');
-      if (/^\d+$/.test(limpio)) {
-        buscarPorCodigo(limpio);
-      } else {
-        setMensaje('⛔ Solo se permite ingresar código numérico del socio');
+      if (!/^\d+$/.test(limpio)) {
+        setMensaje('⛔ Solo se permite ingresar números');
         setError(true);
+        return;
       }
+
+      // FORMATO: P (1 dígito) + AA (2 dígitos) + ID (>=1 dígito)
+      if (limpio.length < 4) {
+        setMensaje('⛔ El código debe tener al menos 4 dígitos: PERÍODO (1) + AÑO (2) + ID socio (>=1)');
+        setError(true);
+        setSocioEncontrado(null);
+        setEstadoPeriodo(null);
+        return;
+      }
+
+      buscarPorCodigo(limpio);
     }, 400);
     return () => clearTimeout(delay);
   }, [codigo]);
@@ -78,62 +91,55 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
-  /** === API: Buscar socio por código === */
-  const buscarPorCodigo = async (input) => {
-    if (input.length < 2) {
-      setMensaje('⛔ El código debe tener al menos 2 dígitos (1 para período y al menos 1 para socio)');
+  /** === API: Buscar socio por código (P + AA + ID) === */
+  const buscarPorCodigo = async (digits) => {
+    if (digits.length < 4) {
+      setMensaje('⛔ Código incompleto (PERÍODO + AÑO + ID).');
       setError(true);
       return;
     }
-
-    // Primer dígito = período (1..6 bimestrales, 7 = CONTADO ANUAL)
-    const id_periodo = parseInt(input.charAt(0), 10);
-    const id_socio = input.slice(1);
-
-    if (!id_socio || isNaN(id_periodo) || id_periodo < 1 || id_periodo > 7) {
-      setMensaje('⛔ Código inválido. Formato esperado: [1 dígito período (1..7)] + [ID socio]');
-      setError(true);
-      return;
-    }
-
-    setMensaje('');
-    setError(false);
-    setSocioEncontrado(null);
-    setEstadoPeriodo(null);
 
     try {
       const res = await fetch(
-        `${BASE_URL}/api.php?action=buscar_socio_codigo&id_socio=${id_socio}&id_periodo=${id_periodo}`
+        `${BASE_URL}/api.php?action=buscar_socio_codigo&codigo=${encodeURIComponent(digits)}`
       );
       const data = await res.json();
 
       if (!data.exito) {
-        // Error real (no encontrado, etc.)
         setMensaje(data.mensaje || 'Socio no encontrado');
         setError(true);
         mostrarToast('error', data.mensaje || 'Socio no encontrado');
+        setSocioEncontrado(null);
+        setEstadoPeriodo(null);
         return;
       }
 
       const socio = data.socio;
       socio.telefono = socio.telefono_movil || socio.telefono_fijo || '';
       socio.domicilio_completo = [socio.domicilio, socio.numero].filter(Boolean).join(' ');
-      const payload = { ...socio, id_periodo, id_socio: socio.id_socio };
+
+      // El backend devuelve anio e id_periodo interpretados del código
+      const payload = {
+        ...socio,
+        id_socio: socio.id_socio,
+        id_periodo: data.id_periodo,
+        anio: data.anio
+      };
+
       setSocioEncontrado(payload);
       setMensaje(`✅ Socio encontrado: ${socio.nombre}`);
+      setError(false);
       mostrarToast('exito', `Socio ${socio.nombre} encontrado`);
 
-      // Si el backend marcó bloqueo, no dejamos operar pero mostramos los datos
+      // Bloqueos de reglas de negocio
       if (data.bloqueado) {
         setEstadoPeriodo('bloqueado');
-        if (data.motivo_bloqueo) {
-          mostrarToast('error', data.motivo_bloqueo);
-        }
-        return; // no consultar estado puntual
+        if (data.motivo_bloqueo) mostrarToast('error', data.motivo_bloqueo);
+        return;
       }
 
-      // Si no está bloqueado, verificamos estado puntual del período
-      await verificarEstadoPeriodo(payload.id_socio, id_periodo);
+      // ⬅️ Verificar estado usando el AÑO correcto
+      await verificarEstadoPeriodo(payload.id_socio, payload.id_periodo, payload.anio);
     } catch {
       setMensaje('⛔ Error al conectar con el servidor');
       setError(true);
@@ -141,12 +147,12 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
-  /** === API: Verificar estado del mismo período === */
-  const verificarEstadoPeriodo = async (id_socio, id_periodo) => {
+  /** === API: Verificar estado del período (con año) === */
+  const verificarEstadoPeriodo = async (id_socio, id_periodo, anio) => {
     setVerificandoEstado(true);
     try {
       const res = await fetch(
-        `${BASE_URL}/api.php?action=estado_periodo_socio&id_socio=${id_socio}&id_periodo=${id_periodo}`
+        `${BASE_URL}/api.php?action=estado_periodo_socio&id_socio=${id_socio}&id_periodo=${id_periodo}&anio=${anio}`
       );
       const data = await res.json();
       let estado = 'pendiente';
@@ -179,14 +185,17 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       return;
     }
 
-    // Si está bloqueado por reglas de negocio, no permitir
     if (estadoPeriodo === 'bloqueado') {
       mostrarToast('advertencia', 'Acción bloqueada por reglas de negocio.');
       return;
     }
 
-    // Re-verificar estado exacto del período
-    const estadoActual = await verificarEstadoPeriodo(socioEncontrado.id_socio, socioEncontrado.id_periodo);
+    // Re-verificar usando el año correcto
+    const estadoActual = await verificarEstadoPeriodo(
+      socioEncontrado.id_socio,
+      socioEncontrado.id_periodo,
+      socioEncontrado.anio
+    );
     if (estadoActual === 'pagado' || estadoActual === 'condonado') {
       const etiqueta = estadoActual === 'pagado' ? 'Pagado' : 'Condonado';
       mostrarToast('advertencia', `No se puede registrar: ${etiqueta}.`);
@@ -201,6 +210,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         body: JSON.stringify({
           id_socio: socioEncontrado.id_socio,
           periodos: [socioEncontrado.id_periodo], // incluye 7 (anual)
+          anio: socioEncontrado.anio,             // ⬅️ MUY IMPORTANTE
           ...(condonar ? { condonar: true } : {})
         })
       });
@@ -293,11 +303,11 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   type="text"
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
-                  placeholder="Ej: 7123 (Período + ID del socio) — 7 = Contado Anual"
+                  placeholder="Ej: 1251393  (P=1, AA=25, ID=1393)"
                   className={`codb-search-input ${error ? 'codb-input-error' : ''}`}
                 />
                 <div className="codb-input-hint">
-                  <FaIdCard /> Formato: PERÍODO (1 dígito: 1..7) + ID del socio
+                  <FaIdCard /> Formato: <strong>PERÍODO (1 dígito)</strong> + <strong>AÑO (2 dígitos)</strong> + <strong>ID del socio</strong>
                 </div>
               </div>
             </div>
