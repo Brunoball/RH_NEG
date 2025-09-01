@@ -31,20 +31,19 @@ ChartJS.register(
 );
 
 /**
- * ✔️ Si NO hay período seleccionado, la línea muestra TODOS los períodos canónicos
- *    desde el inicio del año HASTA el período que contiene el mes actual (incluido).
- * ✔️ La suma SIEMPRE es por FECHA DE PAGO.
+ * ✔️ Línea: misma lógica (por fecha de pago).
+ * ✔️ Pie: ahora divide en Pagaron (verde), Condonados (amarillo) y No pagaron (rojo).
  */
 export default function ContableChartsModal({
   open,
   onClose,
   datosMeses = [],
-  datosEmpresas = [], // no usado, pero lo dejamos para compat
+  datosEmpresas = [],
   mesSeleccionado = "Selecciona un periodo",
   medioSeleccionado = "todos",
   totalSocios = 0,
-  // ⬇️ Año seleccionado para mostrar en la UI
   anioSeleccionado = null,
+  condonados = [], // ⬅️ NUEVO: arreglo crudo con pagos condonados del año
 }) {
   // ===== utils =====
   const norm = (s) => (s || "").toString().trim().toLowerCase();
@@ -95,6 +94,7 @@ export default function ContableChartsModal({
     p?.nombre_cobrador ||
     p?.cobrador ||
     p?.Cobrador_Nombre ||
+    p?.cobrador_nombre || // ⬅️ por si viene en snake_case
     "";
 
   // Cerrar con ESC
@@ -128,24 +128,28 @@ export default function ContableChartsModal({
     [periodosCanonicos]
   );
 
-  // Unificar pagos de bloques
+  // Unificar pagos "pagados" de bloques (para la línea y también pie de "pagaron")
   const todosLosPagos = useMemo(() => {
     const out = [];
     for (const b of datosMeses || []) if (Array.isArray(b?.pagos)) out.push(...b.pagos);
     return out;
   }, [datosMeses]);
 
-  // Filtro por cobrador (si aplica)
+  // Filtros por cobrador
   const pagosFiltradosPorCobrador = useMemo(() => {
     if (medioSeleccionado === "todos") return todosLosPagos;
     return (todosLosPagos || []).filter((p) => norm(nombreCobrador(p)) === norm(medioSeleccionado));
   }, [todosLosPagos, medioSeleccionado]);
 
-  // Suma por período usando FECHA DE PAGO
+  const condonadosFiltradosPorCobrador = useMemo(() => {
+    if (medioSeleccionado === "todos") return condonados || [];
+    return (condonados || []).filter((p) => norm(nombreCobrador(p)) === norm(medioSeleccionado));
+  }, [condonados, medioSeleccionado]);
+
+  // Suma por período (línea) usando FECHA DE PAGO
   const sumaPeriodoPorFecha = (labelPeriodo) => {
     const meses = extractMonthsFromPeriodLabel(labelPeriodo);
     if (!meses.length) return 0;
-
     const lista = pagosFiltradosPorCobrador.filter((p) => {
       const m = getMonthFromPago(p);
       return m !== null && meses.includes(m);
@@ -153,9 +157,8 @@ export default function ContableChartsModal({
     return lista.reduce((acc, p) => acc + (parseFloat(p?.Precio) || 0), 0);
   };
 
-  // Labels para la línea
-  const currentMonth = new Date().getMonth() + 1; // 1..12
-
+  // Labels línea
+  const currentMonth = new Date().getMonth() + 1;
   const periodosHastaActual = useMemo(() => {
     const list = periodosOrdenados.filter((per) => {
       const meses = extractMonthsFromPeriodLabel(per);
@@ -227,7 +230,6 @@ export default function ContableChartsModal({
     },
   };
 
-  // ===== Texto de variaciones bajo la línea =====
   const variacionesTexto = useMemo(() => {
     const arr = [];
     for (let i = 1; i < lineLabels.length; i++) {
@@ -254,61 +256,74 @@ export default function ContableChartsModal({
     return periodosOrdenados[periodosOrdenados.length - 1] || undefined;
   }, [haySeleccion, mesSeleccionado, periodosHastaActual, periodosOrdenados]);
 
-  const pagaronEnPeriodo = useMemo(() => {
-    if (!periodoEfectivo) return 0;
-    const meses = extractMonthsFromPeriodLabel(periodoEfectivo);
-    if (!meses.length) return 0;
-
-    const pagos = pagosFiltradosPorCobrador.filter((p) => {
+  // Conteo únicos por período (por mes de la fecha de pago)
+  const conteoUnicos = (lista, meses) => {
+    const set = new Set();
+    for (const p of lista || []) {
       const m = getMonthFromPago(p);
-      return m !== null && meses.includes(m);
-    });
+      if (m !== null && meses.includes(m)) {
+        const id = getIdSocio(p);
+        if (id !== null && id !== undefined && id !== "") set.add(id);
+      }
+    }
+    return set.size;
+  };
 
-    const setSocios = new Set(
-      pagos
-        .map((p) => getIdSocio(p))
-        .filter((id) => id !== null && id !== undefined && id !== "")
-    );
-    return setSocios.size;
-  }, [periodoEfectivo, pagosFiltradosPorCobrador]);
+  const { pagaronEnPeriodo, condonadosEnPeriodo } = useMemo(() => {
+    if (!periodoEfectivo) return { pagaronEnPeriodo: 0, condonadosEnPeriodo: 0 };
+    const meses = extractMonthsFromPeriodLabel(periodoEfectivo);
+    if (!meses.length) return { pagaronEnPeriodo: 0, condonadosEnPeriodo: 0 };
 
-  const universoTotal =
-    totalSocios > 0
-      ? totalSocios
-      : (() => {
-          const s = new Set();
-          for (const p of todosLosPagos || []) {
-            const id = getIdSocio(p);
-            if (id !== null && id !== undefined && id !== "") s.add(id);
-          }
-          return s.size;
-        })();
+    return {
+      pagaronEnPeriodo: conteoUnicos(pagosFiltradosPorCobrador, meses),
+      condonadosEnPeriodo: conteoUnicos(condonadosFiltradosPorCobrador, meses),
+    };
+  }, [periodoEfectivo, pagosFiltradosPorCobrador, condonadosFiltradosPorCobrador]);
 
-  const noPagaron = Math.max(universoTotal - pagaronEnPeriodo, 0);
+  const universoTotal = useMemo(() => {
+    if (totalSocios > 0) return totalSocios;
 
-  // Mínimo visual (solo visual; tooltips muestran valores reales)
-  const realPie = [pagaronEnPeriodo, noPagaron];
+    // fallback: universo de socios que aparecieron en el año (pagados + condonados)
+    const ids = new Set();
+    for (const p of [...(todosLosPagos || []), ...(condonados || [])]) {
+      const id = getIdSocio(p);
+      if (id !== null && id !== undefined && id !== "") ids.add(id);
+    }
+    return ids.size;
+  }, [totalSocios, todosLosPagos, condonados]);
+
+  const noPagaron = Math.max(universoTotal - (pagaronEnPeriodo + condonadosEnPeriodo), 0);
+
+  // Mínimo visual (evitar que desaparezca una franja muy chica)
+  const realPie = [pagaronEnPeriodo, condonadosEnPeriodo, noPagaron];
   const MIN_PCT = 0.02;
   let displayPie = realPie.slice();
-  const totalReal = realPie[0] + realPie[1];
+  const totalReal = realPie.reduce((a, b) => a + b, 0);
   if (totalReal > 0) {
-    const pct0 = realPie[0] / totalReal;
-    const pct1 = realPie[1] / totalReal;
-    if (realPie[0] > 0 && pct0 < MIN_PCT) {
-      displayPie[0] = Math.max(realPie[0], Math.ceil(totalReal * MIN_PCT));
-      displayPie[1] = totalReal - displayPie[0];
-    } else if (realPie[1] > 0 && pct1 < MIN_PCT) {
-      displayPie[1] = Math.max(realPie[1], Math.ceil(totalReal * MIN_PCT));
-      displayPie[0] = totalReal - displayPie[1];
-    }
+    const ensureMin = (idxs) => {
+      let rest = totalReal;
+      for (const idx of idxs) {
+        const pct = realPie[idx] / totalReal;
+        if (realPie[idx] > 0 && pct < MIN_PCT) {
+          displayPie[idx] = Math.max(realPie[idx], Math.ceil(totalReal * MIN_PCT));
+        } else {
+          displayPie[idx] = realPie[idx];
+        }
+        rest -= displayPie[idx];
+      }
+      const last = idxs[idxs.length - 1];
+      displayPie[last] = Math.max(totalReal - (displayPie.reduce((a,b)=>a+b,0) - displayPie[last]), 0);
+    };
+    // Asegurá mínimos para las tres porciones
+    ensureMin([0,1,2]);
   }
 
   const pieData = {
-    labels: ["Pagaron", "No pagaron"],
+    labels: ["Pagaron", "Condonados", "No pagaron"],
     datasets: [
       {
         data: displayPie,
-        backgroundColor: ["#22c55e", "#ef4444"],
+        backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"], // verde, amarillo, rojo
         borderColor: "#ffffff",
         borderWidth: 1,
         spacing: 0,
@@ -329,7 +344,7 @@ export default function ContableChartsModal({
           label: (ctx) => {
             const idx = ctx.dataIndex;
             const realVal = realPie[idx] || 0;
-            const total = realPie[0] + realPie[1];
+            const total = totalReal || 0;
             const pct = total === 0 ? 0 : (realVal / total) * 100;
             return `${ctx.label}: ${realVal.toLocaleString("es-AR")} (${pct.toFixed(1)}%)`;
           },
@@ -376,9 +391,7 @@ export default function ContableChartsModal({
             )}
 
             <small className="contable-chart-footnote">
-              {haySeleccion
-                ? "Se comparan únicamente el período seleccionado y su anterior. La suma usa la fecha de pago."
-                : "Se muestran los períodos desde el inicio del año hasta el período actual. La suma usa la fecha de pago."}
+              La suma usa la <b>fecha de pago</b>.
             </small>
           </div>
 
@@ -396,21 +409,19 @@ export default function ContableChartsModal({
                 <span className="label">Pagaron:</span>
                 <span className="value">{Number(realPie[0]).toLocaleString("es-AR")}</span>
               </div>
-              <div className="contable-pie-totals__item empresas">
-                <span className="label">No pagaron:</span>
+              <div className="contable-pie-totals__item condonados">
+                <span className="label">Condonados:</span>
                 <span className="value">{Number(realPie[1]).toLocaleString("es-AR")}</span>
               </div>
               <div className="contable-pie-totals__item total">
-                <span className="label">Total socios:</span>
-                <span className="value">{Number(realPie[0] + realPie[1]).toLocaleString("es-AR")}</span>
+                <span className="label">No pagaron:</span>
+                <span className="value">{Number(realPie[2]).toLocaleString("es-AR")}</span>
               </div>
             </div>
 
             <small className="contable-chart-footnote">
-              El circular usa la <b>fecha de pago</b> para contar socios que pagaron en el período
-              (incluye <b>CONTADO ANUAL</b> si su fecha cae dentro de los meses del período).
-              Se aplica un <i>mínimo visual</i> para que siempre se vean ambas franjas; los valores
-              reales se muestran en cifras y tooltips.
+              El circular usa la <b>fecha de pago</b> para contar: quienes pagaron, condonados y quienes no pagaron
+              dentro del período seleccionado. Los condonados no suman recaudación.
             </small>
           </div>
         </div>

@@ -45,6 +45,7 @@ export default function DashboardContable() {
   const [datosEmpresas, setDatosEmpresas] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [totalSocios, setTotalSocios] = useState(0);
+  const [condonados, setCondonados] = useState([]); // ⬅️ NUEVO
 
   // ===== UI =====
   const [error, setError] = useState(null);
@@ -138,6 +139,7 @@ export default function DashboardContable() {
         setAnioSeleccionado(anioIni || "");
 
         setDatosMeses(arr(rawContable));
+        setCondonados(Array.isArray(rawContable?.condonados) ? rawContable.condonados : []); // ⬅️ NUEVO
         setDatosEmpresas([]);
         setTotalSocios(Number(rawContable?.total_socios ?? 0) || 0);
       } catch (err) {
@@ -163,6 +165,7 @@ export default function DashboardContable() {
         setAniosDisponibles(anios);
 
         setDatosMeses(arr(raw));
+        setCondonados(Array.isArray(raw?.condonados) ? raw.condonados : []); // ⬅️ NUEVO
         setTotalSocios(Number(raw?.total_socios ?? 0) || 0);
 
         setIsLoadingTable(true);
@@ -240,7 +243,6 @@ export default function DashboardContable() {
         }
       };
       for (let k = 0; k < heads.length; k++) siftUp(k);
-
       const out = [];
       while (heads.length) {
         const top = heads[0];
@@ -248,15 +250,10 @@ export default function DashboardContable() {
         const arr = arrays[top.i];
         const nextIdx = top.idx + 1;
         if (nextIdx < arr.length) {
-          top.idx = nextIdx;
-          top.val = arr[nextIdx];
-          siftDown(0);
+          top.idx = nextIdx; top.val = arr[nextIdx]; siftDown(0);
         } else {
           const last = heads.pop();
-          if (heads.length) {
-            heads[0] = last;
-            siftDown(0);
-          }
+          if (heads.length) { heads[0] = last; siftDown(0); }
         }
       }
       return out;
@@ -410,7 +407,7 @@ export default function DashboardContable() {
 
       {/* LAYOUT DOS COLUMNAS */}
       <div className="contable-grid">
-        {/* PANEL IZQUIERDO (30%) */}
+        {/* PANEL IZQUIERDO */}
         <aside className="contable-sidebar">
           {error && (
             <div className="contable-warning">
@@ -452,7 +449,7 @@ export default function DashboardContable() {
               </select>
             </label>
 
-            {/* Mes dependiente del período */}
+            {/* Mes dependiente */}
             <label className="side-field">
               <span>Mes</span>
               <select
@@ -502,7 +499,7 @@ export default function DashboardContable() {
             </div>
           </section>
 
-          {/* Resumenes en panel */}
+          {/* KPIs */}
           <section className="side-block">
             <h3 className="side-block-title"><FontAwesomeIcon icon={faListAlt} /> Resumen</h3>
             <div className="side-kpis">
@@ -531,7 +528,7 @@ export default function DashboardContable() {
           </section>
         </aside>
 
-        {/* CONTENIDO DERECHO (70%) */}
+        {/* CONTENIDO DERECHO */}
         <main className="contable-main">
           <div className="table-toolbar">
             <div className="toolbar-left">
@@ -609,10 +606,11 @@ export default function DashboardContable() {
         onClose={() => setMostrarModalGraficos(false)}
         datosMeses={datosMeses}
         datosEmpresas={datosEmpresas}
-        mesSeleccionado={periodoSeleccionado}
+        mesSeleccionado={periodoSeleccionado}  // (se usa como período seleccionado)
         medioSeleccionado={cobradorSeleccionado}
         totalSocios={totalSocios}
         anioSeleccionado={anioSeleccionado}
+        condonados={condonados}                 // ⬅️ NUEVO
       />
     </div>
   );

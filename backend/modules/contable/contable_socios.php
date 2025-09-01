@@ -6,7 +6,7 @@ header('Content-Type: application/json');
 try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    /* ===== Distintos años con pagos (solo estado 'pagado') ===== */
+    /* ===== Años con pagos pagados (para combos) ===== */
     $yearsStmt = $pdo->query("
         SELECT DISTINCT YEAR(fecha_pago) AS y
           FROM pagos
@@ -15,25 +15,20 @@ try {
     ");
     $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
 
-    /* ===== Año solicitado ===== */
+    /* ===== Año aplicado ===== */
     $anioParam = isset($_GET['anio']) ? (int)$_GET['anio'] : 0;
-    if ($anioParam > 0) {
-        $anioAplicado = $anioParam;
-    } else {
-        // Si no llega año, por defecto tomar el último disponible (si hay)
-        $anioAplicado = !empty($aniosDisponibles) ? max($aniosDisponibles) : 0;
-    }
+    $anioAplicado = $anioParam > 0 ? $anioParam : (!empty($aniosDisponibles) ? max($aniosDisponibles) : 0);
 
     /* ===== Total de socios (activos) ===== */
     $stmtTot = $pdo->query("SELECT COUNT(*) AS c FROM socios WHERE activo = 1");
     $rowTot  = $stmtTot->fetch(PDO::FETCH_ASSOC);
     $totalSocios = (int)($rowTot['c'] ?? 0);
 
-    /* ===== Si no hay años disponibles, devolver vacío ===== */
     if ($anioAplicado === 0) {
         echo json_encode([
             'exito'         => true,
             'datos'         => [],
+            'condonados'    => [],           // ⬅️ NUEVO
             'total_socios'  => $totalSocios,
             'anios'         => $aniosDisponibles,
             'anio_aplicado' => 0,
@@ -41,7 +36,7 @@ try {
         exit;
     }
 
-    /* ===== Pagos (SOLO 'pagado' del año aplicado) ===== */
+    /* ===== Pagos pagados del año ===== */
     $sql = "
         SELECT
             p.id_pago,
@@ -66,7 +61,32 @@ try {
     $stmt->execute();
     $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    /* ===== Grouping por socio+mes (YYYY-MM) ===== */
+    /* ===== Pagos condonados del año (para el gráfico circular) ===== */
+    $sqlCond = "
+        SELECT
+            p.id_pago,
+            p.id_socio,
+            p.id_periodo,
+            p.fecha_pago,
+            p.estado,
+            s.nombre            AS socio_nombre,
+            s.id_cobrador       AS socio_id_cobrador,
+            cb.nombre           AS cobrador_nombre,
+            per.nombre          AS periodo_nombre
+        FROM pagos p
+        INNER JOIN socios s    ON s.id_socio      = p.id_socio
+        INNER JOIN periodo per ON per.id_periodo  = p.id_periodo
+        LEFT JOIN cobrador cb  ON cb.id_cobrador  = s.id_cobrador
+        WHERE p.estado = 'condonado'
+          AND YEAR(p.fecha_pago) = :anio
+        ORDER BY p.fecha_pago ASC, p.id_pago ASC
+    ";
+    $stmtCond = $pdo->prepare($sqlCond);
+    $stmtCond->bindValue(':anio', $anioAplicado, PDO::PARAM_INT);
+    $stmtCond->execute();
+    $condonadosRaw = $stmtCond->fetchAll(PDO::FETCH_ASSOC);
+
+    /* ===== Grouping por socio+mes (pagados) ===== */
     $groups = [];
     foreach ($pagos as $row) {
         $idSocio = (int)$row['id_socio'];
@@ -113,8 +133,8 @@ try {
         return array_key_first($counts);
     };
 
-    /* ===== Construcción de salida por período ===== */
-    $porPeriodo = []; // 'PERÍODO X' / 'CONTADO ANUAL' => ['nombre' => ..., 'pagos' => []]
+    /* ===== Construcción de salida por período (pagados) ===== */
+    $porPeriodo = [];
 
     foreach ($groups as $g) {
         $idSocio      = $g['id_socio'];
@@ -162,6 +182,7 @@ try {
                 'Mes_Pagado'       => $periodoNombre,
                 'Nombre_Categoria' => null,
                 'Medio_Pago'       => null,
+                'Estado'           => 'pagado',
             ];
             continue;
         }
@@ -181,15 +202,18 @@ try {
                 'Mes_Pagado'       => $periodoNombre,
                 'Nombre_Categoria' => null,
                 'Medio_Pago'       => null,
+                'Estado'           => 'pagado',
             ];
         }
     }
 
     $datos = array_values($porPeriodo);
 
+    /* ===== Salida ===== */
     echo json_encode([
         'exito'         => true,
-        'datos'         => $datos,
+        'datos'         => $datos,             // solo pagados (mantiene comportamiento actual)
+        'condonados'    => $condonadosRaw,     // ⬅️ NUEVO: lista cruda para el pie
         'total_socios'  => $totalSocios,
         'anios'         => $aniosDisponibles,
         'anio_aplicado' => $anioAplicado
