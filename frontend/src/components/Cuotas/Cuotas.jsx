@@ -26,6 +26,7 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaExclamationTriangle,
+  FaFileExcel,                // ⬅️ NUEVO (icono Excel)
 } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
@@ -38,6 +39,7 @@ import Toast from '../Global/Toast';
 import './Cuotas.css';
 import axios from 'axios';
 import ModalMesCuotas from './modales/ModalMesCuotas';
+import * as XLSX from 'xlsx'; // ⬅️ NUEVO (exportar Excel)
 
 /* =========================
  * API con interceptor
@@ -59,6 +61,7 @@ api.interceptors.response.use(
 
 const PRECIO_MENSUAL = 4000;
 const PRECIO_ANUAL_CON_DESCUENTO = 21000;
+
 const ID_CONTADO_ANUAL_FALLBACK = 7;
 
 /* =========================
@@ -937,6 +940,43 @@ const Cuotas = () => {
     return periodo ? periodo.nombre : id;
   };
 
+  // ======= Exportar Excel (NUEVO) =======
+  const handleExportarExcel = () => {
+    if (cuotasFiltradas.length === 0) {
+      setToastTipo('error');
+      setToastMensaje('No hay registros visibles para exportar.');
+      setToastVisible(true);
+      return;
+    }
+
+    const periodoTexto = periodoSeleccionado ? getNombrePeriodo(periodoSeleccionado) : 'SIN_PERIODO';
+    const estadoTexto =
+      ({ deudor: 'Deudores', pagado: 'Pagados', condonado: 'Condonados' }[estadoPagoSeleccionado]) || 'Todos';
+
+    const datos = cuotasFiltradas.map((c) => ({
+      ID: getId(c),
+      Socio: c.nombre || '',
+      Documento: c.documento || '',
+      Dirección: c.domicilio || '',
+      'Estado socio': c.estado || '',
+      'Medio de pago': c.medio_pago || '',
+      'Estado de pago': c.estado_pago || '',
+      'Período (visible)': periodoTexto || '',
+      Año: anioSeleccionado || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Cuotas');
+
+    // Nombre de archivo legible
+    const limpiar = (t = '') =>
+      String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_-]+/g, '_');
+    const fileName = `cuotas_${limpiar(estadoTexto)}_${limpiar(periodoTexto)}_${anioSeleccionado || currentYear}.xlsx`;
+
+    XLSX.writeFile(wb, fileName);
+  };
+
   // ======= estado derivado para habilitar "Imprimir todos" =======
   const imprimirTodosDeshabilitado = useMemo(
     () => loadingPrint || loading || cuotasFiltradas.length === 0,
@@ -1229,6 +1269,16 @@ const Cuotas = () => {
                     <FaPrint /> Imprimir todos
                   </>
                 )}
+              </button>
+
+              {/* ⬇️ NUEVO: Exportar Excel (de lo visible) */}
+              <button
+                className="cuo_boton cuo_boton-secondary"
+                onClick={handleExportarExcel}
+                disabled={loading || cuotasFiltradas.length === 0}
+                title={cuotasFiltradas.length === 0 ? 'No hay registros visibles' : 'Exportar a Excel lo visible'}
+              >
+                <FaFileExcel /> Exportar Excel
               </button>
             </div>
           </div>

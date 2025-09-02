@@ -166,9 +166,8 @@ const BarraSuperior = React.memo(({
                 className="soc-buscador-icono"
                 onClick={() => {
                   setBusquedaInput('');
-                  // ⚠️ Antes forzaba showAll:false; ahora respeta el valor actual
                   startTransition(() => {
-                    setFiltros(prev => ({ ...prev, busqueda: '' /*, showAll: prev.showAll */ }));
+                    setFiltros(prev => ({ ...prev, busqueda: '' }));
                   });
                 }}
               />
@@ -366,9 +365,6 @@ const Socios = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       startTransition(() => {
-        // ⚠️ Cambio clave:
-        // Solo apagamos showAll si HAY texto en el buscador.
-        // Si está vacío, mantenemos el valor actual de showAll (no lo forzamos a false).
         setFiltros(prev => ({
           ...prev,
           busqueda: busquedaInput || '',
@@ -436,6 +432,8 @@ const Socios = () => {
 
   /* ============================
             FILTRADO
+     Regla nueva: cuando hay filtro por categoría,
+     SOLO se muestran socios con id_estado == 2.
   ============================ */
   const activeFilters = useMemo(() => ({
     byId: !!busquedaId,
@@ -449,7 +447,7 @@ const Socios = () => {
   , [activeFilters]);
 
   const sociosFiltrados = useMemo(() => {
-    // Base: solo activos
+    // Base: solo activos por campo "activo = 1" (tu lógica existente)
     let arr = socios.filter(s => s._isActive);
 
     if (showAll) return arr;
@@ -466,9 +464,13 @@ const Socios = () => {
       arr = arr.filter(s => s._first === letraSeleccionada);
     }
 
-    // Categoría
+    // *** CATEGORÍA + REGLA DE ESTADO ***
     if (activeFilters.byCategory) {
+      // Primero filtramos por la categoría seleccionada
       arr = arr.filter(s => String(s.id_categoria) === String(categoriaSeleccionada));
+      // Y AHORA aplicamos la regla solicitada:
+      // "exclusivamente los socios con id_estado = 2"
+      arr = arr.filter(s => Number(s.id_estado) === 2);
     }
 
     // Búsqueda por nombre
@@ -587,8 +589,9 @@ const Socios = () => {
           const _name = String(s?.nombre ?? '').toLowerCase();
           const _first = getFirstLetter(s?.nombre);
           const _dom = buildAddress(s?.domicilio, s?.numero);
-          const _isActive = Number(s?.activo) === 1;
-          return { ...s, _idStr, _name, _first, _dom, _isActive };
+          const _isActive = Number(s?.activo) === 1;          // sigue tu base
+          const _estadoNum = Number(s?.id_estado ?? 0);       // útil para filtros de estado
+          return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum };
         });
         setSocios(enriched);
       } else {
@@ -662,7 +665,7 @@ const Socios = () => {
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
       const savedOffset = Number(sessionStorage.getItem(SS_KEYS.SCROLL) || '0');
 
-      // reconstruimos con filtros actuales rápidamente (mismo algoritmo)
+      // reconstruimos con filtros actuales rápidamente (MISMA REGLA DE CATEGORÍA + ESTADO=2)
       const currentList = (() => {
         let arr = socios.filter(s => s._isActive);
         const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
@@ -677,7 +680,10 @@ const Socios = () => {
           arr = arr.filter(s => s._first === parsed.letraSeleccionada);
         }
         if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
-          arr = arr.filter(s => String(s.id_categoria) === String(parsed.categoriaSeleccionada));
+          arr = arr.filter(s =>
+            String(s.id_categoria) === String(parsed.categoriaSeleccionada) &&
+            Number(s.id_estado) === 2               // <--- REGLA CLAVE TAMBIÉN EN RESTAURACIÓN
+          );
         }
         if (parsed.busqueda) {
           const q = String(parsed.busqueda).toLowerCase();
@@ -705,7 +711,6 @@ const Socios = () => {
       sessionStorage.removeItem(SS_KEYS.SEL_ID);
       sessionStorage.removeItem(SS_KEYS.SCROLL);
       sessionStorage.removeItem(SS_KEYS.TS);
-      // Mantenemos FILTERS durante la sesión
     } catch {
       // no-op
     }

@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt } from 'react-icons/fa';
+import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel } from 'react-icons/fa';
 import Toast from '../Global/Toast';
 import './SociosBaja.css';
+
+/* Exportar */
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const SociosBaja = () => {
   const [socios, setSocios] = useState([]);
@@ -30,7 +34,6 @@ const SociosBaja = () => {
 
   // Hoy en formato YYYY-MM-DD, calculado explícitamente en la TZ de Córdoba
   const hoyISO = () => {
-    // en-CA devuelve YYYY-MM-DD
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: TZ,
       year: 'numeric',
@@ -183,7 +186,6 @@ const SociosBaja = () => {
     const [y, m, d] = (yyyy_mm_dd || '').split('-');
     if (!y || !m || !d) return yyyy_mm_dd;
     return `${d}/${m}/${y}`;
-    // Si algún registro viene como 'YYYY/MM/DD' u otro, lo podrías normalizar antes.
   };
 
   // Abrir selector de fecha sobre CUALQUIER parte del campo (gesto válido)
@@ -211,16 +213,70 @@ const SociosBaja = () => {
     }
   };
 
+  /* Exportar a Excel (siempre lo visible en la tabla) */
+  const exportarExcel = () => {
+    if (!sociosFiltrados.length) {
+      setToast({
+        show: true,
+        tipo: 'error',
+        mensaje: 'No hay registros para exportar.',
+      });
+      return;
+    }
+
+    // Datos tal como se ven en la tabla
+    const datos = sociosFiltrados.map((s) => ({
+      ID: s.id_socio,
+      Nombre: s.nombre || '',
+      'Fecha de baja': s.ingreso || '',
+      // 'Fecha de baja (dd/mm/aaaa)': formatearFecha(s.ingreso || ''),
+      Motivo: s.motivo || 'Sin motivo',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Socios Baja (visibles)');
+
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+
+    // nombre solo con fecha
+    const ahora = new Date();
+    const yyyy = ahora.getFullYear();
+    const mm = String(ahora.getMonth() + 1).padStart(2, '0');
+    const dd = String(ahora.getDate()).padStart(2, '0');
+
+    saveAs(blob, `Socios_Baja_${yyyy}-${mm}-${dd}.xlsx`);
+  };
+
   return (
     <div className="soc-container-baja">
       <div className="soc-glass-effect-baja"></div>
+
+      {/* BARRA SUPERIOR */}
       <div className="soc-barra-superior-baja">
         <div className="soc-titulo-container-baja">
           <h2 className="soc-titulo-baja">Socios Dados de Baja</h2>
         </div>
-        <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>← Volver</button>
+
+        <div className="soc-acciones-superior-baja">
+          <button
+            className="soc-boton-exportar-baja"
+            onClick={exportarExcel}
+            title="Exportar lo visible a Excel"
+            disabled={loading}
+          >
+            <FaFileExcel style={{ marginRight: 6 }} />
+            Exportar a Excel
+          </button>
+
+          <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>
+            ← Volver
+          </button>
+        </div>
       </div>
 
+      {/* BUSCADOR */}
       <div className="soc-buscador-container-baja">
         <input
           type="text"

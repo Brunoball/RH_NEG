@@ -21,3 +21,5 @@ try {
         'mensaje' => 'Error de conexión a la base de datos: ' . $e->getMessage()
     ]));
 }
+
+
