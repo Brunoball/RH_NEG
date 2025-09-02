@@ -5,6 +5,7 @@ import "./dashboard.css";
 import BASE_URL from "../../config/config";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  FaArrowLeft,
   faDollarSign,
   faCalendarAlt,
   faExclamationTriangle,
@@ -16,6 +17,11 @@ import {
   faUsers,
   faFileExcel,
   faSearch,
+  faMagnifyingGlass,   // ⬅️ NUEVO (lupa para “sin resultados”)
+  faFolderOpen,
+  faInbox,
+  faFaceFrown,  
+    faFilter,        // ⬅️ NUEVO (carpeta para “falta seleccionar”)
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
 import ContableChartsModal from "./modalcontable/ContableChartsModal";
@@ -54,6 +60,9 @@ export default function DashboardContable() {
   const [isLoadingTable, setIsLoadingTable] = useState(false);
   const computeRAF1 = useRef(0);
   const computeRAF2 = useRef(0);
+
+  // NUEVO: vista de la barra lateral (botones Filtros / Resumen)
+  const [sidebarView, setSidebarView] = useState("filtros"); // 'filtros' | 'resumen'
 
   // ===== Utils =====
   const nfPesos = useMemo(() => new Intl.NumberFormat("es-AR"), []);
@@ -139,7 +148,7 @@ export default function DashboardContable() {
         setAnioSeleccionado(anioIni || "");
 
         setDatosMeses(arr(rawContable));
-        setCondonados(Array.isArray(rawContable?.condonados) ? rawContable.condonados : []); // ⬅️ NUEVO
+        setCondonados(Array.isArray(rawContable?.condonados) ? rawContable.condonados : []);
         setDatosEmpresas([]);
         setTotalSocios(Number(rawContable?.total_socios ?? 0) || 0);
       } catch (err) {
@@ -165,7 +174,7 @@ export default function DashboardContable() {
         setAniosDisponibles(anios);
 
         setDatosMeses(arr(raw));
-        setCondonados(Array.isArray(raw?.condonados) ? raw.condonados : []); // ⬅️ NUEVO
+        setCondonados(Array.isArray(raw?.condonados) ? raw.condonados : []);
         setTotalSocios(Number(raw?.total_socios ?? 0) || 0);
 
         setIsLoadingTable(true);
@@ -246,7 +255,7 @@ export default function DashboardContable() {
       const out = [];
       while (heads.length) {
         const top = heads[0];
-        out.push(top.val);
+      out.push(top.val);
         const arr = arrays[top.i];
         const nextIdx = top.idx + 1;
         if (nextIdx < arr.length) {
@@ -402,7 +411,7 @@ export default function DashboardContable() {
         <h1 className="contable-topbar-title">
           <FontAwesomeIcon icon={faDollarSign} /> Resumen de pagos
         </h1>
-        <button className="contable-back-button" onClick={volver}>← Volver</button>
+        <button className="contable-back-button" onClick={volver}> Volver</button>
       </header>
 
       {/* LAYOUT DOS COLUMNAS */}
@@ -419,113 +428,143 @@ export default function DashboardContable() {
             </div>
           )}
 
-          <section className="side-block">
-            <h3 className="side-block-title"><FontAwesomeIcon icon={faCalendarAlt} /> Filtros</h3>
+          {/* Conmutador Filtros/Resumen */}
+          <div className="side-switch" role="tablist" aria-label="Cambiar sección de la barra lateral">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sidebarView === "filtros"}
+              className={`segmented ${sidebarView === "filtros" ? "is-active" : ""}`}
+              onClick={() => setSidebarView("filtros")}
+            >
+              <FontAwesomeIcon icon={faCalendarAlt} /> Filtros
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sidebarView === "resumen"}
+              className={`segmented ${sidebarView === "resumen" ? "is-active" : ""}`}
+              onClick={() => setSidebarView("resumen")}
+            >
+              <FontAwesomeIcon icon={faListAlt} /> Resumen
+            </button>
+          </div>
 
-            {/* Año */}
-            <label className="side-field">
-              <span>Año</span>
-              <select value={anioSeleccionado || ""} onChange={handleYearChange}>
-                {aniosDisponibles.length === 0 ? (
-                  <option value="">Sin pagos</option>
-                ) : (
-                  aniosDisponibles.map((y) => <option key={y} value={y}>{y}</option>)
-                )}
-              </select>
-            </label>
+          {/* Vistas exclusivas */}
+          <div className="side-views">
+            {/* ====== VISTA: FILTROS ====== */}
+            {sidebarView === "filtros" && (
+              <section className="side-block" aria-labelledby="titulo-filtros">
+                <h3 id="titulo-filtros" className="side-block-title"><FontAwesomeIcon icon={faCalendarAlt} /> Filtros</h3>
 
-            {/* Período */}
-            <label className="side-field">
-              <span>Período</span>
-              <select
-                value={periodoSeleccionado}
-                onChange={handlePeriodoChange}
-                disabled={!anioSeleccionado}
-              >
-                <option value="Selecciona un periodo">Selecciona un periodo</option>
-                {periodosOpts.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.value}</option>
-                ))}
-              </select>
-            </label>
+                {/* Año */}
+                <label className="side-field">
+                  <span>Año</span>
+                  <select value={anioSeleccionado || ""} onChange={handleYearChange}>
+                    {aniosDisponibles.length === 0 ? (
+                      <option value="">Sin pagos</option>
+                    ) : (
+                      aniosDisponibles.map((y) => <option key={y} value={y}>{y}</option>)
+                    )}
+                  </select>
+                </label>
 
-            {/* Mes dependiente */}
-            <label className="side-field">
-              <span>Mes</span>
-              <select
-                value={mesSeleccionado}
-                onChange={handleMesChange}
-                disabled={!anioSeleccionado}
-              >
-                <option>Todos los meses</option>
-                {mesesDisponibles.map((m) => <option key={m} value={m}>{mesUC(m)}</option>)}
-              </select>
-            </label>
+                {/* Período */}
+                <label className="side-field">
+                  <span>Período</span>
+                  <select
+                    value={periodoSeleccionado}
+                    onChange={handlePeriodoChange}
+                    disabled={!anioSeleccionado}
+                  >
+                    <option value="Selecciona un periodo">Selecciona un periodo</option>
+                    {periodosOpts.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.value}</option>
+                    ))}
+                  </select>
+                </label>
 
-            {/* Cobrador */}
-            <label className="side-field">
-              <span>Cobrador</span>
-              <select
-                value={cobradorSeleccionado}
-                onChange={handleCobradorChange}
-                disabled={!anioSeleccionado}
-              >
-                <option value="todos">Todos</option>
-                {cobradores.map((cb, idx) => <option key={idx} value={cb}>{cb}</option>)}
-              </select>
-            </label>
+                {/* Mes dependiente */}
+                <label className="side-field">
+                  <span>Mes</span>
+                  <select
+                    value={mesSeleccionado}
+                    onChange={handleMesChange}
+                    disabled={!anioSeleccionado}
+                  >
+                    <option>Todos los meses</option>
+                    {mesesDisponibles.map((m) => <option key={m} value={m}>{mesUC(m)}</option>)}
+                  </select>
+                </label>
 
-            {/* Acciones */}
-            <div className="side-actions">
-              <button
-                className="btn-dark"
-                type="button"
-                onClick={() => setMostrarModalGraficos(true)}
-                disabled={!anioSeleccionado}
-                title="Ver gráficos"
-              >
-                <FontAwesomeIcon icon={faChartPie} /> Ver gráficos
-              </button>
+                {/* Cobrador */}
+                <label className="side-field">
+                  <span>Cobrador</span>
+                  <select
+                    value={cobradorSeleccionado}
+                    onChange={handleCobradorChange}
+                    disabled={!anioSeleccionado}
+                  >
+                    <option value="todos">Todos</option>
+                    {cobradores.map((cb, idx) => <option key={idx} value={cb}>{cb}</option>)}
+                  </select>
+                </label>
 
-              <button
-                className="btn-dark"
-                type="button"
-                onClick={exportarExcel}
-                disabled={!anioSeleccionado}
-                title="Exportar registros visibles"
-              >
-                <FontAwesomeIcon icon={faFileExcel} /> Exportar Excel
-              </button>
-            </div>
-          </section>
+                {/* Acciones */}
+                <div className="side-actions">
+                  <button
+                    className="btn-dark grafics"
+                    type="button"
+                    onClick={() => setMostrarModalGraficos(true)}
+                    disabled={!anioSeleccionado}
+                    title="Ver gráficos"
+                  >
+                    <FontAwesomeIcon icon={faChartPie} /> Gráficos
+                  </button>
 
-          {/* KPIs */}
-          <section className="side-block">
-            <h3 className="side-block-title"><FontAwesomeIcon icon={faListAlt} /> Resumen</h3>
-            <div className="side-kpis">
-              <div className="kpi">
-                <span>Total recaudado</span>
-                <strong>${nfPesos.format(derived.total)}</strong>
-                <small>
-                  {anioSeleccionado ? `Año ${anioSeleccionado}` : "Sin año"}
-                  {periodoSeleccionado !== "Selecciona un periodo" ? ` · ${periodoSeleccionado}` : ""}
-                  {labelMes(mesSeleccionado)}
-                </small>
-              </div>
+                  <button
+                    className="btn-dark excel"
+                    type="button"
+                    onClick={exportarExcel}
+                    disabled={!anioSeleccionado}
+                    title="Exportar registros visibles"
+                  >
+                    <FontAwesomeIcon icon={faFileExcel} /> Excel
+                  </button>
+                </div>
+              </section>
+            )}
 
-              <div className="kpi">
-                <span>Cobradores (únicos)</span>
-                <strong>{derived.cobradoresUnicos}</strong>
-                <small>Año {anioSeleccionado || "-"}</small>
-              </div>
+            {/* ====== VISTA: RESUMEN ====== */}
+            {sidebarView === "resumen" && (
+              <section className="side-block" aria-labelledby="titulo-resumen">
+                <h3 id="titulo-resumen" className="side-block-title"><FontAwesomeIcon icon={faListAlt} /> Resumen</h3>
+                <div className="side-kpis">
+                  <div className="kpi">
+                    <span>Total recaudado</span>
+                    <strong>${nfPesos.format(derived.total)}</strong>
+                    <small>
+                      {anioSeleccionado ? `Año ${anioSeleccionado}` : "Sin año"}
+                      {periodoSeleccionado !== "Selecciona un periodo" ? ` · ${periodoSeleccionado}` : ""}
+                      {labelMes(mesSeleccionado)}
+                    </small>
+                  </div>
 
-              <div className="kpi">
-                <span>Total registros visibles</span>
-                <strong>{calcularTotalRegistros()}</strong>
-                <small>Aplica búsqueda y filtros</small>
-              </div>
-            </div>
-          </section>
+                  <div className="kpi">
+                    <span>Cobradores (únicos)</span>
+                    <strong>{derived.cobradoresUnicos}</strong>
+                    <small>Año {anioSeleccionado || "-"}</small>
+                  </div>
+
+                  <div className="kpi">
+                    <span>Total registros visibles</span>
+                    <strong>{calcularTotalRegistros()}</strong>
+                    <small>Aplica búsqueda y filtros</small>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
         </aside>
 
         {/* CONTENIDO DERECHO */}
@@ -553,6 +592,7 @@ export default function DashboardContable() {
             </div>
           </div>
 
+          {/* GRID TABLE */}
           <div className={`contable-tablewrap ${(isLoadingTable || isPending) ? "is-loading" : ""}`}>
             {(isLoadingTable || isPending) && (
               <div className="contable-table-overlay" aria-live="polite" aria-busy="true">
@@ -560,42 +600,59 @@ export default function DashboardContable() {
               </div>
             )}
 
-            <table className="contable-table" aria-busy={(isLoadingTable || isPending) ? "true" : "false"}>
-              <thead>
-                <tr>
-                  <th>Socio</th>
-                  <th>Monto</th>
-                  <th>Cobrador</th>
-                  <th>Fecha de Pago</th>
-                  <th>Periodo pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                {periodoSeleccionado === "Selecciona un periodo" && mesSeleccionado === "Todos los meses" ? (
-                  <tr>
-                    <td colSpan="5" className="contable-no-data">
-                      {!anioSeleccionado
-                        ? "Seleccione un año para ver los pagos"
-                        : "Seleccione un período o un mes para ver los registros"}
-                    </td>
-                  </tr>
-                ) : registrosFiltradosPorBusqueda.length > 0 ? (
-                  registrosFiltradosPorBusqueda.map((r, i) => (
-                    <tr key={i}>
-                      <td data-label="Socio">{`${r.Apellido || ""}${r.Apellido ? ", " : ""}${r.Nombre || ""}`}</td>
-                      <td data-label="Monto">${nfPesos.format(r._precioNum)}</td>
-                      <td data-label="Cobrador">{r._cb || "-"}</td>
-                      <td data-label="Fecha de Pago">{r.fechaPago || "-"}</td>
-                      <td data-label="Periodo pago">{r.Mes_Pagado || "-"}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" className="contable-no-data">No hay registros para ese filtro/búsqueda.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <div className="gridtable" role="table" aria-rowcount={registrosFiltradosPorBusqueda.length || 0}>
+              {/* Encabezado */}
+              <div className="gridtable-header" role="row">
+                <div className="gridtable-cell" role="columnheader">Socio</div>
+                <div className="gridtable-cell" role="columnheader">Monto</div>
+                <div className="gridtable-cell" role="columnheader">Cobrador</div>
+                <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
+                <div className="gridtable-cell" role="columnheader">Periodo pago</div>
+              </div>
+
+              {/* Estados / Filas */}
+              {periodoSeleccionado === "Selecciona un periodo" && mesSeleccionado === "Todos los meses" ? (
+                <div className="gridtable-empty" role="row">
+                  <div className="gridtable-empty-inner" role="cell">
+                    <div className="empty-icon">
+                      <FontAwesomeIcon icon={faFilter} /> 
+                    </div>
+                    {!anioSeleccionado
+                      ? "Seleccione un año para ver los pagos"
+                      : "Seleccione un período o un mes para ver los registros"}
+                  </div>
+                </div>
+              ) : registrosFiltradosPorBusqueda.length === 0 ? (
+                <div className="gridtable-empty" role="row">
+                  <div className="gridtable-empty-inner" role="cell">
+                    <div className="empty-icon">
+                      <FontAwesomeIcon icon={faMagnifyingGlass} />
+                    </div>
+                    No hay registros para ese filtro/búsqueda.
+                  </div>
+                </div>
+              ) : (
+                registrosFiltradosPorBusqueda.map((r, i) => (
+                  <div className="gridtable-row" role="row" key={i}>
+                    <div className="gridtable-cell" role="cell" data-label="Socio">
+                      {`${r.Apellido || ""}${r.Apellido ? ", " : ""}${r.Nombre || ""}`}
+                    </div>
+                    <div className="gridtable-cell" role="cell" data-label="Monto">
+                      ${nfPesos.format(r._precioNum)}
+                    </div>
+                    <div className="gridtable-cell" role="cell" data-label="Cobrador">
+                      {r._cb || "-"}
+                    </div>
+                    <div className="gridtable-cell" role="cell" data-label="Fecha de Pago">
+                      {r.fechaPago || "-"}
+                    </div>
+                    <div className="gridtable-cell" role="cell" data-label="Periodo pago">
+                      {r.Mes_Pagado || "-"}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </main>
       </div>
@@ -606,11 +663,11 @@ export default function DashboardContable() {
         onClose={() => setMostrarModalGraficos(false)}
         datosMeses={datosMeses}
         datosEmpresas={datosEmpresas}
-        mesSeleccionado={periodoSeleccionado}  // (se usa como período seleccionado)
+        mesSeleccionado={periodoSeleccionado}
         medioSeleccionado={cobradorSeleccionado}
         totalSocios={totalSocios}
         anioSeleccionado={anioSeleccionado}
-        condonados={condonados}                 // ⬅️ NUEVO
+        condonados={condonados}
       />
     </div>
   );

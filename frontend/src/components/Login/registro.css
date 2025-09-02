@@ -396,3 +396,8 @@
     opacity: 0;
   }
 }
+@media (max-width: 1280px) {
+    .reg_contenedor{
+      gap: 0rem; padding: 1.5rem;
+    }
+}
