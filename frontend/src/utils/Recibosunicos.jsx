@@ -7,13 +7,15 @@ import BASE_URL from '../config/config';
  * que llegan desde el propio modal.
  *
  * - Si el período es CONTADO ANUAL => muestra exactamente "CONTADO ANUAL".
- * - En otros casos => normaliza y ordena a "1/2 3/4 5/6" (espacio entre pares).
+ * - En otros casos => normaliza y ordena a "1/2 3/4 5/6" (espacio entre pares) y agrega "/<año>" al final,
+ *   usando el año seleccionado (si se provee) o el que ya se detecta como antes.
  *
  * @param {Array<Object>} listaSocios
  * @param {string|number} periodoActual
  * @param {Window|null} ventana
+ * @param {number|null} anioSeleccionado    // <-- NUEVO (opcional). Si viene, se prioriza para el texto y el código de barras.
  */
-export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ventana = null) => {
+export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ventana = null, anioSeleccionado = null) => {
   // ---- helpers ----
   const getIdSocio = (obj) => {
     const raw = obj?.id_socio ?? obj?.idSocio ?? obj?.idsocio ?? obj?.id ?? null;
@@ -67,7 +69,9 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
         ...socio,
         id_socio: socio.id_socio ?? socio.idSocio ?? socio.idsocio ?? socio.id ?? '',
         nombre_cobrador: socio.medio_pago || '',
-        id_periodo: socio.id_periodo || periodoActual || ''
+        id_periodo: socio.id_periodo || periodoActual || '',
+        // si pasamos anioSeleccionado, lo guardamos
+        anio: anioSeleccionado ?? socio.anio ?? socio.anioTrabajo ?? null,
       });
       continue;
     }
@@ -81,14 +85,16 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
           ...socio, // los datos del modal pisan a los de la API
           id_socio: data.socio.id_socio ?? idNorm,
           nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || socio.medio_pago || '',
-          id_periodo: socio.id_periodo || data.socio.id_periodo || periodoActual || ''
+          id_periodo: socio.id_periodo || data.socio.id_periodo || periodoActual || '',
+          anio: anioSeleccionado ?? socio.anio ?? socio.anioTrabajo ?? data.socio.anio ?? null,
         });
       } else {
         sociosCompletos.push({
           ...socio,
           id_socio: idNorm,
           nombre_cobrador: socio.medio_pago || '',
-          id_periodo: socio.id_periodo || periodoActual || ''
+          id_periodo: socio.id_periodo || periodoActual || '',
+          anio: anioSeleccionado ?? socio.anio ?? socio.anioTrabajo ?? null,
         });
       }
     } catch {
@@ -96,7 +102,8 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
         ...socio,
         id_socio: idNorm,
         nombre_cobrador: socio.medio_pago || '',
-        id_periodo: socio.id_periodo || periodoActual || ''
+        id_periodo: socio.id_periodo || periodoActual || '',
+        anio: anioSeleccionado ?? socio.anio ?? socio.anioTrabajo ?? null,
       });
     }
   }
@@ -142,10 +149,23 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
 
       const codigoPeriodo = String(s.id_periodo || periodoActual || '0');
 
-      const esAnual = codigoPeriodo === '7' ||
-        (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL'));
       const textoBasePeriodo = s.periodo_texto || periodos[codigoPeriodo] || `Período ${codigoPeriodo}`;
-      const textoPeriodo = esAnual ? 'CONTADO ANUAL' : normalizarYOrdenarPeriodos(textoBasePeriodo);
+
+      // Año para el código y para mostrar al final del período
+      const anioParaCodigo =
+        (anioSeleccionado ?? null) ||
+        s.anio || s.anioTrabajo || extraerAnio(textoBasePeriodo) || new Date().getFullYear();
+
+      // ¿Es ANUAL?
+      const esAnual =
+        codigoPeriodo === '7' ||
+        (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL')) ||
+        (String(textoBasePeriodo).toUpperCase().includes('ANUAL'));
+
+      // Texto que se imprime en "Período:"
+      const textoPeriodo = esAnual
+        ? 'CONTADO ANUAL'
+        : `${normalizarYOrdenarPeriodos(textoBasePeriodo)} /${anioParaCodigo}`;
 
       // 💡 Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
       const importeStr = (typeof s.importe_total === 'number')
@@ -157,9 +177,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
       const cantidadPares = contarPares(textoBasePeriodo);
       const showBarcode = esAnual || cantidadPares === 1;
 
-      // Código con 2 dígitos del año (aa)
-      const anioParaCodigo =
-        s.anio || s.anioTrabajo || extraerAnio(textoBasePeriodo) || new Date().getFullYear();
+      // Código con 2 dígitos del año (aa) — usa el mismo año que mostramos en el período
       const anio2d = String(anioParaCodigo).slice(-2);
       const codigoBarra = `${codigoPeriodo}${anio2d}-${id}`;
 
@@ -242,71 +260,6 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
 </head>
 <body>
   ${pagesHTML}
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])}; // se rellenará abajo
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
-  <script>
-    (function(){
-      var codigos = ${JSON.stringify([])};
-    })();
-  </script>
   <script>
     (function(){
       // Relleno real de códigos

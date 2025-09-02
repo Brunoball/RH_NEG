@@ -1,3 +1,4 @@
+// src/components/Cuotas/modales/ModalEliminarCondonacion.jsx
 import React, { useState } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
@@ -9,10 +10,18 @@ import './ModalEliminarCondonacion.css';
  * - socio: { id_socio, nombre, ... }
  * - periodo: string|number
  * - periodoTexto: string
+ * - esCondonacionAnual: boolean
  * - onClose: fn
  * - onEliminado: fn
  */
-const ModalEliminarCondonacion = ({ socio, periodo, periodoTexto, onClose, onEliminado }) => {
+const ModalEliminarCondonacion = ({
+  socio,
+  periodo,
+  periodoTexto,
+  esCondonacionAnual = false,
+  onClose,
+  onEliminado,
+}) => {
   const [toast, setToast] = useState(null);
   const [cargando, setCargando] = useState(false);
 
@@ -51,6 +60,14 @@ const ModalEliminarCondonacion = ({ socio, periodo, periodoTexto, onClose, onEli
 
   if (!socio) return null;
 
+  // === Lógica para aviso ANUAL (idéntica al modal de pago) ===
+  const ID_CONTADO_ANUAL = 7;
+  const esBimestre = String(periodo) !== String(ID_CONTADO_ANUAL);
+
+  // Mostrar “CONTADO ANUAL” si la condonación real proviene de ANUAL aunque estemos en un bimestre
+  const etiquetaPeriodo =
+    esCondonacionAnual && esBimestre ? 'CONTADO ANUAL' : (periodoTexto ?? periodo);
+
   return (
     <>
       <div className="toast-fixed-container">
@@ -70,10 +87,20 @@ const ModalEliminarCondonacion = ({ socio, periodo, periodoTexto, onClose, onEli
             <FaExclamationTriangle />
           </div>
           <h3 className="condon-modal-titulo">Eliminar Condonación</h3>
+
           <p className="condon-modal-texto">
-            ¿Deseás eliminar la condonación del socio <strong>{socio.nombre}</strong> para el período{' '}
-            <strong>{periodoTexto ?? periodo}</strong>?
+            ¿Deseás eliminar la condonación del socio <strong>{socio.nombre}</strong> para{' '}
+            <strong>{etiquetaPeriodo}</strong>?
           </p>
+
+          {/* Aviso cuando es ANUAL, igual que en el modal de pago */}
+          {esCondonacionAnual && esBimestre && (
+            <div className="soc-alert soc-alert-danger" role="alert">
+              Esta condonación corresponde a <strong>CONTADO ANUAL</strong>.{' '}
+              Al <strong>eliminarla</strong>, se borra el <strong>registro de todo el año</strong>.
+            </div>
+          )}
+
           <div className="condon-modal-botones">
             <button className="condon-boton-cancelar" onClick={onClose} disabled={cargando}>
               Cancelar

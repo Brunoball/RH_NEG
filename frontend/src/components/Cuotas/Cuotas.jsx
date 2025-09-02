@@ -61,7 +61,6 @@ api.interceptors.response.use(
 
 const PRECIO_MENSUAL = 4000;
 const PRECIO_ANUAL_CON_DESCUENTO = 21000;
-
 const ID_CONTADO_ANUAL_FALLBACK = 7;
 
 /* =========================
@@ -1409,12 +1408,22 @@ const Cuotas = () => {
           }}
         />
       )}
-
+      
       {mostrarModalEliminarCond && (
         <ModalEliminarCondonacion
           socio={socioParaPagar}
           periodo={periodoSeleccionado}
           periodoTexto={getNombrePeriodo(periodoSeleccionado)}
+          esCondonacionAnual={
+            String(periodoSeleccionado) === String(idAnual)
+            || Boolean(
+              socioParaPagar?.origen_anual ||
+              socioParaPagar?.es_pago_anual ||
+              socioParaPagar?.pago_anual ||
+              (socioParaPagar?.origen_pago && String(socioParaPagar.origen_pago).toLowerCase().includes('anual')) ||
+              (socioParaPagar?.periodo_origen && String(socioParaPagar.periodo_origen).toLowerCase().includes('anual'))
+            )
+          }
           onClose={() => setMostrarModalEliminarCond(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
