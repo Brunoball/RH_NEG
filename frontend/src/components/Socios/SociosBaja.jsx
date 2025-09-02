@@ -29,10 +29,9 @@ const SociosBaja = () => {
 
   const navigate = useNavigate();
 
-  // Zona horaria fija para evitar desfasajes (Hostinger / distintas máquinas)
+  // Zona horaria fija para evitar desfasajes
   const TZ = 'America/Argentina/Cordoba';
 
-  // Hoy en formato YYYY-MM-DD, calculado explícitamente en la TZ de Córdoba
   const hoyISO = () => {
     return new Intl.DateTimeFormat('en-CA', {
       timeZone: TZ,
@@ -87,7 +86,6 @@ const SociosBaja = () => {
   };
 
   const darAltaSocio = async (id) => {
-    // Validación simple de fecha (YYYY-MM-DD)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaAlta)) {
       setToast({
         show: true,
@@ -98,7 +96,6 @@ const SociosBaja = () => {
     }
 
     try {
-      // Enviar como x-www-form-urlencoded para garantizar recepción en $_POST
       const params = new URLSearchParams();
       params.set('id_socio', String(id));
       params.set('fecha_ingreso', fechaAlta);
@@ -109,7 +106,6 @@ const SociosBaja = () => {
         body: params.toString(),
       });
 
-      // Manejo robusto de respuesta (por si viene HTML en error)
       let data;
       const text = await response.text();
       try {
@@ -123,11 +119,7 @@ const SociosBaja = () => {
         setSociosFiltrados((prev) => prev.filter((s) => s.id_socio !== id));
         setMostrarConfirmacion(false);
         setSocioSeleccionado(null);
-        setToast({
-          show: true,
-          tipo: 'exito',
-          mensaje: `Socio dado de alta correctamente`,
-        });
+        setToast({ show: true, tipo: 'exito', mensaje: `Socio dado de alta correctamente` });
       } else {
         setToast({
           show: true,
@@ -136,11 +128,7 @@ const SociosBaja = () => {
         });
       }
     } catch (error) {
-      setToast({
-        show: true,
-        tipo: 'error',
-        mensaje: 'Error de red al dar de alta',
-      });
+      setToast({ show: true, tipo: 'error', mensaje: 'Error de red al dar de alta' });
     }
   };
 
@@ -158,24 +146,12 @@ const SociosBaja = () => {
         setSociosFiltrados((prev) => prev.filter((s) => s.id_socio !== id));
         setMostrarConfirmacionEliminar(false);
         setSocioSeleccionado(null);
-        setToast({
-          show: true,
-          tipo: 'exito',
-          mensaje: 'Socio eliminado permanentemente',
-        });
+        setToast({ show: true, tipo: 'exito', mensaje: 'Socio eliminado permanentemente' });
       } else {
-        setToast({
-          show: true,
-          tipo: 'error',
-          mensaje: 'Error al eliminar: ' + data.mensaje,
-        });
+        setToast({ show: true, tipo: 'error', mensaje: 'Error al eliminar: ' + data.mensaje });
       }
     } catch (error) {
-      setToast({
-        show: true,
-        tipo: 'error',
-        mensaje: 'Error de red al intentar eliminar',
-      });
+      setToast({ show: true, tipo: 'error', mensaje: 'Error de red al intentar eliminar' });
     }
   };
 
@@ -188,7 +164,6 @@ const SociosBaja = () => {
     return `${d}/${m}/${y}`;
   };
 
-  // Abrir selector de fecha sobre CUALQUIER parte del campo (gesto válido)
   const openDatePicker = (e) => {
     e.preventDefault();
     const el = fechaInputRef.current;
@@ -206,30 +181,20 @@ const SociosBaja = () => {
     }
   };
 
-  // Accesibilidad: abrir con Enter o Space cuando el contenedor tiene foco
   const handleKeyDownPicker = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      openDatePicker(e);
-    }
+    if (e.key === 'Enter' || e.key === ' ') openDatePicker(e);
   };
 
-  /* Exportar a Excel (siempre lo visible en la tabla) */
   const exportarExcel = () => {
     if (!sociosFiltrados.length) {
-      setToast({
-        show: true,
-        tipo: 'error',
-        mensaje: 'No hay registros para exportar.',
-      });
+      setToast({ show: true, tipo: 'error', mensaje: 'No hay registros para exportar.' });
       return;
     }
 
-    // Datos tal como se ven en la tabla
     const datos = sociosFiltrados.map((s) => ({
       ID: s.id_socio,
       Nombre: s.nombre || '',
       'Fecha de baja': s.ingreso || '',
-      // 'Fecha de baja (dd/mm/aaaa)': formatearFecha(s.ingreso || ''),
       Motivo: s.motivo || 'Sin motivo',
     }));
 
@@ -240,7 +205,6 @@ const SociosBaja = () => {
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
 
-    // nombre solo con fecha
     const ahora = new Date();
     const yyyy = ahora.getFullYear();
     const mm = String(ahora.getMonth() + 1).padStart(2, '0');
@@ -260,16 +224,7 @@ const SociosBaja = () => {
         </div>
 
         <div className="soc-acciones-superior-baja">
-          <button
-            className="soc-boton-exportar-baja"
-            onClick={exportarExcel}
-            title="Exportar lo visible a Excel"
-            disabled={loading}
-          >
-            <FaFileExcel style={{ marginRight: 6 }} />
-            Exportar a Excel
-          </button>
-
+          {/* Se dejó SOLO el botón Volver aquí */}
           <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>
             ← Volver
           </button>
@@ -306,9 +261,23 @@ const SociosBaja = () => {
         <p className="soc-cargando-baja">Cargando socios dados de baja...</p>
       ) : (
         <div className="soc-tabla-container-baja">
-          <div className="soc-contador-baja">
-            Mostrando <strong>{sociosFiltrados.length}</strong> socios
+          {/* === NUEVO TOPBAR DE TABLA: contador + exportar === */}
+          <div className="soc-tabla-topbar-baja">
+            <div className="soc-contador-baja">
+              Mostrando <strong>{sociosFiltrados.length}</strong> socios
+            </div>
+
+            <button
+              className="soc-boton-exportar-baja"
+              onClick={exportarExcel}
+              title="Exportar lo visible a Excel"
+              disabled={loading}
+            >
+              <FaFileExcel style={{ marginRight: 6 }} />
+              Exportar a Excel
+            </button>
           </div>
+
           <div className="soc-tabla-header-container-baja">
             <div className="soc-tabla-header-baja">
               <div className="soc-col-id-baja">ID</div>
@@ -357,7 +326,6 @@ const SociosBaja = () => {
                         className="soc-icono-baja"
                         onClick={() => {
                           setSocioSeleccionado(s);
-                          // SIEMPRE por defecto HOY en Córdoba, no usar s.ingreso
                           setFechaAlta(hoyISO());
                           setMostrarConfirmacion(true);
                         }}
@@ -390,7 +358,6 @@ const SociosBaja = () => {
               ¿Deseás dar de alta nuevamente al socio <strong>{socioSeleccionado.nombre}</strong>?
             </p>
 
-            {/* Campo fecha: contenedor completo abre el calendario */}
             <div className="soc-campo-fecha-alta">
               <label htmlFor="fecha_alta" className="soc-label-fecha-alta">
                 Fecha de alta

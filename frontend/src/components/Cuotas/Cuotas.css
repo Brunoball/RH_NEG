@@ -209,7 +209,7 @@ body {
 .cuo_buscador-container {
   position: relative;
   flex: 1;
-  width: 400px;
+  width: 300px;
 }
 .cuo_buscador-icono {
   position: absolute;
@@ -338,21 +338,21 @@ body {
 .cuo_boton {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.75rem 1rem; border: none; border-radius: var(--soc-border-radius);
-  font-size: 0.875rem; font-weight: 500; cursor: pointer;
+  font-size: 0.75rem; font-weight: 500; cursor: pointer;
   transition: var(--soc-transition); white-space: nowrap;
   box-shadow: var(--soc-shadow-sm); font-family: 'Inter', sans-serif;
 }
 .cuo_boton:hover { transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
 .cuo_boton-primary { background-color: var(--soc-primary); color: white; }
 .cuo_boton-primary:hover { background-color: var(--soc-primary-dark); }
-.cuo_boton-success { background-color: var(--soc-success); color: white; }
-.cuo_boton-success:hover { background-color: #0e9f6e; }
+.cuo_boton-success { background-color: var(--soc-dark); color: white; }
+.cuo_boton-success:hover { background-color: var(--soc-dark); }
 .cuo_boton-warning { background-color: var(--soc-warning); color: white; }
 .cuo_boton-warning:hover { background-color: #e07815; }
 .cuo_boton-danger { background-color: var(--soc-danger); color: white; }
 .cuo_boton-danger:hover { background-color: #dc2626; }
-.cuo_boton-secondary { background-color: var(--soc-gray-500); color: white; }
-.cuo_boton-secondary:hover { background-color: var(--soc-gray-600); }
+.cuo_boton-secondary { background-color: var(--soc-success); color: white; }
+.cuo_boton-secondary:hover { background-color: var(--soc-success); }
 .cuo_boton-light {
   background-color: var(--soc-gray-100); color: var(--soc-gray-800);
   box-shadow: none; border: 1px solid var(--soc-gray-200);
