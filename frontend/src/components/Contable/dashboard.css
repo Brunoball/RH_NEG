@@ -379,3 +379,121 @@ html, body {
   .contable-back-button{ padding:6px 12px; }
   .toolbar-left h2{ font-size:1rem; }
 }
+
+
+/* =========================
+   MOBILE ONLY (<= 480px)
+   ========================= */
+@media (max-width: 480px){
+
+  /* Layout general */
+  .contable-grid{
+    padding: 0;
+    gap: 0;
+    height: 90vh;              /* mantiene el alto deseado */
+  }
+
+  /* Topbar un poco más compacto */
+  .contable-topbar{
+    padding: 12px 14px;
+  }
+  .contable-topbar-title{
+    font-size: 1.05rem;
+    gap: 8px;
+  }
+  .contable-back-button{
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  /* Sidebar */
+  .contable-sidebar{
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .side-switch .segmented{
+    padding: .6rem;
+    font-size: .9rem;
+  }
+  .side-block-title{
+    font-size: .95rem;
+  }
+  .side-field span{
+    font-size: .8rem;
+  }
+  .side-field select{
+    padding: 8px 10px;
+    font-size: .9rem;
+  }
+  .btn-dark{
+    padding: 10px;
+    font-size: .9rem;
+    border-radius: 10px;
+  }
+
+  /* Toolbar de la tabla: a 1 columna */
+  .table-toolbar{
+    padding: 10px 12px;
+    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .toolbar-left{
+    gap: 6px;
+  }
+  .toolbar-left h2{
+    font-size: 1rem;
+  }
+  .toolbar-sub{
+    font-size: .8rem;
+  }
+
+  /* Buscador a ancho completo */
+  .searchbox{
+    min-width: 0;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+  .searchbox input{
+    font-size: .9rem;
+  }
+
+  /* Tabla en cards (ya lo tenías); optimizo proporciones */
+  .gridtable-row{
+    margin: 8px 8px;
+    border-radius: 10px;
+    border: 2px solid var(--soc-gray-700);
+  }
+  .gridtable-cell{
+    grid-template-columns: 120px 1fr; /* etiqueta + valor más compacto */
+    padding: 9px 10px;
+  }
+
+  /* Estados vacíos: tamaño e icono más amigables en cel */
+  .gridtable-empty-inner{
+    padding: 18px 12px;
+    font-size: .95rem;
+  }
+  .empty-icon{
+    font-size: 34px;
+    margin-bottom: 6px;
+  }
+
+  /* Scroll del listado más suave en móvil */
+  .contable-tablewrap{
+    border-radius: 10px;
+  }
+
+  /* KPIs más compactos */
+  .kpi{
+    padding: 10px;
+  }
+  .kpi strong{
+    font-size: 1.1rem;
+  }
+  .kpi span,
+  .kpi small{
+    font-size: .8rem;
+  }
+}

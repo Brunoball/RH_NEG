@@ -245,15 +245,15 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
     .page { width: 210mm; height: 297mm; position: relative; page-break-after: always; }
     .recibo-area { width: 95mm; height: 30mm; box-sizing: border-box; position: absolute; padding: .5rem 0 0; font-size: .8rem; overflow: hidden; }
     .recibo { width: 100%; height: 100%; display: flex; justify-content: center; flex-direction: column; box-sizing: border-box; font-size: .8rem; }
-    .row { padding: 0 0.2rem; display: flex; width: 100%; }
-    .cell { margin: 0; box-sizing: border-box; overflow: hidden; display: flex; flex: 1; white-space: nowrap; text-overflow: ellipsis; }
+    .row { padding: 0 0.2rem; display: flex; width: 100%; justify-content:space-between;}
+    .cell { margin: 0; box-sizing: border-box; overflow: hidden; display: flex;  white-space: nowrap; text-overflow: ellipsis; }
     .cell-full { flex: 0 0 100%; }
-    .cell-barcode { flex: 1; padding: 0; height: 100%; min-height: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .cell-barcode {  padding: 0; height: 100%; min-height: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .barcode-container { display: flex; align-items: center; justify-content: center; width: 100%; height: 70%; }
     .barcode { width: 100%; height: auto; max-height: 24px; }
     .barcode-text { font-size: 6pt; text-align: center; margin: 0; height: 30%; display: flex; align-items: center; justify-content: center; }
     .firma { font-size: 8pt; text-align: center; width: 100%; }
-    .importe { font-weight: bold; text-align: center; font-size: 8pt; width: 100%; }
+    .importe { font-weight: bold; text-align: end; font-size: 8pt; width: 100%; margin-right:.5rem;}
     .periodo-grupo { display: flex; flex-direction: column; justify-content: center; flex: 1; height: fit-content; }
     .periodo-grupo div { flex: 1; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
