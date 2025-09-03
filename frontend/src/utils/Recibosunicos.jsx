@@ -6,7 +6,7 @@ import BASE_URL from '../config/config';
  * desde el modal de pago (1 o pocos registros), con texto de período e importe
  * que llegan desde el propio modal.
  *
- * - Si el período es CONTADO ANUAL => muestra exactamente "CONTADO ANUAL".
+ * - Si el período es CONTADO ANUAL => muestra exactamente "CONTADO ANUAL /<año>".
  * - En otros casos => normaliza y ordena a "1/2 3/4 5/6" (espacio entre pares) y agrega "/<año>" al final,
  *   usando el año seleccionado (si se provee) o el que ya se detecta como antes.
  *
@@ -162,9 +162,9 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
         (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL')) ||
         (String(textoBasePeriodo).toUpperCase().includes('ANUAL'));
 
-      // Texto que se imprime en "Período:"
+      // Texto que se imprime en "Período:" (AJUSTADO)
       const textoPeriodo = esAnual
-        ? 'CONTADO ANUAL'
+        ? `CONTADO ANUAL /${anioParaCodigo}`
         : `${normalizarYOrdenarPeriodos(textoBasePeriodo)} /${anioParaCodigo}`;
 
       // 💡 Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
