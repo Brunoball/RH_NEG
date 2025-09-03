@@ -457,13 +457,13 @@
 .soc-boton{ padding:.75rem 1.5rem; border-radius:var(--soc-border-radius); font-weight:600; cursor:pointer; transition:var(--soc-transition); display:flex; align-items:center; gap:.5rem; border:none; }
 .soc-boton-volver{ background:#fff; color:#2563EB; border:2px solid var(--soc-primary); }
 .soc-boton-volver:hover{ background: var(--soc-primary); color:#fff; }
-.soc-boton-agregar{ background: var(--soc-success); color:#fff; }
-.soc-boton-agregar:hover{ background:#0da271; transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
-.soc-boton-exportar{ background: var(--soc-primary); color:#fff; }
-.soc-boton-exportar:hover{ background: var(--soc-primary-dark); transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
+.soc-boton-agregar{ background: var(--soc-primary); color:#fff; }
+.soc-boton-agregar:hover{  transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
+.soc-boton-exportar{ background: var(--soc-success); color:#fff; }
+.soc-boton-exportar:hover{  transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
 .soc-boton-exportar:disabled{ background: var(--soc-gray-300); cursor:not-allowed; transform:none; box-shadow:none; }
 .soc-boton-baja{ background: var(--soc-danger); color:#fff; }
-.soc-boton-baja:hover{ background:#dc2626; transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
+.soc-boton-baja:hover{  transform: translateY(-2px); box-shadow: var(--soc-shadow-md); }
 
 /* Estados que deshabilitan exportar */
 .soc-sin-resultados ~ .soc-barra-inferior .soc-boton-exportar,
