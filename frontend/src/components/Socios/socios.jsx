@@ -1,4 +1,3 @@
-
 // src/components/Socios/Socios.jsx
 import React, {
   useEffect,
@@ -27,7 +26,8 @@ import {
   FaTimes,
   FaUsers,
   FaFilter,
-  FaChevronDown
+  FaChevronDown,
+  FaCalendarAlt
 } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
@@ -47,10 +47,9 @@ const CASCADE_DISABLE_ABOVE = 200;
 const NAME_DEBOUNCE_MS = 20;
 const ITEM_SIZE = 44; // desktop
 
-// >>>>>>>>>> NUEVO: alturas responsivas para móvil
+// Alturas responsivas para móvil
 const MOBILE_ITEM_SIZE = 230;
 const MOBILE_ITEM_SIZE_SELECTED = 270;
-/** Hook que ajusta la altura de cada item según el viewport y si hay fila seleccionada */
 function useResponsiveItemSize(hasSelected) {
   const [size, setSize] = useState(ITEM_SIZE);
   useEffect(() => {
@@ -64,7 +63,7 @@ function useResponsiveItemSize(hasSelected) {
     };
     update();
     mq.addEventListener?.('change', update);
-    mq.addListener?.(update); // fallback
+    mq.addListener?.(update);
     return () => {
       mq.removeEventListener?.('change', update);
       mq.removeListener?.(update);
@@ -98,6 +97,17 @@ const getFirstLetter = (name) => {
   const s = String(name ?? '').trim();
   return s ? s[0].toUpperCase() : '';
 };
+const parseDateToTs = (d) => {
+  if (!d) return null;
+  const parts = String(d).split('-');
+  if (parts.length === 3) {
+    const [yy, mm, dd] = parts.map(Number);
+    const ts = new Date(yy, (mm - 1), dd).getTime();
+    return Number.isFinite(ts) ? ts : null;
+  }
+  const ts = new Date(d).getTime();
+  return Number.isFinite(ts) ? ts : null;
+};
 
 /* ============================
    BARRA SUPERIOR
@@ -109,6 +119,8 @@ const BarraSuperior = React.memo(({
   busquedaId,
   letraSeleccionada,
   categoriaSeleccionada,
+  fechaDesde,
+  fechaHasta,
   setFiltros,
   filtrosRef,
   mostrarFiltros,
@@ -119,15 +131,12 @@ const BarraSuperior = React.memo(({
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
   const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
+  const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
 
   const toggleSubmenu = useCallback((cual) => {
-    if (cual === 'alfabetico') {
-      setMostrarSubmenuAlfabetico(v => !v);
-      setMostrarSubmenuCategoria(false);
-    } else if (cual === 'categoria') {
-      setMostrarSubmenuCategoria(v => !v);
-      setMostrarSubmenuAlfabetico(false);
-    }
+    setMostrarSubmenuAlfabetico(cual === 'alfabetico' ? v => !v : false);
+    setMostrarSubmenuCategoria(cual === 'categoria' ? v => !v : false);
+    setMostrarSubmenuFecha(cual === 'fecha' ? v => !v : false);
   }, []);
 
   const handleLetraClick = useCallback((letra) => {
@@ -162,14 +171,27 @@ const BarraSuperior = React.memo(({
         busquedaId: '',
         letraSeleccionada: 'TODOS',
         categoriaSeleccionada: 'OPCIONES',
+        fechaDesde: '',
+        fechaHasta: '',
         showAll: true,
       }));
       setBusquedaInput('');
     });
     setMostrarSubmenuAlfabetico(false);
     setMostrarSubmenuCategoria(false);
+    setMostrarSubmenuFecha(false);
     setMostrarFiltros(false);
   }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
+
+  // Abrir calendario cuando el usuario hace click o da foco al input
+  const openPickerOnEvent = useCallback((e) => {
+    try {
+      // Algunos navegadores no soportan showPicker; si está, lo llamamos.
+      e.target.showPicker?.();
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   return (
     <div className="soc-barra-superior">
@@ -253,6 +275,7 @@ const BarraSuperior = React.memo(({
             if (!mostrarFiltros) {
               setMostrarSubmenuAlfabetico(false);
               setMostrarSubmenuCategoria(false);
+              setMostrarSubmenuFecha(false);
             }
           }}
           disabled={cargando}
@@ -267,11 +290,11 @@ const BarraSuperior = React.memo(({
             className="soc-menu-filtros soc-menu-filtros--emp"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* LETRAS */}
             <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('alfabetico')}>
               <span>Filtrar de la A a la Z</span>
               <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuAlfabetico ? 'soc-rotate' : ''}`} />
             </div>
-
             {mostrarSubmenuAlfabetico && (
               <div className="soc-filtros-submenu">
                 <div className="soc-alfabeto-filtros">
@@ -289,11 +312,11 @@ const BarraSuperior = React.memo(({
               </div>
             )}
 
+            {/* CATEGORÍAS */}
             <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('categoria')}>
               <span>Categorías</span>
               <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuCategoria ? 'soc-rotate' : ''}`} />
             </div>
-
             {mostrarSubmenuCategoria && (
               <div className="soc-filtros-submenu">
                 <div className="soc-submenu-lista">
@@ -303,13 +326,95 @@ const BarraSuperior = React.memo(({
                       <div
                         key={cat.id}
                         className={`soc-filtros-submenu-item ${active ? 'active' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); handleCategoriaClick(String(cat.id)); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCategoriaClick(String(cat.id));
+                        }}
                         title={`Filtrar por ${cat.descripcion}`}
                       >
                         {cat.descripcion}
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* FECHA DE INGRESO */}
+            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('fecha')}>
+              <span>Fecha de ingreso</span>
+              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuFecha ? 'soc-rotate' : ''}`} />
+            </div>
+            {mostrarSubmenuFecha && (
+              <div className="soc-filtros-submenu">
+                <div className="soc-fecha-rango">
+                  <div className="soc-fecha-field">
+                    <FaCalendarAlt className="soc-fecha-icon" />
+                    <label>Desde</label>
+                    <input
+                      type="date"
+                      value={fechaDesde || ''}
+                      onClick={openPickerOnEvent}
+                      onFocus={openPickerOnEvent}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        startTransition(() => {
+                          setFiltros(prev => ({
+                            ...prev,
+                            fechaDesde: val,
+                            showAll: false
+                          }));
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="soc-fecha-field">
+                    <FaCalendarAlt className="soc-fecha-icon" />
+                    <label>Hasta</label>
+                    <input
+                      type="date"
+                      value={fechaHasta || ''}
+                      onClick={openPickerOnEvent}
+                      onFocus={openPickerOnEvent}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        startTransition(() => {
+                          setFiltros(prev => ({
+                            ...prev,
+                            fechaHasta: val,
+                            showAll: false
+                          }));
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="soc-fecha-actions">
+                    <button
+                      className="soc-fecha-btn limpiar"
+                      onClick={() => {
+                        startTransition(() => {
+                          setFiltros(prev => ({
+                            ...prev,
+                            fechaDesde: '',
+                            fechaHasta: '',
+                            showAll: false
+                          }));
+                        });
+                      }}
+                    >
+                      Limpiar
+                    </button>
+                    <button
+                      className="soc-fecha-btn aplicar"
+                      onClick={() => {
+                        // Ya se aplican al seleccionar; cerramos submenú
+                        setMostrarSubmenuFecha(false);
+                        setMostrarFiltros(false);
+                      }}
+                    >
+                      Aplicar
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -365,6 +470,8 @@ const Socios = () => {
         busquedaId: '',
         letraSeleccionada: 'TODOS',
         categoriaSeleccionada: 'OPCIONES',
+        fechaDesde: '',
+        fechaHasta: '',
         showAll: false
       };
     } catch {
@@ -373,11 +480,16 @@ const Socios = () => {
         busquedaId: '',
         letraSeleccionada: 'TODOS',
         categoriaSeleccionada: 'OPCIONES',
+        fechaDesde: '',
+        fechaHasta: '',
         showAll: false
       };
     }
   });
-  const { busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, showAll } = filtros;
+  const {
+    busqueda, busquedaId, letraSeleccionada,
+    categoriaSeleccionada, fechaDesde, fechaHasta, showAll
+  } = filtros;
 
   // Input controlado + debounce
   const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || '');
@@ -428,15 +540,14 @@ const Socios = () => {
     return m;
   }, [socios]);
 
-  /* ===== FILTRADO =====
-     Regla: si hay filtro por categoría, solo id_estado == 2
-  */
+  /* ===== FILTRADO ===== */
   const activeFilters = useMemo(() => ({
     byId: !!busquedaId,
     bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
     byLetter: letraSeleccionada && letraSeleccionada !== 'TODOS',
     byCategory: categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES',
-  }), [busquedaId, deferredBusqueda, letraSeleccionada, categoriaSeleccionada]);
+    byDate: !!(fechaDesde || fechaHasta),
+  }), [busquedaId, deferredBusqueda, letraSeleccionada, categoriaSeleccionada, fechaDesde, fechaHasta]);
 
   const activeFiltersCount = useMemo(() =>
     Object.values(activeFilters).filter(Boolean).length
@@ -469,13 +580,27 @@ const Socios = () => {
       arr = arr.filter(s => s._name.includes(q));
     }
 
+    // RANGO FECHAS (ingreso)
+    if (activeFilters.byDate) {
+      const tsDesde = parseDateToTs(fechaDesde);
+      const tsHastaRaw = parseDateToTs(fechaHasta);
+      const tsHasta = tsHastaRaw != null ? (tsHastaRaw + 24 * 60 * 60 * 1000) : null;
+      arr = arr.filter(s => {
+        const t = s._ingresoTs;
+        if (t == null) return false;
+        if (tsDesde != null && t < tsDesde) return false;
+        if (tsHasta != null && t >= tsHasta) return false;
+        return true;
+      });
+    }
+
     if (activeFiltersCount === 0) return [];
     return arr;
   }, [
     socios, idxById,
     activeFilters, activeFiltersCount,
     busquedaId, letraSeleccionada, categoriaSeleccionada,
-    deferredBusqueda, showAll
+    deferredBusqueda, showAll, fechaDesde, fechaHasta
   ]);
 
   /* ===== ANIMACIÓN ENTRADA ===== */
@@ -572,7 +697,9 @@ const Socios = () => {
           const _dom = buildAddress(s?.domicilio, s?.numero);
           const _isActive = Number(s?.activo) === 1;
           const _estadoNum = Number(s?.id_estado ?? 0);
-          return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum };
+          const ingresoStr = s?.ingreso ? String(s.ingreso) : '';
+          const _ingresoTs = parseDateToTs(ingresoStr); // <<<< para filtro por fecha
+          return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum, _ingresoTs };
         });
         setSocios(enriched);
       } else {
@@ -666,6 +793,19 @@ const Socios = () => {
         if (parsed.busqueda) {
           const q = String(parsed.busqueda).toLowerCase();
           arr = arr.filter(s => s._name.includes(q));
+        }
+        // Rango fechas al restaurar
+        if (parsed.fechaDesde || parsed.fechaHasta) {
+          const tsDesde = parseDateToTs(parsed.fechaDesde);
+          const tsHastaRaw = parseDateToTs(parsed.fechaHasta);
+          const tsHasta = tsHastaRaw != null ? (tsHastaRaw + 24 * 60 * 60 * 1000) : null;
+          arr = arr.filter(s => {
+            const t = s._ingresoTs;
+            if (t == null) return false;
+            if (tsDesde != null && t < tsDesde) return false;
+            if (tsHasta != null && t >= tsHasta) return false;
+            return true;
+          });
         }
         return arr;
       })();
@@ -888,6 +1028,7 @@ const Socios = () => {
       if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
       if (tipo === 'letra') return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
       if (tipo === 'categoria') return { ...prev, categoriaSeleccionada: 'OPCIONES', showAll: false };
+      if (tipo === 'fecha') return { ...prev, fechaDesde: '', fechaHasta: '', showAll: false };
       if (tipo === 'showAll') return { ...prev, showAll: false };
       return prev;
     });
@@ -913,10 +1054,16 @@ const Socios = () => {
       const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
       arr.push({ key: 'categoria', label: `Categoría: ${found ? found.descripcion : categoriaSeleccionada}` });
     }
+    if (fechaDesde || fechaHasta) {
+      const etiqueta =
+        (fechaDesde && fechaHasta) ? `Ingreso: ${fechaDesde} → ${fechaHasta}`
+        : (fechaDesde ? `Ingreso: desde ${fechaDesde}` : `Ingreso: hasta ${fechaHasta}`);
+      arr.push({ key: 'fecha', label: etiqueta });
+    }
     return arr;
-  }, [showAll, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, categorias]);
+  }, [showAll, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, categorias, fechaDesde, fechaHasta]);
 
-  // >>>>>>>>>> NUEVO: itemSize responsivo (evita "achatar" tarjetas en móvil)
+  // ItemSize responsivo
   const dynamicItemSize = useResponsiveItemSize(!!socioSeleccionado);
 
   return (
@@ -938,6 +1085,8 @@ const Socios = () => {
           busquedaId={busquedaId}
           letraSeleccionada={letraSeleccionada}
           categoriaSeleccionada={categoriaSeleccionada}
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
           setFiltros={setFiltros}
           filtrosRef={filtrosRef}
           mostrarFiltros={mostrarFiltros}
@@ -1033,6 +1182,8 @@ const Socios = () => {
                         busquedaId: '',
                         letraSeleccionada: 'TODOS',
                         categoriaSeleccionada: 'OPCIONES',
+                        fechaDesde: '',
+                        fechaHasta: '',
                         showAll: true
                       });
                     });
@@ -1064,7 +1215,7 @@ const Socios = () => {
                     height={height}
                     width={width}
                     itemCount={sociosFiltrados.length}
-                    itemSize={dynamicItemSize}                
+                    itemSize={dynamicItemSize}
                     itemData={sociosFiltrados}
                     overscanCount={4}
                     outerElementType={Outer}
@@ -1085,7 +1236,7 @@ const Socios = () => {
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
 
-          <div className="soc-botones-derecha">
+        <div className="soc-botones-derecha">
             <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
               <FaUserPlus className="soc-boton-icono" /> Agregar Socio
             </button>
