@@ -393,7 +393,7 @@
 .soc-cascade-animation .soc-tabla-fila:nth-child(18){ animation-delay:.54s; }
 .soc-cascade-animation .soc-tabla-fila:nth-child(19){ animation-delay:.57s; }
 .soc-cascade-animation .soc-tabla-fila:nth-child(20){ animation-delay:.60s; }
-.soc-tabla-fila:not(.soc-cascade-animation .soc-tabla-fila){ animation:none !important; opacity:1 !important; transform:none !important; }
+.soc-tabla-fila:not(.soc-cascade-animation .soc-tabla-fila){ animation:none !important; opacity:1 !important; transform:none !important; justify-content: space-between; }
 
 /* Columnas */
 .soc-col-nombre, .soc-col-domicilio, .soc-col-comentario{
@@ -402,7 +402,7 @@
 .soc-col-id{ min-width:60px; max-width:60px; }
 .soc-col-nombre{ min-width:200px; }
 .soc-col-domicilio{ min-width:200px; }
-.soc-col-nombre, .soc-col-domicilio, .soc-col-comentario{ justify-content:start !important; }
+.soc-col-nombre, .soc-col-domicilio, .soc-col-comentario{ justify-content:start ; }
 .soc-col-comentario{ min-width:350px; display:flex; align-items:center; gap:4px; }
 .soc-comentario-preview{ max-width: calc(100% - 30px); overflow:hidden; }
 
@@ -488,10 +488,10 @@
   }
 }
 @media (max-width: 768px){
-  .soc-barra-superior{ flex-direction:column; gap:1rem; }
-  .soc-titulo-container, .soc-buscador-container, .soc-filtros-container{ width:100%; min-width:auto; }
-  .soc-buscadores-container{ flex-direction:column; gap:.75rem; max-width:100%; }
-  .soc-buscador-id-container{ width:100%; }
+  .soc-barra-superior{ flex-direction:column; gap:1rem;  padding:  1rem 0;}
+  .soc-titulo-container, .soc-buscador-container, .soc-filtros-container{  min-width:auto; width: fit-content; }
+  .soc-buscadores-container{  gap:.75rem; flex-wrap: nowrap;}
+  .soc-buscador-id-container{ width:min-content; }
 
   .soc-tabla-header{ display:none; }
   .soc-list-container{ border-radius: var(--soc-border-radius); }
@@ -511,7 +511,7 @@
   .soc-boton-mostrar-todos{ padding:.6rem 1.2rem; font-size:.9rem; }
 
   .soc-filtros-container{ width:100%; }
-  .soc-boton-filtros--emp{ width:100%; justify-content:center; border:1px dashed rgba(37,99,235,.45); background: rgba(59,130,246,.18); }
+  .soc-boton-filtros--emp{ width:100%; justify-content:center; border:1px dashed rgba(37,99,235,.45);  }
   .soc-menu-filtros--emp{
     position:absolute; top: calc(100% + 8px); right:0; left:auto; margin:0; border-radius:12px; width:min(90vw,420px);
     box-shadow:0 10px 30px rgba(0,0,0,.15); z-index:1000; max-height:60vh; overflow:auto;
@@ -521,14 +521,18 @@
   .soc-letra-filtro{ padding:.4rem; font-size:.85rem; }
 
   /* Chips: más compactos en mobile */
-  .soc-filters-island { max-width: 100% !important; justify-content: center !important; }
+  .soc-filters-island { max-width: 100% !important; justify-content: center !important; position: relative !important; }
   .soc-chip { padding: 6px 10px !important; font-size: 11px !important; }
+  .soc-tabla-header-container{flex-direction: row; justify-content: space-between;align-items: center;}  
+
+
 }
 @media (max-width: 576px){
   .soc-container{ padding:1rem; }
   .soc-titulo{ font-size:1.4rem; text-align:center; }
-  .soc-buscador, .soc-buscador-id{ padding-left:2.2rem; font-size:.85rem; }
+  .soc-buscador, .soc-buscador-id{  font-size:.85rem; }
   .soc-buscador-iconos{ left:.8rem; }
+  .soc-buscador-icono{left: 0; display: none;}
   .soc-mensaje-inicial{ font-size:.85rem; }
   .soc-boton-mostrar-todos{ padding:.5rem 1rem; font-size:.85rem; }
 
@@ -568,6 +572,7 @@
 @media (max-width: 576px){
 
   .soc-container{
+    padding: 0;
     padding-bottom: 90px;
   }
 
@@ -685,7 +690,7 @@
     margin-top: 8px;
     padding-top: 10px;
     border-top: 1px dashed rgba(226,232,240,.9);
-    justify-content: flex-start !important;
+    justify-content: center !important;
   }
 
   .soc-tabla-fila .soc-iconos-acciones{
@@ -747,7 +752,7 @@
   .soc-tabla-fila > .soc-col-comentario{
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-between !important;
     gap: 12px;
     width: 100%;
     padding: 8px 0;
@@ -774,4 +779,80 @@
   }
 
   .soc-tabla-fila > .soc-col-acciones::before{ content: none; }
+}
+
+/* Fondo suave detrás de la lista, para que se note el “aire” */
+.soc-list-container {
+  background: #f8fafc;
+}
+
+/* ===== MÓVIL ===== */
+@media (max-width: 768px) {
+  /* La fila de react-window recibe padding para simular el espacio entre tarjetas */
+  .soc-tabla-fila {
+    padding: 8px 10px;           /* “aire” vertical/horizontal entre tarjetas */
+    box-sizing: border-box;      /* importante para no desbordar */
+  }
+
+  /* La tarjeta interna: acá va el look de “card” */
+  .soc-row-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;                    /* separación entre “campos” dentro de la tarjeta */
+    height: 100%;                /* ocupa todo el alto que le da react-window */
+    padding: 12px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); /* sombra leve */
+    border-left: 4px solid var(--emp-primary, #2563EB); /* borde azul “badge” */
+  }
+
+  /* Opcional: que la fila seleccionada se destaque más */
+  .soc-fila-seleccionada .soc-row-card {
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.18);
+    border-left-color: #0ea5e9; /* azul celeste */
+  }
+
+  /* Columnas apiladas tipo “etiqueta: valor” en móvil */
+  .soc-col-id,
+  .soc-col-nombre,
+  .soc-col-domicilio,
+  .soc-col-comentario,
+  .soc-col-acciones {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.95rem;
+    padding: 0 8px;
+  }
+.soc-tabla-fila > div:last-child{ justify-content: center;}
+  /* Muestra la etiqueta del data-label en móvil antes del valor */
+  .soc-col-id::before,
+  .soc-col-nombre::before,
+  .soc-col-domicilio::before,
+  .soc-col-comentario::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #475569; /* slate-600 */
+  }
+
+  /* Acciones: fila de iconos con separación */
+  .soc-col-acciones {
+    margin-top: 4px;
+  }
+  .soc-col-acciones .soc-iconos-acciones {
+    display: flex;
+    gap: 12px;
+  }
+    #idicon{ left: .5rem !important;}
+    #idcontpad{padding: 0; width: 70px; height: 40px;}
+}
+
+/* ===== ESCRITORIO (por si querés mantener el look actual) ===== */
+@media (min-width: 769px) {
+  .soc-row-card {
+    display: contents; /* no altera el layout de columnas de la tabla de escritorio */
+  }
 }
