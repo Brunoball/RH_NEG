@@ -532,7 +532,7 @@
   .soc-titulo{ font-size:1.4rem; text-align:center; }
   .soc-buscador, .soc-buscador-id{  font-size:.85rem; }
   .soc-buscador-iconos{ left:.8rem; }
-  .soc-buscador-icono{left: 0; display: none;}
+  .soc-buscador-icono{left: 0;}
   .soc-mensaje-inicial{ font-size:.85rem; }
   .soc-boton-mostrar-todos{ padding:.5rem 1rem; font-size:.85rem; }
 
@@ -847,7 +847,8 @@
     gap: 12px;
   }
     #idicon{ left: .5rem !important;}
-    #idcontpad{padding: 0; width: 70px; height: 40px;}
+    #idcontpad{padding: 0;
+}
 }
 
 /* ===== ESCRITORIO (por si querés mantener el look actual) ===== */

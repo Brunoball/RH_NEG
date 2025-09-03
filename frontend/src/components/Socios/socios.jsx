@@ -1,3 +1,4 @@
+
 // src/components/Socios/Socios.jsx
 import React, {
   useEffect,
@@ -47,7 +48,7 @@ const NAME_DEBOUNCE_MS = 20;
 const ITEM_SIZE = 44; // desktop
 
 // >>>>>>>>>> NUEVO: alturas responsivas para móvil
-const MOBILE_ITEM_SIZE = 180;
+const MOBILE_ITEM_SIZE = 230;
 const MOBILE_ITEM_SIZE_SELECTED = 270;
 /** Hook que ajusta la altura de cada item según el viewport y si hay fila seleccionada */
 function useResponsiveItemSize(hasSelected) {
@@ -223,7 +224,6 @@ const BarraSuperior = React.memo(({
               });
             }}
             className="soc-buscador soc-buscador-id"
-            id='idcontpad'
             disabled={cargando}
             title="Buscar por ID (match exacto)"
             maxLength={10}
@@ -238,7 +238,7 @@ const BarraSuperior = React.memo(({
               }}
             />
           ) : (
-            <FaSearch className="soc-buscador-icono " id='idicon' />
+            <FaSearch className="soc-buscador-icono" />
           )}
         </div>
       </div>
@@ -805,70 +805,67 @@ const Socios = () => {
         className={`soc-tabla-fila ${esFilaPar ? 'soc-row-even' : 'soc-row-odd'} ${socioSeleccionado?._idStr === socio._idStr ? 'soc-fila-seleccionada' : ''}`}
         onClick={() => manejarSeleccion(socio)}
       >
-        {/* >>> Tarjeta interna para simular “gap” en móvil (estilizás en CSS con .soc-row-card) <<< */}
-        <div className="soc-row-card">
-          {/* data-label para layout etiqueta/valor en móvil */}
-          <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
-            {socio.id_socio}
-          </div>
+        {/* data-label para layout etiqueta/valor en móvil */}
+        <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
+          {socio.id_socio}
+        </div>
 
-          <div className="soc-col-nombre" data-label="Socio" title={socio.nombre}>
-            {socio.nombre}
-          </div>
+        <div className="soc-col-nombre" data-label="Socio" title={socio.nombre}>
+          {socio.nombre}
+        </div>
 
-          <div className="soc-col-domicilio" data-label="Domicilio" title={socio._dom}>
-            {socio._dom}
-          </div>
+        <div className="soc-col-domicilio" data-label="Domicilio" title={socio._dom}>
+          {socio._dom}
+        </div>
 
-          <div className="soc-col-comentario" data-label="Comentario">
-            {socio.comentario ? (
-              <span title={socio.comentario}>
-                {socio.comentario.length > 36 ? `${socio.comentario.substring(0, 36)}…` : socio.comentario}
-              </span>
-            ) : null}
-          </div>
+        <div className="soc-col-comentario" data-label="Comentario">
+          {socio.comentario ? (
+            <span title={socio.comentario}>
+              {socio.comentario.length > 36 ? `${socio.comentario.substring(0, 36)}…` : socio.comentario}
+            </span>
+          ) : null}
+        </div>
 
-          <div className="soc-col-acciones">
-            {socioSeleccionado?._idStr === socio._idStr && (
-              <div className="soc-iconos-acciones">
-                <FaInfoCircle
-                  title="Ver información"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSocioInfo(socio);
-                    setMostrarModalInfo(true);
-                  }}
-                  className="soc-icono"
-                />
-                <FaEdit
-                  title="Editar"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goEditar(socio);
-                  }}
-                  className="soc-icono"
-                />
-                <FaTrash
-                  title="Eliminar"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSocioAEliminar(socio);
-                    setMostrarModalEliminar(true);
-                  }}
-                  className="soc-icono"
-                />
-                <FaUserMinus
-                  title="Dar de baja"
-                  className="soc-icono"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSocioDarBaja(socio);
-                    setMostrarModalDarBaja(true);
-                  }}
-                />
-              </div>
-            )}
-          </div>
+        <div className="soc-col-acciones">
+          {socioSeleccionado?._idStr === socio._idStr && (
+            <div className="soc-iconos-acciones">
+              <FaInfoCircle
+                title="Ver información"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioInfo(socio);
+                  setMostrarModalInfo(true);
+                }}
+                className="soc-icono"
+              />
+              <FaEdit
+                title="Editar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goEditar(socio);
+                }}
+                className="soc-icono"
+              />
+              <FaTrash
+                title="Eliminar"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioAEliminar(socio);
+                  setMostrarModalEliminar(true);
+                }}
+                className="soc-icono"
+              />
+              <FaUserMinus
+                title="Dar de baja"
+                className="soc-icono"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSocioDarBaja(socio);
+                  setMostrarModalDarBaja(true);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1067,7 +1064,7 @@ const Socios = () => {
                     height={height}
                     width={width}
                     itemCount={sociosFiltrados.length}
-                    itemSize={dynamicItemSize}
+                    itemSize={dynamicItemSize}                
                     itemData={sociosFiltrados}
                     overscanCount={4}
                     outerElementType={Outer}
