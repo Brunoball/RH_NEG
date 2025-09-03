@@ -64,14 +64,14 @@ html, body {
 }
 .contable-back-button:hover{ transform: translateY(-1px); }
 
-/* ===== GRID LAYOUT (80vh SIEMPRE) ===== */
+/* ===== GRID LAYOUT (80/90vh SIEMPRE) ===== */
 .contable-grid{
   display:grid;
   grid-template-columns: 26% 74%;
   gap:18px;
   padding:18px 2rem 24px 12px;
   box-sizing: border-box;
-  height: 90vh;                  /* ⬅️ altura fija solicitada */
+  height: 90vh;                  /* altura de la vista */
 }
 
 /* ===== SIDEBAR ===== */
@@ -82,7 +82,7 @@ html, body {
   padding:18px;
   display:flex;
   flex-direction:column;
-  height:100%;                   /* ⬅️ llena el 80vh del grid */
+  height:100%;                   /* llena el alto del grid */
   overflow:auto;
   scrollbar-gutter: stable both-edges;
 }
@@ -164,11 +164,11 @@ html, body {
 .kpi strong{ display:block; font-size:1.25rem; color:var(--soc-dark); margin:4px 0; }
 .kpi small{ color:var(--soc-gray-500); }
 
-/* ===== MAIN (ocupa 80vh) ===== */
+/* ===== MAIN (ocupa todo el alto) ===== */
 .contable-main{
   background:#ffffff; border-radius:12px; box-shadow: var(--soc-shadow-md);
   padding:0; display:flex; flex-direction:column;
-  height:100%;                 /* ⬅️ llena el 80vh del grid */
+  height:100%;                 /* llena el alto del grid */
   overflow:hidden;
 }
 
@@ -202,17 +202,17 @@ html, body {
   flex:1;                       /* ocupa todo el alto restante del main */
   overflow:auto;
   border-radius:0 0 12px 12px;
-  display:flex;                 /* ⬅️ necesario para centrar vacíos */
+  display:flex;                 /* necesario para centrar vacíos */
 }
 
 /* Contenedor de la “tabla” */
 .gridtable{
-  display:flex;                 /* ⬅️ columna flexible */
+  display:flex;                 /* columna flexible */
   flex-direction:column;
   background:#fff;
   font-size:.95rem;
   width:100%;
-  min-height:100%;              /* ⬅️ llena el alto del wrap */
+  min-height:100%;              /* llena el alto del wrap */
 }
 
 /* 5 columnas: Socio | Monto | Cobrador | Fecha | Periodo */
@@ -234,7 +234,7 @@ html, body {
   border-bottom: 1px solid var(--soc-gray-300);
   font-weight:700;
   letter-spacing:.2px;
-  flex: 0 0 auto;               /* ⬅️ no crece */
+  flex: 0 0 auto;               /* no crece */
 }
 .gridtable-header .gridtable-cell{ padding:12px 14px; }
 
@@ -255,9 +255,9 @@ html, body {
 
 /* ===== Estados vacíos centrados ===== */
 .gridtable-empty{
-  flex: 1 1 auto;               /* ⬅️ ocupa todo lo disponible */
+  flex: 1 1 auto;               /* ocupa todo lo disponible */
   display: grid;
-  place-items: center;          /* ⬅️ centro vertical/horizontal */
+  place-items: center;          /* centro vertical/horizontal */
   grid-template-columns: 1fr;
 }
 .gridtable-empty-inner{
@@ -340,11 +340,11 @@ html, body {
 @media (max-width: 920px){
   .contable-grid{
     grid-template-columns: 1fr;
-    height: 80vh;               /* ⬅️ mantiene 80vh también en mobile */
+    height: 80vh;               /* mantiene alto también en mobile grande */
   }
   .contable-sidebar{
     height: 100%;
-    max-height: none;           /* ⬅️ elimina límite anterior */
+    max-height: none;
   }
   .table-toolbar{ position: sticky; top: 0; }
   .searchbox{ min-width:0; width:100%; }
@@ -380,7 +380,6 @@ html, body {
   .toolbar-left h2{ font-size:1rem; }
 }
 
-
 /* =========================
    MOBILE ONLY (<= 480px)
    ========================= */
@@ -408,9 +407,10 @@ html, body {
 
   /* Sidebar */
   .contable-sidebar{
-    padding: 12px;
-    border-radius: 10px;
+    padding: 0;
+    border-radius: 0;
   }
+  .contable-main{border-radius: 0; height: fit-content;}
   .side-switch .segmented{
     padding: .6rem;
     font-size: .9rem;
@@ -429,6 +429,32 @@ html, body {
     padding: 10px;
     font-size: .9rem;
     border-radius: 10px;
+  }
+
+  /* ===== Agrupar filtros: Año+Período y Mes+Cobrador en dos columnas ===== */
+  .contable-sidebar .side-views .side-block:has(> label.side-field){
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+    row-gap: 12px;
+  }
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-block-title{
+    grid-column: 1 / -1; /* título ancho completo */
+  }
+  /* por defecto todos los hijos a ancho completo… */
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > *{
+    grid-column: 1 / -1;
+  }
+  /* …pero los 4 primeros labels se reparten 2 por fila */
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(1),
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(2),
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(3),
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(4){
+    grid-column: span 1;
+  }
+  /* acciones ocupan todo el ancho */
+  .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-actions{
+    grid-column: 1 / -1;
   }
 
   /* Toolbar de la tabla: a 1 columna */
@@ -459,7 +485,7 @@ html, body {
     font-size: .9rem;
   }
 
-  /* Tabla en cards (ya lo tenías); optimizo proporciones */
+  /* Tabla en cards (optimizada) */
   .gridtable-row{
     margin: 8px 8px;
     border-radius: 10px;
@@ -467,7 +493,7 @@ html, body {
   }
   .gridtable-cell{
     grid-template-columns: 120px 1fr; /* etiqueta + valor más compacto */
-    padding: 9px 10px;
+    padding: 4px 10px;
   }
 
   /* Estados vacíos: tamaño e icono más amigables en cel */
@@ -486,14 +512,7 @@ html, body {
   }
 
   /* KPIs más compactos */
-  .kpi{
-    padding: 10px;
-  }
-  .kpi strong{
-    font-size: 1.1rem;
-  }
-  .kpi span,
-  .kpi small{
-    font-size: .8rem;
-  }
+  .kpi{ padding: 10px; }
+  .kpi strong{ font-size: 1.1rem; }
+  .kpi span, .kpi small{ font-size: .8rem; }
 }

@@ -1,3 +1,4 @@
+
 // src/components/Socios/Socios.jsx
 import React, {
   useEffect,
@@ -44,7 +45,33 @@ const MIN_SPINNER_MS = 0;
 const MAX_CASCADE = 14;
 const CASCADE_DISABLE_ABOVE = 200;
 const NAME_DEBOUNCE_MS = 20;
-const ITEM_SIZE = 44;
+const ITEM_SIZE = 44; // desktop
+
+// >>>>>>>>>> NUEVO: alturas responsivas para móvil
+const MOBILE_ITEM_SIZE = 170;
+const MOBILE_ITEM_SIZE_SELECTED = 410;
+/** Hook que ajusta la altura de cada item según el viewport y si hay fila seleccionada */
+function useResponsiveItemSize(hasSelected) {
+  const [size, setSize] = useState(ITEM_SIZE);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => {
+      if (mq.matches) {
+        setSize(hasSelected ? MOBILE_ITEM_SIZE_SELECTED : MOBILE_ITEM_SIZE);
+      } else {
+        setSize(ITEM_SIZE);
+      }
+    };
+    update();
+    mq.addEventListener?.('change', update);
+    mq.addListener?.(update); // fallback
+    return () => {
+      mq.removeEventListener?.('change', update);
+      mq.removeListener?.(update);
+    };
+  }, [hasSelected]);
+  return size;
+}
 
 /* ============================
    STORAGE KEYS
@@ -55,7 +82,7 @@ const SS_KEYS = {
   TS: 'socios_last_ts',
   FILTERS: 'socios_last_filters'
 };
-const LS_FILTERS = 'filtros_socios_v2'; // <- nueva versión (con showAll)
+const LS_FILTERS = 'filtros_socios_v2'; // nueva versión (con showAll)
 
 /* ============================
    HELPERS
@@ -67,12 +94,14 @@ const buildAddress = (domicilio, numero) => {
   if (calle && num && calle.includes(num)) return calle;
   return `${calle} ${num}`.trim();
 };
-
 const getFirstLetter = (name) => {
   const s = String(name ?? '').trim();
   return s ? s[0].toUpperCase() : '';
 };
 
+/* ============================
+   BARRA SUPERIOR
+============================ */
 const BarraSuperior = React.memo(({
   cargando,
   busquedaInput,
@@ -88,7 +117,6 @@ const BarraSuperior = React.memo(({
   startTransition
 }) => {
   const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
   const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
   const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
 
@@ -107,7 +135,7 @@ const BarraSuperior = React.memo(({
       setFiltros(prev => ({
         ...prev,
         letraSeleccionada: letra,
-        showAll: false, // si elige letra, deja de estar en "mostrar todos"
+        showAll: false,
       }));
     });
     setMostrarSubmenuAlfabetico(false);
@@ -150,7 +178,7 @@ const BarraSuperior = React.memo(({
       </div>
 
       <div className="soc-buscadores-container">
-        {/* Buscador por nombre (controlado) */}
+        {/* Buscador por nombre */}
         <div className="soc-buscador-container">
           <input
             type="text"
@@ -215,7 +243,7 @@ const BarraSuperior = React.memo(({
         </div>
       </div>
 
-      {/* Filtros (botón + panel) */}
+      {/* Filtros */}
       <div className="soc-filtros-container" ref={filtrosRef}>
         <button
           className="soc-boton-filtros soc-boton-filtros--emp"
@@ -239,10 +267,7 @@ const BarraSuperior = React.memo(({
             className="soc-menu-filtros soc-menu-filtros--emp"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="soc-filtros-menu-item"
-              onClick={() => toggleSubmenu('alfabetico')}
-            >
+            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('alfabetico')}>
               <span>Filtrar de la A a la Z</span>
               <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuAlfabetico ? 'soc-rotate' : ''}`} />
             </div>
@@ -264,10 +289,7 @@ const BarraSuperior = React.memo(({
               </div>
             )}
 
-            <div
-              className="soc-filtros-menu-item"
-              onClick={() => toggleSubmenu('categoria')}
-            >
+            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('categoria')}>
               <span>Categorías</span>
               <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuCategoria ? 'soc-rotate' : ''}`} />
             </div>
@@ -334,7 +356,7 @@ const Socios = () => {
 
   const [toast, setToast] = useState({ mostrar: false, tipo: '', mensaje: '' });
 
-  // 1) Estado de filtros con showAll y SIN 'filtroActivo' (combina todos)
+  // Filtros
   const [filtros, setFiltros] = useState(() => {
     try {
       const saved = localStorage.getItem(LS_FILTERS);
@@ -355,10 +377,9 @@ const Socios = () => {
       };
     }
   });
-
   const { busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, showAll } = filtros;
 
-  // 2) Input controlado + debounce → actualiza filtros.busqueda
+  // Input controlado + debounce
   const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || '');
   const deferredBusqueda = useDeferredValue(busquedaInput);
 
@@ -375,7 +396,7 @@ const Socios = () => {
     return () => clearTimeout(t);
   }, [busquedaInput, startTransition]);
 
-  // 3) Persistencia de filtros
+  // Persistencia
   useEffect(() => {
     try {
       sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
@@ -383,7 +404,7 @@ const Socios = () => {
     } catch {}
   }, [filtros]);
 
-  // 4) Restaurar filtros de sessionStorage al montar (si existen)
+  // Restaurar de sessionStorage al montar
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(SS_KEYS.FILTERS);
@@ -400,41 +421,16 @@ const Socios = () => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
 
-  /* ============================
-         PRE-INDEXACIÓN
-  ============================ */
+  /* ===== PRE-INDEXACIÓN ===== */
   const idxById = useMemo(() => {
     const m = new Map();
     for (const s of socios) m.set(String(s._idStr), s);
     return m;
   }, [socios]);
 
-  const idxByLetter = useMemo(() => {
-    const m = new Map();
-    for (const s of socios) {
-      const L = s._first;
-      if (!L) continue;
-      if (!m.has(L)) m.set(L, []);
-      m.get(L).push(s);
-    }
-    return m;
-  }, [socios]);
-
-  const idxByCat = useMemo(() => {
-    const m = new Map();
-    for (const s of socios) {
-      const k = String(s.id_categoria ?? '');
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push(s);
-    }
-    return m;
-  }, [socios]);
-
-  /* ============================
-            FILTRADO
-     Regla nueva: cuando hay filtro por categoría,
-     SOLO se muestran socios con id_estado == 2.
-  ============================ */
+  /* ===== FILTRADO =====
+     Regla: si hay filtro por categoría, solo id_estado == 2
+  */
   const activeFilters = useMemo(() => ({
     byId: !!busquedaId,
     bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
@@ -447,41 +443,33 @@ const Socios = () => {
   , [activeFilters]);
 
   const sociosFiltrados = useMemo(() => {
-    // Base: solo activos por campo "activo = 1" (tu lógica existente)
     let arr = socios.filter(s => s._isActive);
 
     if (showAll) return arr;
 
-    // ID exacto
     if (activeFilters.byId) {
       const found = idxById.get(String(busquedaId));
       arr = found && found._isActive ? [found] : [];
       if (arr.length === 0) return arr;
     }
 
-    // Letra
     if (activeFilters.byLetter) {
       arr = arr.filter(s => s._first === letraSeleccionada);
     }
 
-    // *** CATEGORÍA + REGLA DE ESTADO ***
     if (activeFilters.byCategory) {
-      // Primero filtramos por la categoría seleccionada
-      arr = arr.filter(s => String(s.id_categoria) === String(categoriaSeleccionada));
-      // Y AHORA aplicamos la regla solicitada:
-      // "exclusivamente los socios con id_estado = 2"
-      arr = arr.filter(s => Number(s.id_estado) === 2);
+      arr = arr.filter(s =>
+        String(s.id_categoria) === String(categoriaSeleccionada) &&
+        Number(s.id_estado) === 2
+      );
     }
 
-    // Búsqueda por nombre
     if (activeFilters.bySearch) {
       const q = deferredBusqueda.toLowerCase();
       arr = arr.filter(s => s._name.includes(q));
     }
 
-    // Si no hay filtros activos y no está showAll => vacío hasta que aplique alguno
     if (activeFiltersCount === 0) return [];
-
     return arr;
   }, [
     socios, idxById,
@@ -490,9 +478,7 @@ const Socios = () => {
     deferredBusqueda, showAll
   ]);
 
-  /* ============================
-        ANIMACIÓN ENTRADA
-  ============================ */
+  /* ===== ANIMACIÓN ENTRADA ===== */
   const allowCascade = sociosFiltrados.length <= CASCADE_DISABLE_ABOVE;
   const triggerCascade = useCallback((duration = 360) => {
     if (!allowCascade) return;
@@ -511,9 +497,7 @@ const Socios = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sociosFiltrados.length]);
 
-  /* ============================
-     EVENTOS GLOBALES / CLICK OUT
-  ============================ */
+  /* ===== EVENTOS GLOBALES ===== */
   useEffect(() => {
     const handleClickOutsideFiltros = (event) => {
       if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
@@ -533,9 +517,7 @@ const Socios = () => {
     };
   }, []);
 
-  /* ============================
-      RESTAURAR SELECCIÓN/SCROLL
-  ============================ */
+  /* ===== RESTAURAR SELECCIÓN/SCROLL ===== */
   const restorePendingRef = useRef(false);
   const restoredOnceRef = useRef(false);
 
@@ -545,7 +527,6 @@ const Socios = () => {
       sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
       sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
       sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
-      // Guarda filtros actuales (incluye showAll)
       sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
       sessionStorage.setItem(`socio_prefetch_${socio.id_socio}`, JSON.stringify(socio));
     } catch {}
@@ -589,8 +570,8 @@ const Socios = () => {
           const _name = String(s?.nombre ?? '').toLowerCase();
           const _first = getFirstLetter(s?.nombre);
           const _dom = buildAddress(s?.domicilio, s?.numero);
-          const _isActive = Number(s?.activo) === 1;          // sigue tu base
-          const _estadoNum = Number(s?.id_estado ?? 0);       // útil para filtros de estado
+          const _isActive = Number(s?.activo) === 1;
+          const _estadoNum = Number(s?.id_estado ?? 0);
           return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum };
         });
         setSocios(enriched);
@@ -639,7 +620,6 @@ const Socios = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Recarga cuando needsRefresh sea true
   useEffect(() => {
     if (needsRefresh) {
       cargarDatos();
@@ -647,7 +627,6 @@ const Socios = () => {
     }
   }, [needsRefresh, cargarDatos]);
 
-  // Restauración (una vez) cuando hay datos y lista lista
   useEffect(() => {
     if (!restorePendingRef.current) return;
     if (restoredOnceRef.current) return;
@@ -665,7 +644,6 @@ const Socios = () => {
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
       const savedOffset = Number(sessionStorage.getItem(SS_KEYS.SCROLL) || '0');
 
-      // reconstruimos con filtros actuales rápidamente (MISMA REGLA DE CATEGORÍA + ESTADO=2)
       const currentList = (() => {
         let arr = socios.filter(s => s._isActive);
         const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
@@ -682,7 +660,7 @@ const Socios = () => {
         if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
           arr = arr.filter(s =>
             String(s.id_categoria) === String(parsed.categoriaSeleccionada) &&
-            Number(s.id_estado) === 2               // <--- REGLA CLAVE TAMBIÉN EN RESTAURACIÓN
+            Number(s.id_estado) === 2
           );
         }
         if (parsed.busqueda) {
@@ -711,14 +689,10 @@ const Socios = () => {
       sessionStorage.removeItem(SS_KEYS.SEL_ID);
       sessionStorage.removeItem(SS_KEYS.SCROLL);
       sessionStorage.removeItem(SS_KEYS.TS);
-    } catch {
-      // no-op
-    }
+    } catch {}
   }, [cargando, socios, filtros]);
 
-  /* ============================
-       HANDLERS / EXPORTACIÓN
-  ============================ */
+  /* ===== HANDLERS / EXPORTACIÓN ===== */
   const manejarSeleccion = useCallback((socio) => {
     setSocioSeleccionado(prev => prev?._idStr !== socio._idStr ? socio : null);
   }, []);
@@ -831,18 +805,27 @@ const Socios = () => {
         className={`soc-tabla-fila ${esFilaPar ? 'soc-row-even' : 'soc-row-odd'} ${socioSeleccionado?._idStr === socio._idStr ? 'soc-fila-seleccionada' : ''}`}
         onClick={() => manejarSeleccion(socio)}
       >
-        <div className="soc-col-id" title={socio.id_socio}>{socio.id_socio}</div>
-        <div className="soc-col-nombre" title={socio.nombre}>{socio.nombre}</div>
-        <div className="soc-col-domicilio" title={socio._dom}>
+        {/* data-label para layout etiqueta/valor en móvil */}
+        <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
+          {socio.id_socio}
+        </div>
+
+        <div className="soc-col-nombre" data-label="Socio" title={socio.nombre}>
+          {socio.nombre}
+        </div>
+
+        <div className="soc-col-domicilio" data-label="Domicilio" title={socio._dom}>
           {socio._dom}
         </div>
-        <div className="soc-col-comentario">
+
+        <div className="soc-col-comentario" data-label="Comentario">
           {socio.comentario ? (
             <span title={socio.comentario}>
               {socio.comentario.length > 36 ? `${socio.comentario.substring(0, 36)}…` : socio.comentario}
             </span>
           ) : null}
         </div>
+
         <div className="soc-col-acciones">
           {socioSeleccionado?._idStr === socio._idStr && (
             <div className="soc-iconos-acciones">
@@ -933,6 +916,9 @@ const Socios = () => {
     return arr;
   }, [showAll, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, categorias]);
 
+  // >>>>>>>>>> NUEVO: itemSize responsivo (evita "achatar" tarjetas en móvil)
+  const dynamicItemSize = useResponsiveItemSize(!!socioSeleccionado);
+
   return (
     <div className="soc-main-container">
       <div className="soc-container">
@@ -970,7 +956,7 @@ const Socios = () => {
               <strong>{showAll ? sociosFiltrados.length : (activeFiltersCount === 0 ? 0 : sociosFiltrados.length)}</strong>
             </div>
 
-            {/* ISLA de chips flotante */}
+            {/* Isla de chips */}
             <div
               className="soc-filters-island"
               style={{
@@ -1030,11 +1016,8 @@ const Socios = () => {
             </div>
           </div>
 
-          {/* Zona de lista */}
-          <div
-            className={`soc-list-container ${animacionActiva ? 'soc-cascade-animation' : ''}`}
-            style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
-          >
+          {/* Lista */}
+          <div className={`soc-list-container ${animacionActiva ? 'soc-cascade-animation' : ''}`} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             {(!showAll && activeFiltersCount === 0) ? (
               <div className="soc-boton-mostrar-container">
                 <div className="soc-mensaje-inicial">
@@ -1076,12 +1059,12 @@ const Socios = () => {
               <AutoSizer>
                 {({ height, width }) => (
                   <List
-                    key={tablaVersion}
+                    key={`${tablaVersion}-${dynamicItemSize}`}   // fuerza relayout si cambia el alto
                     ref={listRef}
                     height={height}
                     width={width}
                     itemCount={sociosFiltrados.length}
-                    itemSize={ITEM_SIZE}
+                    itemSize={dynamicItemSize}                
                     itemData={sociosFiltrados}
                     overscanCount={4}
                     outerElementType={Outer}
@@ -1098,18 +1081,12 @@ const Socios = () => {
 
         {/* Barra inferior */}
         <div className="soc-barra-inferior">
-          <button
-            className="soc-boton soc-boton-volver"
-            onClick={() => navigate('/panel')}
-          >
+          <button className="soc-boton soc-boton-volver" onClick={() => navigate('/panel')}>
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
 
           <div className="soc-botones-derecha">
-            <button
-              className="soc-boton soc-boton-agregar"
-              onClick={() => navigate('/socios/agregar')}
-            >
+            <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
               <FaUserPlus className="soc-boton-icono" /> Agregar Socio
             </button>
             <button
@@ -1119,10 +1096,7 @@ const Socios = () => {
             >
               <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
             </button>
-            <button
-              className="soc-boton soc-boton-baja"
-              onClick={() => navigate('/socios/baja')}
-            >
+            <button className="soc-boton soc-boton-baja" onClick={() => navigate('/socios/baja')}>
               <FaUserSlash className="soc-boton-icono" /> Dados de Baja
             </button>
           </div>
