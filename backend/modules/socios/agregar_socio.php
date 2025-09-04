@@ -45,7 +45,7 @@ try {
     if (!$nombre || trim($nombre) === '') {
         responderError(['nombre' => '⚠️ El nombre completo es obligatorio.']);
     }
-    // Letras Unicode, espacios, punto, apóstrofo y guion. Máx 100.
+    // Letras Unicode, espacios, punto, apóstrofo y guion. Máx 100. (SIN COMA)
     if (!preg_match("/^[\p{L}\s.'-]+$/u", $nombre) || mb_strlen($nombre, 'UTF-8') > 100) {
         responderError(['nombre' => '❌ Solo letras, espacios, puntos, apóstrofo y guiones. Máximo 100 caracteres.']);
     }
@@ -60,27 +60,21 @@ try {
     $comentario      = aMayus($data['comentario'] ?? '');
     $nacimiento      = !empty($data['nacimiento']) ? $data['nacimiento'] : null; // YYYY-MM-DD
     $id_estado       = is_numeric($data['id_estado'] ?? null) ? (int)$data['id_estado'] : null;
-    $domicilio_cobro = $data['domicilio_cobro'] ?? ''; // ✅ acepta cualquier caracter (no se pasa por aMayus)
+    $domicilio_cobro = $data['domicilio_cobro'] ?? '';
     $dni             = trim($data['dni'] ?? '');
-    $ingreso         = date("Y-m-d"); // fecha actual
+    $ingreso         = date("Y-m-d");
     $activo          = 1;
 
     // ✅ Validaciones (solo si traen valor)
-    // Domicilio: letras/números Unicode + espacios + . , -
     if (!empty($domicilio) && (!preg_match("/^[\p{L}\p{N}\s.,-]+$/u", $domicilio) || mb_strlen($domicilio, 'UTF-8') > 100)) {
         responderError(['domicilio' => '❌ Domicilio inválido. Letras/números, espacios y . , -. Máximo 100 caracteres.']);
     }
-
-    // Domicilio de cobro: cualquier caracter, solo límite de longitud
     if (!empty($domicilio_cobro) && mb_strlen($domicilio_cobro, 'UTF-8') > 150) {
         responderError(['domicilio_cobro' => '❌ Máximo 150 caracteres.']);
     }
-
-    // Comentario: letras/números Unicode + espacios + . , -
     if (!empty($comentario) && (!preg_match("/^[\p{L}\p{N}\s.,-]+$/u", $comentario) || mb_strlen($comentario, 'UTF-8') > 1000)) {
         responderError(['comentario' => '❌ Comentario inválido. Letras/números, espacios y . , -. Máximo 1000 caracteres.']);
     }
-
     if (!empty($numero) && (!preg_match("/^[0-9]+$/", $numero) || strlen($numero) > 20)) {
         responderError(['numero' => '❌ Solo números. Máximo 20 caracteres.']);
     }
@@ -94,13 +88,11 @@ try {
         responderError(['dni' => '❌ DNI inválido. Solo números. Máximo 20 caracteres.']);
     }
 
-    // Convertir vacíos a null (menos domicilio_cobro que puede ser cadena vacía)
     foreach (['domicilio','numero','telefono_movil','telefono_fijo','comentario','nacimiento','dni'] as $campo) {
         if ($$campo === '') $$campo = null;
     }
     if ($domicilio_cobro === '') $domicilio_cobro = null;
 
-    // ✅ INSERT
     $sql = "
         INSERT INTO socios (
             nombre, id_cobrador, id_categoria, domicilio, numero,
