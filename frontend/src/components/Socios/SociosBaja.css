@@ -18,7 +18,7 @@
   --soc-gray-700: #334155;
   --soc-gray-800: #1E293B;
   --soc-gray-900: #0F172A;
-  
+
   --soc-border-radius: 12px;
   --soc-border-radius-sm: 8px;
   --soc-border-radius-lg: 16px;
@@ -30,6 +30,9 @@
   --soc-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   --soc-glass: rgba(255, 255, 255, 0.95);
   --soc-glass-border: rgba(255, 255, 255, 0.2);
+
+  /* Altura aprox. de la barra inferior móvil */
+  --soc-bottom-nav-h: 64px;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
@@ -38,8 +41,8 @@
   position: relative;
   width: 100%;
   min-height: 100vh;
-  background: radial-gradient(circle at center, 
-    rgba(239, 68, 68, 0.15) 0%, 
+  background: radial-gradient(circle at center,
+    rgba(239, 68, 68, 0.15) 0%,
     rgba(255, 255, 255, 0) 70%);
   border-radius: var(--soc-border-radius-xl);
   box-shadow: var(--soc-shadow-xl);
@@ -48,6 +51,7 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ===== Barra superior (existente) ===== */
 .soc-barra-superior-baja {
   position: relative;
   width: 100%;
@@ -95,6 +99,7 @@
 
 .soc-boton-volver-baja:hover { background-color: var(--soc-danger); color: white; border-color: var(--soc-danger); }
 
+/* ===== Buscador ===== */
 .soc-buscador-container-baja { position: relative; margin: 0 1rem; }
 
 .soc-buscador-baja {
@@ -124,6 +129,7 @@
   color: var(--soc-gray-400);
 }
 
+/* ===== Tabla ===== */
 .soc-tabla-body-baja::-webkit-scrollbar { width: 6px; height: 6px; }
 .soc-tabla-body-baja::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.5); border-radius: 10px; }
 .soc-tabla-body-baja::-webkit-scrollbar-thumb { background: rgba(239, 68, 68, 0.5); border-radius: 10px; }
@@ -154,7 +160,7 @@
 .soc-tabla-header-baja {
   display: grid;
   border-radius: 14px 14px 0 0;
-  grid-template-columns: 60px 1.5fr 1.5fr 1fr 100px;
+  grid-template-columns: 60px 1fr .5fr 1.5fr 100px;
   background: linear-gradient(135deg, var(--soc-danger), var(--soc-accent));
   color: white;
   font-weight: 600;
@@ -177,7 +183,7 @@
 
 .soc-tabla-fila-baja {
   display: grid;
-  grid-template-columns: 60px 1.5fr 1.5fr 1fr 100px;
+  grid-template-columns: 60px 1fr .5fr 1.5fr 100px;
   padding: 10px 0;
   border-bottom: 1px solid rgba(237, 242, 247, 0.7);
   align-items: center;
@@ -205,8 +211,9 @@
 .soc-col-id-baja { min-width: 60px; max-width: 60px; }
 .soc-col-nombre-baja { min-width: 200px; }
 .soc-col-domicilio-baja { min-width: 200px; }
-.soc-col-comentario-baja { justify-content: start !important; min-width: 150px; cursor: pointer; }
-.soc-col-comentario-baja:hover { text-decoration: underline; }
+.soc-col-comentario-baja {  min-width: 150px;  }
+.soc-motivo-contenedor{ justify-content: center;}
+.soc-motivo-contenedor:hover { text-decoration: underline; }
 
 .soc-motivo-contenedor { display: flex; align-items: center; gap: 5px; width: 100%; }
 .soc-icono-info-motivo { color: var(--soc-gray-500); font-size: 0.9rem; flex-shrink: 0; }
@@ -264,18 +271,7 @@
 .soc-contador-baja { font-size: 0.9rem; color: var(--soc-gray-600); margin: 1rem 0 0.5rem; padding: 0 0.5rem; }
 .soc-contador-baja strong { color: var(--soc-danger); margin-left: 0.25rem; }
 
-.soc-mensaje-baja {
-  position: fixed; top: 20px; right: 20px;
-  padding: 12px 16px; border-radius: var(--soc-border-radius);
-  font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 8px;
-  box-shadow: var(--soc-shadow-md); z-index: 1000; animation: soc-slideInRight 0.3s ease-out;
-}
-.soc-mensaje-baja.exito { background-color: var(--soc-success); color: white; }
-.soc-mensaje-baja.error { background-color: var(--soc-danger); color: white; }
-.soc-cerrar-mensaje-baja { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; margin-left: 8px; }
-
-@keyframes soc-slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
+/* ===== Modales ===== */
 .soc-modal-overlay-baja {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
@@ -324,12 +320,11 @@
 .soc-campo-fecha-alta { margin: 1.5rem 0; text-align: left; transition: var(--soc-transition); }
 .soc-label-fecha-alta { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--soc-gray-700); font-size: 0.95rem; }
 
-/* El CONTENEDOR completo es clickeable para abrir el calendario */
 .soc-input-fecha-container {
   position: relative;
   display: flex;
   align-items: center;
-  cursor: pointer;      /* cualquier parte abre el calendario */
+  cursor: pointer;
   user-select: none;
 }
 .soc-input-fecha-container:focus { outline: none; }
@@ -345,24 +340,19 @@
   background-color: var(--soc-light);
   transition: var(--soc-transition);
   box-shadow: var(--soc-shadow-sm);
-  cursor: pointer;      /* coherencia visual con el contenedor */
+  cursor: pointer;
 }
 .soc-input-fecha-alta:focus { outline: none; border-color: var(--soc-success); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
 
-/* Ocultar el ícono nativo del date input (para que no haya dos) */
-.soc-input-fecha-alta::-webkit-calendar-picker-indicator {
-  opacity: 0;
-  display: none;
-}
+.soc-input-fecha-alta::-webkit-calendar-picker-indicator { opacity: 0; display: none; }
 .soc-input-fecha-alta::-ms-expand { display: none; }
 
-/* ÚNICO ícono gris a la derecha (decorativo) */
 .soc-icono-calendario {
   position: absolute;
   right: 1rem;
   font-size: 1.2rem;
   color: var(--soc-gray-500);
-  pointer-events: none; /* el click lo toma el contenedor */
+  pointer-events: none;
 }
 
 /* Botoneras modales */
@@ -383,22 +373,46 @@
   flex: 1; max-width: 200px;
 }
 .soc-boton-cancelar-alta:hover,
-.soc-boton-cancelar-eliminar:hover { background-color: var(--soc-gray-100); transform: translateY(-2px); box-shadow: 0 4px 6px rgba(203, 213, 225, 0.3); }
+.soc-boton-cancelar-eliminar:hover { background-color: var(--soc-gray-100); transform: translateY(-2px); box-shadow: var(--soc-shadow-sm); }
 .soc-boton-confirmar-eliminar { background-color: var(--soc-danger); }
-.soc-boton-confirmar-eliminar:hover { background-color: #dc2626; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3); }
+.soc-boton-confirmar-eliminar:hover { background-color: #dc2626; transform: translateY(-2px); box-shadow: var(--soc-shadow-sm); }
 
-/* Responsive */
-@media (max-width: 576px) {
-  .soc-modal-botones-alta,
-  .soc-modal-botones-eliminar,
-  .soc-modal-botones-motivo { flex-direction: column; }
-  .soc-boton-confirmar-alta,
-  .soc-boton-cancelar-alta,
-  .soc-boton-confirmar-eliminar,
-  .soc-boton-cancelar-eliminar,
-  .soc-boton-cerrar-motivo { max-width: 100%; width: 100%; }
+/* ===== Botón Exportar (desktop/tablet) ===== */
+.soc-boton-exportar-baja{
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem 1.25rem;
+  border-radius: var(--soc-border-radius);
+  background:#fff;
+  color: var(--soc-accent);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: .2px;
+  cursor: pointer;
+  transition: var(--soc-transition);
+  border: 2px solid var(--soc-accent);
+}
+.soc-boton-exportar-baja:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+.soc-boton-exportar-baja:active{ transform: translateY(0); filter: none; box-shadow: var(--soc-shadow-sm); }
+.soc-boton-exportar-baja:focus-visible{ outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--soc-success) 25%, transparent); }
+.soc-boton-exportar-baja:disabled{ opacity: .6; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+.soc-boton-exportar-baja svg{ font-size: 1.1rem; flex-shrink: 0; }
+.soc-boton-exportar-baja--ghost{
+  background: #fff;
+  color: var(--soc-success);
+  border: 1px solid color-mix(in srgb, var(--soc-success) 35%, var(--soc-gray-300));
+}
+.soc-boton-exportar-baja--ghost:hover{
+  background: color-mix(in srgb, var(--soc-success) 6%, #fff);
+  box-shadow: var(--soc-shadow-sm);
 }
 
+/* ===== Topbar de tabla ===== */
+.soc-acciones-superior-baja{ display: flex; gap: 1rem; }
+.soc-tabla-topbar-baja{ display: flex; justify-content: space-between; margin: .5rem 0; }
+
+/* ===== Responsivo general ===== */
 @media (max-width: 992px) {
   .soc-container-baja { padding: 1.5rem; }
   .soc-titulo-baja { font-size: 1.6rem; }
@@ -421,87 +435,77 @@
   .soc-modal-botones-baja { flex-direction: column; }
   .soc-boton-confirmar-baja, .soc-boton-cancelar-baja { width: 100%; justify-content: center; }
   .soc-sin-resultados-container-baja { height: 150px; }
+
+  /* Dejo espacio de scroll seguro para la barra inferior */
+  .soc-container-baja {
+    padding-bottom: calc(var(--soc-bottom-nav-h) + env(safe-area-inset-bottom) + 16px);
+  }
 }
 
 @media (max-width: 576px) {
-  .soc-container-baja { padding: 1rem; }
+  .soc-container-baja { padding: 0; }
   .soc-titulo-baja { font-size: 1.4rem; text-align: center; }
   .soc-boton-volver-baja { width: 100%; justify-content: center; }
   .soc-sin-resultados-baja { padding: 20px; font-size: 0.9rem; }
 }
 
-/* === Botón Exportar a Excel === */
-.soc-boton-exportar-baja{
-  display: inline-flex;
+/* ======= BARRA INFERIOR MÓVIL ======= */
+.soc-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--soc-bottom-nav-h);
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  display: none; /* visible solo en móvil */
   align-items: center;
-  gap: .5rem;
-  padding: .75rem 1.25rem;
-  border-radius: var(--soc-border-radius);
-  background:#fff;
-  color: var(--soc-accent);
-  font-family: 'Inter', sans-serif;
+  justify-content: center;
+  gap: 12px;
+  background: color-mix(in srgb, #ffffff 85%, var(--soc-gray-100));
+  border-top: 1px solid var(--soc-gray-200);
+  box-shadow: 0 -6px 20px rgba(0,0,0,.06);
+  backdrop-filter: blur(10px);
+  z-index: 999;
+}
+
+.soc-bottom-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--soc-gray-300);
+  background: #fff;
+  color: var(--soc-gray-800);
   font-weight: 700;
   letter-spacing: .2px;
-  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: var(--soc-transition);
-  border: none;
-  border: 2px solid var(--soc-accent);
 }
 
-.soc-boton-exportar-baja:hover{
-  transform: translateY(-1px);
-  filter: brightness(1.03);
+.soc-bottom-btn:hover { transform: translateY(-1px); box-shadow: var(--soc-shadow-sm); }
+
+.soc-bottom-btn:active { transform: translateY(0); box-shadow: none; }
+
+.soc-bottom-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.soc-bottom-btn.export {
+  border-color: var(--soc-accent);
+  color: var(--soc-accent);
 }
 
-.soc-boton-exportar-baja:active{
-  transform: translateY(0);
-  filter: none;
-  box-shadow: var(--soc-shadow-sm);
+.soc-bottom-btn.export svg { font-size: 1.1rem; }
+
+.soc-bottom-btn.volver {
+  border-color: var(--soc-gray-300);
+  color: var(--soc-dark);
 }
 
-.soc-boton-exportar-baja:focus-visible{
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--soc-success) 25%, transparent);
+/* Mostrar barra solo en ≤768px */
+@media (max-width: 768px) {
+  .soc-bottom-nav { display: flex; }
 }
 
-.soc-boton-exportar-baja:disabled{
-  opacity: .6;
-  cursor: not-allowed;
-  transform: none;
-  filter: none;
-  box-shadow: none;
-}
-
-/* Tamaño/espaciado del ícono (FaFileExcel) */
-.soc-boton-exportar-baja svg{
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-
-/* Opción “ghost” por si querés una variante menos llamativa
-   <button class="soc-boton-exportar-baja soc-boton-exportar-baja--ghost">…</button> */
-.soc-boton-exportar-baja--ghost{
-  background: #fff;
-  color: var(--soc-success);
-  border: 1px solid color-mix(in srgb, var(--soc-success) 35%, var(--soc-gray-300));
-}
-.soc-boton-exportar-baja--ghost:hover{
-  background: color-mix(in srgb, var(--soc-success) 6%, #fff);
-  box-shadow: var(--soc-shadow-sm);
-}
-
-/* Responsive: ocupar todo el ancho en móviles si querés */
-@media (max-width: 576px){
-  .soc-boton-exportar-baja{
-    width: 100%;
-    justify-content: center;
-  }
-}
-.soc-acciones-superior-baja{
-  display: flex; gap: 1rem;
-}
-
-
-.soc-tabla-topbar-baja{
-  display: flex; justify-content: space-between; margin: .5rem 0;
-}
+/* ===== Fin barra inferior ===== */

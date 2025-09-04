@@ -224,7 +224,7 @@ const SociosBaja = () => {
         </div>
 
         <div className="soc-acciones-superior-baja">
-          {/* Se dejó SOLO el botón Volver aquí */}
+          {/* Se dejó SOLO el botón Volver aquí (desktop/tablet) */}
           <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>
             ← Volver
           </button>
@@ -261,7 +261,7 @@ const SociosBaja = () => {
         <p className="soc-cargando-baja">Cargando socios dados de baja...</p>
       ) : (
         <div className="soc-tabla-container-baja">
-          {/* === NUEVO TOPBAR DE TABLA: contador + exportar === */}
+          {/* === TOPBAR DE TABLA: contador + exportar (desktop/tablet) === */}
           <div className="soc-tabla-topbar-baja">
             <div className="soc-contador-baja">
               Mostrando <strong>{sociosFiltrados.length}</strong> socios
@@ -456,6 +456,29 @@ const SociosBaja = () => {
           </div>
         </div>
       )}
+
+      {/* ======== BARRA INFERIOR (MÓVIL) ======== */}
+      <nav className="soc-bottom-nav" role="navigation" aria-label="Acciones rápidas">
+        <button
+          type="button"
+          className="soc-bottom-btn volver"
+          onClick={() => navigate('/socios')}
+        >
+          ← Volver
+        </button>
+
+        <button
+          type="button"
+          className="soc-bottom-btn export"
+          onClick={exportarExcel}
+          disabled={loading}
+          title={loading ? 'Cargando...' : 'Exportar lo visible a Excel'}
+        >
+          <FaFileExcel aria-hidden="true" />
+          <span>Exportar</span>
+        </button>
+      </nav>
+      {/* ======================================= */}
     </div>
   );
 };
