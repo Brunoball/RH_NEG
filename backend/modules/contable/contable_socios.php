@@ -28,7 +28,7 @@ try {
         echo json_encode([
             'exito'         => true,
             'datos'         => [],
-            'condonados'    => [],           // ⬅️ NUEVO
+            'condonados'    => [],           // para el pie del modal
             'total_socios'  => $totalSocios,
             'anios'         => $aniosDisponibles,
             'anio_aplicado' => 0,
@@ -108,8 +108,9 @@ try {
             ];
         }
 
-        $groups[$key]['rows'][] = $row;
+        $groups[$key]['rows'][]   = $row;
         $groups[$key]['fechas'][] = $fecha;
+
         $cb = trim((string)($row['cobrador_nombre'] ?? ''));
         if ($cb !== '') $groups[$key]['cobradores'][] = $cb;
 
@@ -137,18 +138,10 @@ try {
     $porPeriodo = [];
 
     foreach ($groups as $g) {
-        $idSocio      = $g['id_socio'];
-        $socioNombre  = trim($g['socio_nombre']);
-        $apellido     = '';
-        $nombre       = $socioNombre;
-        if ($socioNombre !== '') {
-            $partes = preg_split('/\s+/', $socioNombre);
-            if (count($partes) >= 2) {
-                $apellido = array_pop($partes);
-                $nombre   = implode(' ', $partes);
-            }
-        }
+        $idSocio     = $g['id_socio'];
+        $socioNombre = trim($g['socio_nombre']); // ← EXACTO como DB, sin partir ni invertir
 
+        // fecha representativa
         $fechaRepresentativa = '';
         if ($g['has_anual']) {
             foreach ($g['rows'] as $r) {
@@ -164,9 +157,10 @@ try {
             $fechaRepresentativa = $fechas[0] ?? null;
         }
 
-        $cobradorNombre = $modoCobrador($g['cobradores']);
+        $cobradorNombre   = $modoCobrador($g['cobradores']);
         $tieneSeisPeriodos = (count($g['periodos_set']) === 6);
 
+        // Caso contado anual (id_periodo 7 o 6 periodos)
         if ($g['has_anual'] || $tieneSeisPeriodos) {
             $periodoNombre = 'CONTADO ANUAL';
             if (!isset($porPeriodo[$periodoNombre])) {
@@ -174,8 +168,7 @@ try {
             }
             $porPeriodo[$periodoNombre]['pagos'][] = [
                 'ID_Socio'         => $idSocio,
-                'Apellido'         => $apellido,
-                'Nombre'           => $nombre,
+                'Socio'            => $socioNombre,      // ← nombre exacto
                 'Precio'           => 21000.0,
                 'Cobrador'         => $cobradorNombre,
                 'fechaPago'        => $fechaRepresentativa,
@@ -187,6 +180,7 @@ try {
             continue;
         }
 
+        // Caso meses/periodos normales (Precio fijo 4000)
         foreach ($g['rows'] as $r) {
             $periodoNombre = (string)$r['periodo_nombre'];
             if (!isset($porPeriodo[$periodoNombre])) {
@@ -194,8 +188,7 @@ try {
             }
             $porPeriodo[$periodoNombre]['pagos'][] = [
                 'ID_Socio'         => $idSocio,
-                'Apellido'         => $apellido,
-                'Nombre'           => $nombre,
+                'Socio'            => $socioNombre,                          // ← nombre exacto
                 'Precio'           => 4000.0,
                 'Cobrador'         => $cobradorNombre !== '' ? $cobradorNombre : (string)($r['cobrador_nombre'] ?? ''),
                 'fechaPago'        => (string)($r['fecha_pago'] ?? $fechaRepresentativa),
@@ -212,8 +205,8 @@ try {
     /* ===== Salida ===== */
     echo json_encode([
         'exito'         => true,
-        'datos'         => $datos,             // solo pagados (mantiene comportamiento actual)
-        'condonados'    => $condonadosRaw,     // ⬅️ NUEVO: lista cruda para el pie
+        'datos'         => $datos,         // mantiene estructura esperada por el front
+        'condonados'    => $condonadosRaw, // lista cruda para el pie
         'total_socios'  => $totalSocios,
         'anios'         => $aniosDisponibles,
         'anio_aplicado' => $anioAplicado

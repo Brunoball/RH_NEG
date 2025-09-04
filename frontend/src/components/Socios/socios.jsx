@@ -186,7 +186,6 @@ const BarraSuperior = React.memo(({
   // Abrir calendario cuando el usuario hace click o da foco al input
   const openPickerOnEvent = useCallback((e) => {
     try {
-      // Algunos navegadores no soportan showPicker; si está, lo llamamos.
       e.target.showPicker?.();
     } catch {
       /* noop */
@@ -298,7 +297,7 @@ const BarraSuperior = React.memo(({
             {mostrarSubmenuAlfabetico && (
               <div className="soc-filtros-submenu">
                 <div className="soc-alfabeto-filtros">
-                  {letras.map((letra) => (
+                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letra) => (
                     <button
                       key={letra}
                       className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
@@ -407,7 +406,6 @@ const BarraSuperior = React.memo(({
                     <button
                       className="soc-fecha-btn aplicar"
                       onClick={() => {
-                        // Ya se aplican al seleccionar; cerramos submenú
                         setMostrarSubmenuFecha(false);
                         setMostrarFiltros(false);
                       }}
@@ -437,7 +435,12 @@ const BarraSuperior = React.memo(({
 ============================ */
 const Socios = () => {
   const [socios, setSocios] = useState([]);
+
+  // === NUEVO: también guardamos cobradores y estados (si vienen del backend) ===
   const [categorias, setCategorias] = useState([]);
+  const [cobradores, setCobradores] = useState([]);   // NEW
+  const [estados, setEstados] = useState([]);         // NEW
+
   const [cargando, setCargando] = useState(false);
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
   const [mostrarModalEliminar, setMostrarModalEliminar] = useState(false);
@@ -698,7 +701,7 @@ const Socios = () => {
           const _isActive = Number(s?.activo) === 1;
           const _estadoNum = Number(s?.id_estado ?? 0);
           const ingresoStr = s?.ingreso ? String(s.ingreso) : '';
-          const _ingresoTs = parseDateToTs(ingresoStr); // <<<< para filtro por fecha
+          const _ingresoTs = parseDateToTs(ingresoStr);
           return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum, _ingresoTs };
         });
         setSocios(enriched);
@@ -713,13 +716,22 @@ const Socios = () => {
 
         const rLis = await fetch(`${BASE_URL}/api.php?action=listas`, { signal: ctrlLis.signal, cache: 'force-cache' });
         const dataListas = await rLis.json();
-        if (dataListas?.exito && dataListas?.listas?.categorias) {
-          setCategorias(dataListas.listas.categorias);
+
+        // === NUEVO: guardamos categorías, cobradores y estados si vienen ===
+        if (dataListas?.exito && dataListas?.listas) {
+          const ls = dataListas.listas;
+          setCategorias(Array.isArray(ls.categorias) ? ls.categorias : []);
+          setCobradores(Array.isArray(ls.cobradores) ? ls.cobradores : []); // NEW
+          setEstados(Array.isArray(ls.estados) ? ls.estados : []);           // NEW
         } else {
           setCategorias([]);
+          setCobradores([]);
+          setEstados([]);
         }
       } catch {
         setCategorias([]);
+        setCobradores([]);
+        setEstados([]);
       }
 
       const elapsed = performance.now() - t0;
@@ -733,6 +745,8 @@ const Socios = () => {
         mostrarToast('Error de red al obtener datos', 'error');
         setSocios([]);
         setCategorias([]);
+        setCobradores([]);
+        setEstados([]);
         setCargando(false);
       }
     }
@@ -832,6 +846,25 @@ const Socios = () => {
     } catch {}
   }, [cargando, socios, filtros]);
 
+  /* ===== LOOKUPS para export ===== */
+  const mapCategorias = useMemo(() => {
+    const m = new Map();
+    for (const c of categorias) m.set(String(c.id ?? c.id_categoria ?? ''), String(c.descripcion ?? c.nombre ?? ''));
+    return m;
+  }, [categorias]);
+
+  const mapCobradores = useMemo(() => {
+    const m = new Map();
+    for (const c of cobradores) m.set(String(c.id ?? c.id_cobrador ?? ''), String(c.nombre ?? ''));
+    return m;
+  }, [cobradores]);
+
+  const mapEstados = useMemo(() => {
+    const m = new Map();
+    for (const e of estados) m.set(String(e.id ?? e.id_estado ?? ''), String(e.descripcion ?? e.nombre ?? ''));
+    return m;
+  }, [estados]);
+
   /* ===== HANDLERS / EXPORTACIÓN ===== */
   const manejarSeleccion = useCallback((socio) => {
     setSocioSeleccionado(prev => prev?._idStr !== socio._idStr ? socio : null);
@@ -897,21 +930,27 @@ const Socios = () => {
       return;
     }
 
-    const datos = sociosFiltrados.map((s) => ({
-      ID: s.id_socio,
-      Nombre: s.nombre,
-      DNI: s.dni,
-      Domicilio: s._dom,
-      Teléfono_móvil: s.telefono_movil,
-      Teléfono_fijo: s.telefono_fijo,
-      Categoría: s.id_categoria,
-      Cobrador: s.id_cobrador,
-      Estado: s.id_estado,
-      Comentario: s.comentario,
-      Fecha_Nacimiento: s.nacimiento,
-      Ingreso: s.ingreso,
-      Activo: s.activo
-    }));
+    const datos = sociosFiltrados.map((s) => {
+      const catTxt = mapCategorias.get(String(s.id_categoria)) ?? s.id_categoria;
+      const cobTxt = mapCobradores.get(String(s.id_cobrador)) ?? s.id_cobrador;
+      const estTxt = mapEstados.get(String(s.id_estado)) ?? s.id_estado;
+
+      return {
+        ID: s.id_socio,
+        Nombre: s.nombre,
+        DNI: s.dni,
+        Domicilio: s._dom,
+        Teléfono_móvil: s.telefono_movil,
+        Teléfono_fijo: s.telefono_fijo,
+        Categoría: catTxt,        // <== TEXTO REAL
+        Cobrador: cobTxt,         // <== TEXTO REAL
+        Estado: estTxt,           // <== TEXTO REAL
+        Comentario: s.comentario,
+        Fecha_Nacimiento: s.nacimiento,
+        Ingreso: s.ingreso,
+        Activo: s.activo
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
@@ -920,7 +959,10 @@ const Socios = () => {
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
     saveAs(blob, 'Socios.xlsx');
-  }, [socios, sociosFiltrados, showAll, activeFiltersCount, mostrarToast]);
+  }, [
+    socios, sociosFiltrados, showAll, activeFiltersCount,
+    mostrarToast, mapCategorias, mapCobradores, mapEstados
+  ]);
 
   /* ============================
         FILA VIRTUALIZADA
@@ -945,7 +987,6 @@ const Socios = () => {
         className={`soc-tabla-fila ${esFilaPar ? 'soc-row-even' : 'soc-row-odd'} ${socioSeleccionado?._idStr === socio._idStr ? 'soc-fila-seleccionada' : ''}`}
         onClick={() => manejarSeleccion(socio)}
       >
-        {/* data-label para layout etiqueta/valor en móvil */}
         <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
           {socio.id_socio}
         </div>
@@ -1210,7 +1251,7 @@ const Socios = () => {
               <AutoSizer>
                 {({ height, width }) => (
                   <List
-                    key={`${tablaVersion}-${dynamicItemSize}`}   // fuerza relayout si cambia el alto
+                    key={`${tablaVersion}-${dynamicItemSize}`}
                     ref={listRef}
                     height={height}
                     width={width}
@@ -1236,7 +1277,7 @@ const Socios = () => {
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
 
-        <div className="soc-botones-derecha">
+          <div className="soc-botones-derecha">
             <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
               <FaUserPlus className="soc-boton-icono" /> Agregar Socio
             </button>
