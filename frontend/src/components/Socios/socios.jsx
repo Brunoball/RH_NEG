@@ -128,7 +128,6 @@ const BarraSuperior = React.memo(({
   categorias,
   startTransition
 }) => {
-  const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
   const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
   const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
@@ -185,11 +184,7 @@ const BarraSuperior = React.memo(({
 
   // Abrir calendario cuando el usuario hace click o da foco al input
   const openPickerOnEvent = useCallback((e) => {
-    try {
-      e.target.showPicker?.();
-    } catch {
-      /* noop */
-    }
+    try { e.target.showPicker?.(); } catch {}
   }, []);
 
   return (
@@ -436,10 +431,17 @@ const BarraSuperior = React.memo(({
 const Socios = () => {
   const [socios, setSocios] = useState([]);
 
+  // === ROL DEL USUARIO (admin/vista) ===
+  const usuario = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+  }, []);
+  const rol = (usuario?.rol || 'vista').toLowerCase();
+  const isAdmin = rol === 'admin';
+
   // === NUEVO: también guardamos cobradores y estados (si vienen del backend) ===
   const [categorias, setCategorias] = useState([]);
-  const [cobradores, setCobradores] = useState([]);   // NEW
-  const [estados, setEstados] = useState([]);         // NEW
+  const [cobradores, setCobradores] = useState([]);
+  const [estados, setEstados] = useState([]);
 
   const [cargando, setCargando] = useState(false);
   const [socioSeleccionado, setSocioSeleccionado] = useState(null);
@@ -942,9 +944,9 @@ const Socios = () => {
         Domicilio: s._dom,
         Teléfono_móvil: s.telefono_movil,
         Teléfono_fijo: s.telefono_fijo,
-        Categoría: catTxt,        // <== TEXTO REAL
-        Cobrador: cobTxt,         // <== TEXTO REAL
-        Estado: estTxt,           // <== TEXTO REAL
+        Categoría: catTxt,
+        Cobrador: cobTxt,
+        Estado: estTxt,
         Comentario: s.comentario,
         Fecha_Nacimiento: s.nacimiento,
         Ingreso: s.ingreso,
@@ -1010,6 +1012,7 @@ const Socios = () => {
         <div className="soc-col-acciones">
           {socioSeleccionado?._idStr === socio._idStr && (
             <div className="soc-iconos-acciones">
+              {/* Siempre visible */}
               <FaInfoCircle
                 title="Ver información"
                 onClick={(e) => {
@@ -1019,32 +1022,38 @@ const Socios = () => {
                 }}
                 className="soc-icono"
               />
-              <FaEdit
-                title="Editar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goEditar(socio);
-                }}
-                className="soc-icono"
-              />
-              <FaTrash
-                title="Eliminar"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSocioAEliminar(socio);
-                  setMostrarModalEliminar(true);
-                }}
-                className="soc-icono"
-              />
-              <FaUserMinus
-                title="Dar de baja"
-                className="soc-icono"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSocioDarBaja(socio);
-                  setMostrarModalDarBaja(true);
-                }}
-              />
+
+              {/* Solo ADMIN: Editar / Eliminar / Dar de baja */}
+              {isAdmin && (
+                <>
+                  <FaEdit
+                    title="Editar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goEditar(socio);
+                    }}
+                    className="soc-icono"
+                  />
+                  <FaTrash
+                    title="Eliminar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSocioAEliminar(socio);
+                      setMostrarModalEliminar(true);
+                    }}
+                    className="soc-icono"
+                  />
+                  <FaUserMinus
+                    title="Dar de baja"
+                    className="soc-icono"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSocioDarBaja(socio);
+                      setMostrarModalDarBaja(true);
+                    }}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1278,9 +1287,12 @@ const Socios = () => {
           </button>
 
           <div className="soc-botones-derecha">
-            <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
-              <FaUserPlus className="soc-boton-icono" /> Agregar Socio
-            </button>
+            {/* Agregar Socio: solo ADMIN */}
+            {isAdmin && (
+              <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
+                <FaUserPlus className="soc-boton-icono" /> Agregar Socio
+              </button>
+            )}
             <button
               className="soc-boton soc-boton-exportar"
               onClick={exportarExcel}
