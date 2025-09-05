@@ -51,7 +51,7 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ===== Barra superior (existente) ===== */
+/* ===== Barra superior ===== */
 .soc-barra-superior-baja {
   position: relative;
   width: 100%;
@@ -198,8 +198,7 @@
 .soc-tabla-fila-baja:hover { background: rgba(239, 68, 68, 0.1) !important; }
 
 .soc-col-nombre-baja,
-.soc-col-domicilio-baja,
-.soc-col-comentario-baja {
+.soc-col-domicilio-baja {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -208,16 +207,44 @@
   text-transform: capitalize;
 }
 
+/* === Motivo: flex + truncado responsivo === */
+.soc-col-comentario-baja {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  max-width: 100%;
+}
+
+.soc-motivo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28ch;              /* base */
+}
+
+@media (max-width: 480px) {
+  .soc-motivo-text { max-width: 20ch; }  /* menos en pantallas chicas */
+}
+
+@media (min-width: 768px) {
+  .soc-motivo-text { max-width: 32ch; }
+}
+
+@media (min-width: 1200px) {
+  .soc-motivo-text { max-width: 44ch; }
+}
+
+@media (min-width: 1600px) {
+  .soc-motivo-text { max-width: 60ch; }  /* más en pantallas grandes */
+}
+
+.soc-icono-info-motivo { color: var(--soc-gray-500); font-size: 0.9rem; flex-shrink: 0; }
+
 .soc-col-id-baja { min-width: 60px; max-width: 60px; }
 .soc-col-nombre-baja { min-width: 200px; }
 .soc-col-domicilio-baja { min-width: 200px; }
-.soc-col-comentario-baja {  min-width: 150px;  }
-.soc-motivo-contenedor{ justify-content: center;}
-.soc-motivo-contenedor:hover { text-decoration: underline; }
-
-.soc-motivo-contenedor { display: flex; align-items: center; gap: 5px; width: 100%; }
-.soc-icono-info-motivo { color: var(--soc-gray-500); font-size: 0.9rem; flex-shrink: 0; }
-
 .soc-col-acciones-baja { min-width: 100px; max-width: 100px; }
 .soc-iconos-acciones-baja { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 1.3rem; }
 
@@ -410,7 +437,7 @@
 
 /* ===== Topbar de tabla ===== */
 .soc-acciones-superior-baja{ display: flex; gap: 1rem; }
-.soc-tabla-topbar-baja{ display: flex; justify-content: space-between; margin: .5rem 0; }
+.soc-tabla-topbar-baja{ display: flex; justify-content: space-between; margin: .5rem 1rem; }
 
 /* ===== Responsivo general ===== */
 @media (max-width: 992px) {
@@ -427,7 +454,11 @@
   .soc-tabla-header-baja { display: none; }
   .soc-tabla-fila-baja { display: flex; flex-direction: column; align-items: flex-start; padding: 12px; gap: 6px; }
   .soc-tabla-fila-baja > div { width: 100%; padding: 4px 0; justify-content: flex-start; }
+
+  /* En móvil dejamos que el motivo ocupe varias líneas si hace falta */
   .soc-col-nombre-baja, .soc-col-domicilio-baja, .soc-col-comentario-baja { white-space: normal; max-width: 100%; text-transform: capitalize; }
+  .soc-motivo-text { white-space: normal; max-width: 100%; }
+
   .soc-tabla-fila-baja > div { width: 100%; max-width: 100%; }
   .soc-col-acciones-baja { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(226, 232, 240, 0.7); justify-content: flex-start; }
   .soc-iconos-acciones-baja { justify-content: flex-start; gap: 12px; }
@@ -509,3 +540,138 @@
 }
 
 /* ===== Fin barra inferior ===== */
+/* ====== Tarjetas (mobile) ====== */
+.soc-cards-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 8px 12px 100px; /* espacio por la bottom-nav */
+}
+
+.soc-card {
+  background: #fff;
+  border: 1px solid var(--soc-gray-200);
+  border-left: 6px solid var(--soc-danger);
+  border-radius: 14px;
+  box-shadow: var(--soc-shadow-sm);
+  padding: 12px;
+}
+
+.soc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.soc-card-id {
+  font-weight: 800;
+  color: var(--soc-gray-700);
+}
+
+.soc-card-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.soc-card-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--soc-gray-300);
+  background: #fff;
+  transition: var(--soc-transition);
+  font-size: 1.2rem;
+}
+.soc-card-icon-btn:hover { transform: translateY(-1px); box-shadow: var(--soc-shadow-sm); }
+.soc-card-icon-btn.success { border-color: color-mix(in srgb, var(--soc-success) 40%, #ddd); color: var(--soc-success); }
+.soc-card-icon-btn.danger { border-color: color-mix(in srgb, var(--soc-danger) 40%, #ddd); color: var(--soc-danger); }
+
+.soc-card-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: .95rem;
+  border-top: 1px dashed var(--soc-gray-200);
+}
+.soc-card-row:first-of-type { border-top: none; }
+
+.soc-card-label {
+  font-weight: 700;
+  color: var(--soc-gray-600);
+}
+.soc-card-value {
+  color: var(--soc-gray-800);
+  word-break: break-word;
+}
+
+/* Motivo con ancho fijo 100px + botón */
+.soc-motivo-mobile-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.soc-motivo-mobile {
+  max-width: 100px;           /* requisito del usuario */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  color: var(--soc-gray-800);
+}
+
+.soc-btn-ver-motivo {
+  border: 1px solid var(--soc-primary);
+  background: #fff;
+  color: var(--soc-primary);
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: .8rem;
+  transition: var(--soc-transition);
+}
+.soc-btn-ver-motivo:hover { background: color-mix(in srgb, var(--soc-primary) 8%, #fff); }
+
+/* Solo mostrar tarjetas en ≤768px. La tabla ya está oculta por tus @media */
+@media (min-width: 769px) {
+  .soc-cards-list { display: none; }
+}
+
+
+
+@media (max-width: 768px) {
+  /* la lista de tarjetas ocupa el espacio restante y scrollea */
+  .soc-cards-list {    /* evita rebotar el body */
+    max-height: 60vh;      
+    overflow: scroll;               /* sin límites de alto */
+  }
+  .soc-tabla-topbar-baja{margin: .5rem 12px;}
+
+  /* por si alguna regla anterior limitaba la altura de la tabla en mobile */
+  .soc-tabla-container-baja,
+  .soc-tabla-body-baja {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .soc-container-baja .soc-boton-exportar-baja {
+    display: none !important;
+  }
+  .soc-buscador-container-baja{ margin: auto; width: 90%;}
+}
+
+@media (max-width: 768px) {
+  .soc-container-baja .soc-acciones-superior-baja,
+  .soc-container-baja .soc-boton-volver-baja {
+    display: none !important;
+  }
+}
