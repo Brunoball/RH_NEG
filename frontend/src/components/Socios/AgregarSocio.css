@@ -552,7 +552,7 @@
 /* Móvil */
 @media (max-width: 576px) {
   .add-socio-container { width: 100vw; margin: 0; border-radius: 0; }
-  .add-socio-box { border-radius: 0; }
+  .add-socio-box { border-radius: 0; width: 100%; max-height: 100vh;}
   .add-header { border-radius: 0; }
 
   :root {
