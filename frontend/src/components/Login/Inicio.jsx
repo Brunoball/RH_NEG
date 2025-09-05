@@ -1,3 +1,4 @@
+// src/components/Login/Inicio.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
@@ -14,6 +15,14 @@ const Inicio = () => {
 
   const navigate = useNavigate();
 
+  // Si ya hay sesión, ir directo al panel
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario'));
+      if (u && u.id) navigate('/panel', { replace: true });
+    } catch {}
+  }, [navigate]);
+
   // Prefill si estaba recordado
   useEffect(() => {
     if (recordar) {
@@ -28,34 +37,47 @@ const Inicio = () => {
 
   const manejarEnvio = async (e) => {
     e.preventDefault();
-    setCargando(true);
     setMensaje('');
 
-    if (!nombre || !contrasena) {
+    const user = nombre.trim();
+    const pass = contrasena;
+
+    if (!user || !pass) {
       setMensaje('Por favor complete todos los campos');
-      setCargando(false);
       return;
     }
 
+    setCargando(true);
     try {
-      const respuesta = await fetch(`${BASE_URL}/api.php?action=inicio`, {
+      const res = await fetch(`${BASE_URL}/api.php?action=inicio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, contrasena })
+        body: JSON.stringify({ nombre: user, contrasena: pass })
       });
 
-      const data = await respuesta.json();
+      // Intentar parsear siempre como JSON
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+
+      if (!res.ok || !data) {
+        throw new Error((data && (data.mensaje || data.error)) || 'Error del servidor');
+      }
 
       if (data.exito) {
-        // Guardado de sesión
-        localStorage.setItem('usuario', JSON.stringify(data.usuario));
-        localStorage.setItem('token', data.token);
+        // data.usuario debe traer { id, nombre, rol }
+        // Guardar sesión
+        if (data.usuario) {
+          localStorage.setItem('usuario', JSON.stringify(data.usuario)); // incluye rol
+        }
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
 
-        // Manejo de "Recordar cuenta"
+        // Recordar cuenta
         if (recordar) {
           localStorage.setItem('recordarCuenta', '1');
-          localStorage.setItem('usuarioRecordado', nombre);
-          localStorage.setItem('passRecordada', contrasena);
+          localStorage.setItem('usuarioRecordado', user);
+          localStorage.setItem('passRecordada', pass);
         } else {
           localStorage.removeItem('recordarCuenta');
           localStorage.removeItem('usuarioRecordado');
@@ -68,7 +90,7 @@ const Inicio = () => {
       }
     } catch (err) {
       console.error('Error al iniciar sesión:', err);
-      setMensaje('Error del servidor. Intente más tarde.');
+      setMensaje(err.message || 'Error del servidor. Intente más tarde.');
     } finally {
       setCargando(false);
     }
@@ -95,6 +117,7 @@ const Inicio = () => {
               required
               className="ini_input"
               autoComplete="username"
+              autoFocus
             />
           </div>
 
@@ -131,7 +154,7 @@ const Inicio = () => {
             </button>
           </div>
 
-          {/* ✅ Bloque "Recordar cuenta" justo debajo del campo de contraseña */}
+          {/* Recordar cuenta */}
           <div className="ini_recordar">
             <label className="ini_check">
               <input

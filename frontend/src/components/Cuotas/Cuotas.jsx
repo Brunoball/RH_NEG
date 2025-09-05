@@ -84,7 +84,7 @@ const isAnualName = (nombre = '') => normalize(nombre).includes('ANUAL');
  * Row memoizado (estable)
  * ========================= */
 const Row = React.memo(function Row({ index, style, data }) {
-  const { items, estadoPagoSeleccionado, getId } = data;
+  const { items, estadoPagoSeleccionado, getId, isAdmin } = data;
   const cuota = items[index];
 
   const claseEstadoSocio =
@@ -129,13 +129,16 @@ const Row = React.memo(function Row({ index, style, data }) {
       <div className="cuo_col-acciones">
         <div className="cuo_acciones-cell">
           {estadoPagoSeleccionado === 'deudor' ? (
-            <button
-              className="cuo_boton-accion cuo_boton-accion-success"
-              onClick={data.onPagar(cuota)}
-              title="Registrar pago / condonar"
-            >
-              <FaDollarSign />
-            </button>
+            /* ⬇️ OCULTAR BOTÓN VERDE DE PAGO SI ES "vista" */
+            isAdmin ? (
+              <button
+                className="cuo_boton-accion cuo_boton-accion-success"
+                onClick={data.onPagar(cuota)}
+                title="Registrar pago / condonar"
+              >
+                <FaDollarSign />
+              </button>
+            ) : null
           ) : estadoPagoSeleccionado === 'pagado' ? (
             <button
               className="cuo_boton-accion cuo_boton-accion-danger"
@@ -179,7 +182,8 @@ const CuotasList = React.memo(function CuotasList({
   onEliminarCondonacion,
   onImprimir,
   listRef,
-  getId
+  getId,
+  isAdmin,
 }) {
   // Ocultar overflow-x
   const OuterElement = React.useMemo(
@@ -199,8 +203,9 @@ const CuotasList = React.memo(function CuotasList({
       onEliminarCondonacion,
       onImprimir,
       getId,
+      isAdmin, // ⬅️ PASAMOS isAdmin A Row
     }),
-    [items, estadoPagoSeleccionado, onPagar, onEliminarPago, onEliminarCondonacion, onImprimir, getId]
+    [items, estadoPagoSeleccionado, onPagar, onEliminarPago, onEliminarCondonacion, onImprimir, getId, isAdmin]
   );
 
   const itemKey = useCallback((index, data) => {
@@ -232,6 +237,15 @@ const CuotasList = React.memo(function CuotasList({
 const Cuotas = () => {
   const navigate = useNavigate();
   const [isPending, startTransition] = useTransition();
+
+  /* =========================
+   * ROL DEL USUARIO (admin/vista)
+   * ========================= */
+  const [usuario] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+  });
+  const rol = (usuario?.rol || 'vista').toLowerCase();
+  const isAdmin = rol === 'admin';
 
   // ===== Estado UI =====
   const [cuotas, setCuotas] = useState([]);
@@ -913,9 +927,12 @@ const Cuotas = () => {
 
   // Handlers estables para acciones de fila
   const handlePagar = useCallback((cuota) => () => {
+    // ⬇️ BLOQUEO EXTRA por seguridad (si no es admin, no abre modal)
+    if (!isAdmin) return;
     setSocioParaPagar(cuota);
     setMostrarModalPagos(true);
-  }, []);
+  }, [isAdmin]);
+
   const handleEliminarPago = useCallback((cuota) => () => {
     setSocioParaPagar(cuota);
     setMostrarModalEliminarPago(true);
@@ -1249,9 +1266,16 @@ const Cuotas = () => {
             </div>
 
             <div className="cuo_content-actions">
-              <button className="cuo_boton cuo_boton-success" onClick={() => setMostrarModalCodigoBarras(true)} disabled={loading}>
-                <FaBarcode /> Código de Barras
-              </button>
+              {/* ⬇️ OCULTAR CÓDIGO DE BARRAS SI ES "vista" */}
+              {isAdmin && (
+                <button
+                  className="cuo_boton cuo_boton-success"
+                  onClick={() => setMostrarModalCodigoBarras(true)}
+                  disabled={loading}
+                >
+                  <FaBarcode /> Código de Barras
+                </button>
+              )}
 
               <button
                 className={`cuo_boton cuo_boton-primary ${loadingPrint ? 'cuo_boton-loading' : ''}`}
@@ -1270,7 +1294,7 @@ const Cuotas = () => {
                 )}
               </button>
 
-              {/* ⬇️ NUEVO: Exportar Excel (de lo visible) */}
+              {/* ⬇️ Exportar Excel (de lo visible) — permitido para todos */}
               <button
                 className="cuo_boton cuo_boton-secondary"
                 onClick={handleExportarExcel}
@@ -1333,6 +1357,7 @@ const Cuotas = () => {
                   onImprimir={handleImprimirFila}
                   listRef={listRef}
                   getId={getId}
+                  isAdmin={isAdmin}   // ⬅️ PASAMOS EL ROL
                 />
               )}
             </div>
@@ -1440,7 +1465,6 @@ const Cuotas = () => {
           }}
         />
       )}
-
 
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (

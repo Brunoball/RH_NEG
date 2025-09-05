@@ -9,6 +9,7 @@ const Registro = () => {
   const [nombre, setNombre] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
+  const [rol, setRol] = useState('vista'); // 👈 nuevo: selector de rol
   const [mensaje, setMensaje] = useState('');
   const [cargando, setCargando] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,17 +22,11 @@ const Registro = () => {
     setTimeout(() => setToast(null), duracion);
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
+  const togglePasswordVisibility = () => setShowPassword(v => !v);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(v => !v);
 
   const manejarRegistro = async (e) => {
     e.preventDefault();
-
     if (cargando) return;
 
     if (!nombre || !contrasena || !confirmarContrasena) {
@@ -39,19 +34,16 @@ const Registro = () => {
       mostrarToast('error', 'Por favor, completá todos los campos.');
       return;
     }
-
     if (nombre.trim().length < 4) {
       setMensaje('El nombre debe tener al menos 4 caracteres.');
       mostrarToast('error', 'El nombre debe tener al menos 4 caracteres.');
       return;
     }
-
     if (contrasena.length < 6) {
       setMensaje('La contraseña debe tener al menos 6 caracteres.');
       mostrarToast('error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
-
     if (contrasena !== confirmarContrasena) {
       setMensaje('Las contraseñas no coinciden.');
       mostrarToast('error', 'Las contraseñas no coinciden.');
@@ -60,20 +52,23 @@ const Registro = () => {
 
     try {
       setCargando(true);
-      mostrarToast('cargando', 'Registrando usuario...', 10000); // Duración larga para que no desaparezca mientras carga
-      
+      mostrarToast('cargando', 'Registrando usuario...', 10000);
+
       const respuesta = await fetch(`${BASE_URL}/api.php?action=registro`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, contrasena })
+        body: JSON.stringify({ nombre, contrasena, rol }) // 👈 enviamos rol
       });
 
       const data = await respuesta.json();
       setCargando(false);
 
       if (data.exito) {
-        localStorage.setItem('usuario', JSON.stringify(data.usuario));
-        mostrarToast('exito', 'Registro exitoso! Redirigiendo...', 2000);
+        // Guardar el usuario completo que devuelve el backend: {id, nombre, rol}
+        if (data.usuario) {
+          localStorage.setItem('usuario', JSON.stringify(data.usuario));
+        }
+        mostrarToast('exito', '¡Registro exitoso! Redirigiendo...', 2000);
         setTimeout(() => navigate('/panel'), 2000);
       } else {
         setMensaje(data.mensaje || 'Error al registrar usuario.');
@@ -89,7 +84,6 @@ const Registro = () => {
 
   return (
     <div className="reg_global-container">
-      {/* Mostrar Toast si existe */}
       {toast && (
         <Toast
           tipo={toast.tipo}
@@ -110,14 +104,26 @@ const Registro = () => {
 
         <form onSubmit={manejarRegistro} className="reg_formulario">
           <div className="reg_campo">
-            <input 
-              type="text" 
-              placeholder="Usuario" 
-              value={nombre} 
-              onChange={(e) => setNombre(e.target.value)} 
+            <input
+              type="text"
+              placeholder="Usuario"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
               required
               className="reg_input"
             />
+          </div>
+
+          {/* 👇 Selector de rol */}
+          <div className="reg_campo">
+            <select
+              className="reg_input"
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
+            >
+              <option value="vista">Rol: Solo vista</option>
+              <option value="admin">Rol: Admin (acceso completo)</option>
+            </select>
           </div>
 
           <div className="reg_campo reg_campo-password">
@@ -129,11 +135,7 @@ const Registro = () => {
               onChange={(e) => setContrasena(e.target.value)}
               required
             />
-            <button 
-              type="button" 
-              className="reg_toggle-password" 
-              onClick={togglePasswordVisibility}
-            >
+            <button type="button" className="reg_toggle-password" onClick={togglePasswordVisibility}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 {showPassword ? (
                   <>
@@ -151,16 +153,16 @@ const Registro = () => {
           </div>
 
           <div className="reg_campo reg_campo-password">
-            <input 
-              type={showConfirmPassword ? "text" : "password"} 
-              placeholder="Confirmar Contraseña" 
-              value={confirmarContrasena} 
-              onChange={(e) => setConfirmarContrasena(e.target.value)} 
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Confirmar Contraseña"
+              value={confirmarContrasena}
+              onChange={(e) => setConfirmarContrasena(e.target.value)}
               required
               className="reg_input"
             />
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="reg_toggle-password"
               onClick={toggleConfirmPasswordVisibility}
             >
@@ -184,9 +186,9 @@ const Registro = () => {
             <button type="submit" className="reg_boton" disabled={cargando}>
               {cargando ? 'Registrando...' : 'Registrarse'}
             </button>
-            <button 
-              type="button" 
-              onClick={() => navigate('/panel')} 
+            <button
+              type="button"
+              onClick={() => navigate('/panel')}
               className="reg_boton reg_boton-secundario"
             >
               Volver atrás

@@ -1,52 +1,64 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Content-Type');
 
-require_once(__DIR__ . '/../../config/db.php');
+require_once __DIR__ . '/../../config/db.php';
 
-// Obtener datos del frontend
 $data = json_decode(file_get_contents("php://input"), true);
-$nombre = trim($data['nombre'] ?? '');
+$nombre     = trim($data['nombre'] ?? '');
 $contrasena = $data['contrasena'] ?? '';
+$rol        = strtolower(trim($data['rol'] ?? 'vista')); // 👈 viene del front; default vista
 
-// Validar campos obligatorios
+// Validaciones básicas
 if (!$nombre || !$contrasena) {
     echo json_encode(['exito' => false, 'mensaje' => 'Faltan datos.']);
     exit;
 }
-
-// Validar longitud del nombre
-if (strlen($nombre) < 4 || strlen($nombre) > 100) {
+if (mb_strlen($nombre, 'UTF-8') < 4 || mb_strlen($nombre, 'UTF-8') > 100) {
     echo json_encode(['exito' => false, 'mensaje' => 'El nombre debe tener entre 4 y 100 caracteres.']);
     exit;
 }
-
-// Validar longitud de contraseña
 if (strlen($contrasena) < 6) {
     echo json_encode(['exito' => false, 'mensaje' => 'La contraseña debe tener al menos 6 caracteres.']);
     exit;
 }
+// Validar rol permitido
+$rolesPermitidos = ['admin','vista'];
+if (!in_array($rol, $rolesPermitidos, true)) {
+    $rol = 'vista'; // fallback seguro
+}
 
-// Verificar si el usuario ya existe (ignorando mayúsculas)
+// ¿Ya existe? (case-insensitive)
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM usuarios WHERE UPPER(Nombre_Completo) = UPPER(:nombre)");
-$stmt->execute(['nombre' => $nombre]);
+$stmt->execute([':nombre' => $nombre]);
 if ($stmt->fetchColumn() > 0) {
     echo json_encode(['exito' => false, 'mensaje' => 'El usuario ya existe.']);
     exit;
 }
 
-// Hashear contraseña y registrar
+// Insertar
 $hash = password_hash($contrasena, PASSWORD_BCRYPT);
-$stmt = $pdo->prepare("INSERT INTO usuarios (Nombre_Completo, Hash_Contrasena) VALUES (:nombre, :hash)");
-$exito = $stmt->execute([
-    'nombre' => $nombre,
-    'hash' => $hash
+
+$stmt = $pdo->prepare("
+    INSERT INTO usuarios (Nombre_Completo, Hash_Contrasena, rol)
+    VALUES (:nombre, :hash, :rol)
+");
+$ok = $stmt->execute([
+    ':nombre' => $nombre,
+    ':hash'   => $hash,
+    ':rol'    => $rol
 ]);
 
-if ($exito) {
+if ($ok) {
+    $id = (int)$pdo->lastInsertId();
     echo json_encode([
-        'exito' => true,
-        'usuario' => ['Nombre_Completo' => $nombre]
+        'exito'   => true,
+        'usuario' => [
+            'id'     => $id,
+            'nombre' => $nombre,
+            'rol'    => $rol
+        ]
     ]);
 } else {
     echo json_encode(['exito' => false, 'mensaje' => 'Error al registrar usuario.']);

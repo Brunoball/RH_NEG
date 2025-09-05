@@ -1,32 +1,39 @@
 <?php
+require_once __DIR__ . '/../../config/db.php';
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
 
-require_once(__DIR__ . '/../../config/db.php');
+$input = json_decode(file_get_contents('php://input'), true);
+$nombre = trim($input['nombre'] ?? '');
+$contrasena = $input['contrasena'] ?? '';
 
-// Leer datos del frontend
-$data = json_decode(file_get_contents("php://input"), true);
-$nombre = trim($data['nombre'] ?? '');
-$contrasena = $data['contrasena'] ?? '';
+try {
+  $stmt = $pdo->prepare("SELECT idUsuario, Nombre_Completo, Hash_Contrasena, rol 
+                           FROM usuarios 
+                          WHERE Nombre_Completo = :n LIMIT 1");
+  $stmt->execute([':n' => $nombre]);
+  $u = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$nombre || !$contrasena) {
-    echo json_encode(['exito' => false, 'mensaje' => 'Faltan datos.']);
+  if (!$u || !password_verify($contrasena, $u['Hash_Contrasena'])) {
+    echo json_encode(['exito' => false, 'mensaje' => 'Credenciales inválidas']);
     exit;
-}
+  }
 
-// Buscar usuario por Nombre_Completo
-$stmt = $pdo->prepare("SELECT idUsuario, Nombre_Completo, Hash_Contrasena FROM usuarios WHERE Nombre_Completo = :nombre");
-$stmt->execute(['nombre' => $nombre]);
-$usuario = $stmt->fetch();
+  // 👉 Guardar en sesión (recomendado)
+  $_SESSION['idUsuario'] = (int)$u['idUsuario'];
+  $_SESSION['rol']       = $u['rol']; // 'admin' | 'vista'
 
-if ($usuario && password_verify($contrasena, $usuario['Hash_Contrasena'])) {
-    echo json_encode([
-        'exito' => true,
-        'usuario' => [
-            'idUsuario' => $usuario['idUsuario'],
-            'Nombre_Completo' => $usuario['Nombre_Completo']
-        ]
-    ]);
-} else {
-    echo json_encode(['exito' => false, 'mensaje' => 'Credenciales incorrectas.']);
+  echo json_encode([
+    'exito'   => true,
+    'usuario' => [
+      'id'     => (int)$u['idUsuario'],
+      'nombre' => $u['Nombre_Completo'],
+      'rol'    => $u['rol'],
+    ],
+    'token' => '' // si no usás token, dejalo vacío
+  ]);
+} catch (Throwable $e) {
+  http_response_code(500);
+  echo json_encode(['exito' => false, 'mensaje' => 'Error interno']);
 }

@@ -23,6 +23,13 @@ const SociosBaja = () => {
   const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
 
+  // === ROL DEL USUARIO (admin/vista) ===
+  const [usuario] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+  });
+  const rol = (usuario?.rol || 'vista').toLowerCase();
+  const isAdmin = rol === 'admin';
+
   // Fecha de alta editable
   const [fechaAlta, setFechaAlta] = useState('');
   const fechaInputRef = useRef(null);
@@ -321,23 +328,28 @@ const SociosBaja = () => {
                   </div>
                   <div className="soc-col-acciones-baja">
                     <div className="soc-iconos-acciones-baja">
-                      <FaUserCheck
-                        title="Dar de alta"
-                        className="soc-icono-baja"
-                        onClick={() => {
-                          setSocioSeleccionado(s);
-                          setFechaAlta(hoyISO());
-                          setMostrarConfirmacion(true);
-                        }}
-                      />
-                      <FaTrash
-                        title="Eliminar permanentemente"
-                        className="soc-icono-baja"
-                        onClick={() => {
-                          setSocioSeleccionado(s);
-                          setMostrarConfirmacionEliminar(true);
-                        }}
-                      />
+                      {/* Solo ADMIN: Reactivar y Eliminar */}
+                      {isAdmin && (
+                        <>
+                          <FaUserCheck
+                            title="Dar de alta"
+                            className="soc-icono-baja"
+                            onClick={() => {
+                              setSocioSeleccionado(s);
+                              setFechaAlta(hoyISO());
+                              setMostrarConfirmacion(true);
+                            }}
+                          />
+                          <FaTrash
+                            title="Eliminar permanentemente"
+                            className="soc-icono-baja"
+                            onClick={() => {
+                              setSocioSeleccionado(s);
+                              setMostrarConfirmacionEliminar(true);
+                            }}
+                          />
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
