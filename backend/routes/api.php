@@ -39,6 +39,11 @@ switch ($action) {
         require_once(__DIR__ . '/../modules/socios/editar_socio.php');
         break;
 
+    case 'next_id_socio':
+        require_once __DIR__ . '/../modules/socios/next_id_socio.php';
+        break;
+
+
     case 'listas':
         require_once(__DIR__ . '/../modules/global/obtener_listas.php');
         break;

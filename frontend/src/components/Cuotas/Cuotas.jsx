@@ -1395,20 +1395,23 @@ const Cuotas = () => {
               (socioParaPagar?.periodo_origen && String(socioParaPagar.periodo_origen).toLowerCase().includes('anual'))
             )
           }
+          anio={Number(anioSeleccionado)}             // ⬅️ NUEVO
           onClose={() => setMostrarModalEliminarPago(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
+            // invalidamos todas las pestañas del período actual
             invalidateCuotas('pagado', periodoSeleccionado);
             invalidateCuotas('deudor', periodoSeleccionado);
             invalidateCuotas('condonado', periodoSeleccionado);
+            // recargamos las 3 listas del período visible
             await fetchCuotasAll(periodoSeleccionado, { force: true });
             setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, { resetScroll: false });
-            // refrescar años por si al eliminar queda un año vacío
+            // refrescar años por si al eliminar se vacía o aparece un año
             fetchAnios();
           }}
         />
       )}
-      
+
       {mostrarModalEliminarCond && (
         <ModalEliminarCondonacion
           socio={socioParaPagar}
@@ -1424,6 +1427,7 @@ const Cuotas = () => {
               (socioParaPagar?.periodo_origen && String(socioParaPagar.periodo_origen).toLowerCase().includes('anual'))
             )
           }
+          anio={Number(anioSeleccionado)}             // ⬅️ NUEVO
           onClose={() => setMostrarModalEliminarCond(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
@@ -1436,6 +1440,7 @@ const Cuotas = () => {
           }}
         />
       )}
+
 
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (

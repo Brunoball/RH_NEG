@@ -4,7 +4,7 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=utf-8");
 
-// Producción: no mostrar errores en pantalla (pero sí loguearlos)
+// Producción: no mostrar errores (solo log)
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
@@ -26,9 +26,14 @@ try {
     exit;
 }
 
-/** Helpers */
+/** Helpers **/
 function aMayus($texto) {
     return isset($texto) && trim($texto) !== '' ? mb_strtoupper(trim($texto), 'UTF-8') : null;
+}
+function collapse_spaces($s) {
+    if ($s === null) return null;
+    // Colapsa espacios internos múltiples a un único espacio
+    return preg_replace('/\s+/u', ' ', $s);
 }
 function responderError($errores) {
     echo json_encode(['exito' => false, 'errores' => $errores], JSON_UNESCAPED_UNICODE);
@@ -45,7 +50,11 @@ try {
     $apellido = aMayus($data['apellido'] ?? '');
     $nombres  = aMayus($data['nombres']  ?? '');
 
-    // Validaciones obligatorias
+    // Colapsar espacios múltiples (permitimos varias palabras con espacios)
+    $apellido = collapse_spaces($apellido);
+    $nombres  = collapse_spaces($nombres);
+
+    // Validaciones obligatorias por campo (¡nunca validar "nombre" directo!)
     if (!$apellido || trim($apellido) === '') {
         responderError(['apellido' => '⚠️ El apellido es obligatorio.']);
     }
@@ -63,6 +72,11 @@ try {
 
     // Nombre completo a persistir en la columna `nombre`
     $nombre = trim($apellido . ' ' . $nombres);
+    $nombre = collapse_spaces($nombre);
+    // Truncar seguro a 100 (columna VARCHAR(100))
+    if (mb_strlen($nombre, 'UTF-8') > 100) {
+        $nombre = mb_substr($nombre, 0, 100, 'UTF-8');
+    }
 
     // ===== Resto de campos (opcionales) =====
     $id_cobrador     = is_numeric($data['id_cobrador'] ?? null) ? (int)$data['id_cobrador'] : null;
@@ -100,6 +114,9 @@ try {
     }
     if (!empty($dni) && (!preg_match("/^[0-9]+$/", $dni) || strlen($dni) > 20)) {
         responderError(['dni' => '❌ DNI inválido. Solo números. Máximo 20 caracteres.']);
+    }
+    if (!empty($nacimiento) && !preg_match("/^\d{4}-\d{2}-\d{2}$/", $nacimiento)) {
+        responderError(['nacimiento' => '❌ Fecha inválida (YYYY-MM-DD).']);
     }
 
     // Normalización de vacíos a NULL
@@ -145,5 +162,9 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
-    echo json_encode(['exito' => false, 'mensaje' => '❌ Error inesperado: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    // Jamás devolvemos error bajo la clave 'nombre'
+    echo json_encode([
+        'exito' => false,
+        'mensaje' => '❌ Error inesperado: ' . $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }

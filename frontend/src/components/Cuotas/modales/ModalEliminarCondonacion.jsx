@@ -1,4 +1,3 @@
-// src/components/Cuotas/modales/ModalEliminarCondonacion.jsx
 import React, { useState } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
@@ -11,6 +10,7 @@ import './ModalEliminarCondonacion.css';
  * - periodo: string|number
  * - periodoTexto: string
  * - esCondonacionAnual: boolean
+ * - anio: number              // ⬅️ NUEVO: año seleccionado
  * - onClose: fn
  * - onEliminado: fn
  */
@@ -19,6 +19,7 @@ const ModalEliminarCondonacion = ({
   periodo,
   periodoTexto,
   esCondonacionAnual = false,
+  anio = 0,                    // ⬅️ NUEVO
   onClose,
   onEliminado,
 }) => {
@@ -29,6 +30,10 @@ const ModalEliminarCondonacion = ({
     setToast({ tipo, mensaje, duracion });
 
   const handleEliminar = async () => {
+    if (!anio) {
+      mostrarToast('error', 'No se recibió el año seleccionado.');
+      return;
+    }
     setCargando(true);
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=eliminar_pago`, {
@@ -37,6 +42,7 @@ const ModalEliminarCondonacion = ({
         body: JSON.stringify({
           id_socio: socio.id_socio,
           id_periodo: periodo,
+          anio,                               // ⬅️ NUEVO
         }),
       });
 
@@ -46,7 +52,7 @@ const ModalEliminarCondonacion = ({
         setTimeout(() => {
           onEliminado?.({ ...socio, estado_pago: 'deudor', medio_pago: '' });
           onClose?.();
-        }, 900);
+        }, 700);
       } else {
         mostrarToast('error', 'Error: ' + (data.mensaje ?? 'No se pudo eliminar la condonación'));
       }
@@ -60,11 +66,8 @@ const ModalEliminarCondonacion = ({
 
   if (!socio) return null;
 
-  // === Lógica para aviso ANUAL (idéntica al modal de pago) ===
   const ID_CONTADO_ANUAL = 7;
   const esBimestre = String(periodo) !== String(ID_CONTADO_ANUAL);
-
-  // Mostrar “CONTADO ANUAL” si la condonación real proviene de ANUAL aunque estemos en un bimestre
   const etiquetaPeriodo =
     esCondonacionAnual && esBimestre ? 'CONTADO ANUAL' : (periodoTexto ?? periodo);
 
@@ -90,10 +93,9 @@ const ModalEliminarCondonacion = ({
 
           <p className="condon-modal-texto">
             ¿Deseás eliminar la condonación del socio <strong>{socio.nombre}</strong> para{' '}
-            <strong>{etiquetaPeriodo}</strong>?
+            <strong>{etiquetaPeriodo}</strong> {anio ? <>del año <strong>{anio}</strong></> : null}?
           </p>
 
-          {/* Aviso cuando es ANUAL, igual que en el modal de pago */}
           {esCondonacionAnual && esBimestre && (
             <div className="soc-alert soc-alert-danger" role="alert">
               Esta condonación corresponde a <strong>CONTADO ANUAL</strong>.{' '}
