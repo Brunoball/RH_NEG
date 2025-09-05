@@ -5,23 +5,17 @@ import "./dashboard.css";
 import BASE_URL from "../../config/config";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  FaArrowLeft,
   faDollarSign,
   faCalendarAlt,
   faExclamationTriangle,
   faTimes,
   faListAlt,
   faTable,
-  faCreditCard,
   faChartPie,
-  faUsers,
   faFileExcel,
   faSearch,
-  faMagnifyingGlass,   // ⬅️ NUEVO (lupa para “sin resultados”)
-  faFolderOpen,
-  faInbox,
-  faFaceFrown,  
-    faFilter,        // ⬅️ NUEVO (carpeta para “falta seleccionar”)
+  faMagnifyingGlass,
+  faFilter,
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
 import ContableChartsModal from "./modalcontable/ContableChartsModal";
@@ -51,7 +45,7 @@ export default function DashboardContable() {
   const [datosEmpresas, setDatosEmpresas] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [totalSocios, setTotalSocios] = useState(0);
-  const [condonados, setCondonados] = useState([]); // ⬅️ NUEVO
+  const [condonados, setCondonados] = useState([]);
 
   // ===== UI =====
   const [error, setError] = useState(null);
@@ -60,20 +54,17 @@ export default function DashboardContable() {
   const [isLoadingTable, setIsLoadingTable] = useState(false);
   const computeRAF1 = useRef(0);
   const computeRAF2 = useRef(0);
-
-  // NUEVO: vista de la barra lateral (botones Filtros / Resumen)
   const [sidebarView, setSidebarView] = useState("filtros"); // 'filtros' | 'resumen'
 
   // ===== Utils =====
   const nfPesos = useMemo(() => new Intl.NumberFormat("es-AR"), []);
-  const collEs = useMemo(() => new Intl.Collator("es", { sensitivity: "base" }), []);
   const fetchJSON = useCallback(async (url, signal) => {
     const sep = url.includes("?") ? "&" : "?";
     const res = await fetch(`${url}${sep}ts=${Date.now()}`, { method: "GET", signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }, []);
-  const ok = (obj) => obj && (obj.success === true || obj.exito === true);
+  const ok  = (obj) => obj && (obj.success === true || obj.exito === true);
   const arr = (obj) => Array.isArray(obj?.data) ? obj.data : (Array.isArray(obj?.datos) ? obj.datos : []);
 
   // ---- Helpers
@@ -90,14 +81,27 @@ export default function DashboardContable() {
   };
   const getNombreCobrador = (p) =>
     p?.Cobrador || p?.Nombre_Cobrador || p?.nombre_cobrador || p?.cobrador || p?.Cobrador_Nombre || "";
-  const nombreClaveBuild = (p) => `${(p?.Apellido || "").trim()} ${(p?.Nombre || "").trim()}`.trim();
-  const periodoRankBuild = (label) => {
-    const nums = (label || "").match(/\d{1,2}/g);
-    if (!nums || nums.length === 0) return 999;
-    const ints = nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n));
-    return ints.length ? Math.min(...ints) : 999;
-  };
   const isAnualLabel = (s) => String(s || "").toUpperCase().includes("ANUAL");
+
+  // === Nombre del socio (tomar “Socio” si viene, igual que Socios/Cuotas) ===
+  const getTxt = (o, k) => (typeof o?.[k] === "string" ? o[k].trim() : "");
+  const getNombreSocio = (p) => {
+    const combinado =
+      getTxt(p, "Socio") || getTxt(p, "socio") ||
+      getTxt(p, "Nombre_Completo") || getTxt(p, "nombre_completo");
+    if (combinado) return combinado;
+
+    const ape =
+      getTxt(p, "Apellido") || getTxt(p, "apellido") ||
+      getTxt(p, "Apellidos") || getTxt(p, "apellidos") ||
+      getTxt(p, "Apellido_Socio") || getTxt(p, "apellido_socio");
+    const nom =
+      getTxt(p, "Nombre") || getTxt(p, "nombre") ||
+      getTxt(p, "Nombres") || getTxt(p, "nombres") ||
+      getTxt(p, "Nombre_Socio") || getTxt(p, "nombre_socio");
+    if (ape && nom) return `${ape} ${nom}`.replace(/\s+/g, " ").trim();
+    return ape || nom || "";
+  };
 
   /* ========= Carga inicial ========= */
   useEffect(() => {
@@ -114,7 +118,7 @@ export default function DashboardContable() {
               .filter((p) => {
                 const id = typeof p === "object" && p ? String(p.id ?? "") : "";
                 const nombre = typeof p === "string" ? p : (p?.nombre || "");
-                if (id === "7") return false;
+                if (id === "7") return false;                 // oculto el anual en los filtros si existiera
                 if (isAnualLabel(nombre)) return false;
                 return true;
               })
@@ -198,89 +202,39 @@ export default function DashboardContable() {
       if (Array.isArray(b?.pagos) && b.pagos.length) {
         for (let j = 0; j < b.pagos.length; j++) {
           const p = b.pagos[j];
-          const _cb = String(getNombreCobrador(p)).trim();
-          const _month = getMonthFromDate(p?.fechaPago);
-          const _fechaTs = p?.fechaPago ? Date.parse(p.fechaPago) : Number.MAX_SAFE_INTEGER;
-          const _nombreClave = nombreClaveBuild(p);
-          const _periodoRank = periodoRankBuild(p?.Mes_Pagado);
-          const _precioNum = parseFloat(p?.Precio) || 0;
-          out.push({ ...p, _cb, _month, _fechaTs, _nombreClave, _periodoRank, _precioNum });
+          const _cb        = String(getNombreCobrador(p)).trim();
+          const _month     = getMonthFromDate(p?.fechaPago);
+          const _precioNum = parseFloat(p?.Precio) || 0;     // viene del backend como Precio
+          const _nombreCompleto = getNombreSocio(p);         // usa 'Socio' si viene
+          out.push({ ...p, _cb, _month, _precioNum, _nombreCompleto, _originalIndex: out.length });
         }
       }
     }
     return out;
   }, [datosMeses]);
 
-  const cmpPago = useMemo(() => {
-    return (a, b) => {
-      const n = collEs.compare(a._nombreClave, b._nombreClave);
-      if (n !== 0) return n;
-      if (a._periodoRank !== b._periodoRank) return a._periodoRank - b._periodoRank;
-      return a._fechaTs - b._fechaTs;
-    };
-  }, [collEs]);
-
-  const pagosPorMesSorted = useMemo(() => {
+  // Agrupar pagos por mes (para filtros)
+  const pagosPorMes = useMemo(() => {
     const buckets = Array.from({ length: 13 }, () => []);
     for (let i = 0; i < pagosFlatEnriched.length; i++) {
       const p = pagosFlatEnriched[i];
       if (p._month != null && p._month >= 1 && p._month <= 12) buckets[p._month].push(p);
     }
-    for (let m = 1; m <= 12; m++) {
-      if (buckets[m].length > 1) buckets[m].sort(cmpPago);
-    }
     return buckets;
-  }, [pagosFlatEnriched, cmpPago]);
+  }, [pagosFlatEnriched]);
 
+  // Combinar periodos en función de los números que tenga el nombre
   const periodMergedMap = useMemo(() => {
-    const mergeSorted = (arrays, comparator) => {
-      const heads = [];
-      for (let i = 0; i < arrays.length; i++) {
-        const arr = arrays[i];
-        if (arr && arr.length) heads.push({ i, idx: 0, val: arr[0] });
-      }
-      const less = (a, b) => comparator(a.val, b.val) < 0;
-      const swap = (i, j) => { const t = heads[i]; heads[i] = heads[j]; heads[j] = t; };
-      const siftUp = (i) => { while (i > 0) { const p = (i - 1) >> 1; if (!less(heads[i], heads[p])) break; swap(i, p); i = p; } };
-      const siftDown = (i) => {
-        for (;;) {
-          let l = (i << 1) + 1, r = l + 1, s = i;
-          if (l < heads.length && less(heads[l], heads[s])) s = l;
-          if (r < heads.length && less(heads[r], heads[s])) s = r;
-          if (s === i) break;
-          swap(i, s); i = s;
-        }
-      };
-      for (let k = 0; k < heads.length; k++) siftUp(k);
-      const out = [];
-      while (heads.length) {
-        const top = heads[0];
-      out.push(top.val);
-        const arr = arrays[top.i];
-        const nextIdx = top.idx + 1;
-        if (nextIdx < arr.length) {
-          top.idx = nextIdx; top.val = arr[nextIdx]; siftDown(0);
-        } else {
-          const last = heads.pop();
-          if (heads.length) { heads[0] = last; siftDown(0); }
-        }
-      }
-      return out;
-    };
-
     const map = new Map();
     for (const opt of periodosOpts) {
       const months = (opt?.months && opt.months.length) ? opt.months : extractMonthsFromPeriodLabel(opt?.value);
       if (!months || !months.length) continue;
-      const arrays = [];
-      for (let m of months) {
-        if (m >= 1 && m <= 12 && pagosPorMesSorted[m]?.length) arrays.push(pagosPorMesSorted[m]);
-      }
-      const merged = arrays.length === 0 ? [] : (arrays.length === 1 ? arrays[0].slice() : mergeSorted(arrays, cmpPago));
+      const merged = [];
+      for (let m of months) if (m >= 1 && m <= 12 && pagosPorMes[m]?.length) merged.push(...pagosPorMes[m]);
       map.set(opt.value, merged);
     }
     return map;
-  }, [periodosOpts, pagosPorMesSorted, cmpPago]);
+  }, [periodosOpts, pagosPorMes]);
 
   /* ===== Meses disponibles por período ===== */
   const mesesDisponibles = useMemo(() => {
@@ -289,7 +243,7 @@ export default function DashboardContable() {
       return Array.from({ length: 12 }, (_, i) => i + 1);
     }
     const opt = periodosOpts.find(o => o.value === periodoSeleccionado);
-    const ms = opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
+    const ms  = opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
     return (ms && ms.length) ? ms : [];
   }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
 
@@ -310,11 +264,11 @@ export default function DashboardContable() {
       const base = (cobrador === "todos") ? pagosFlatEnriched : pagosFlatEnriched.filter((p) => p._cb === cobrador);
       let total = 0; const setCb = new Set();
       for (let i = 0; i < base.length; i++) { total += base[i]._precioNum; if (base[i]._cb) setCb.add(base[i]._cb); }
-      return { registros: [], total, cobradoresUnicos: setCb.size };
+      return { registros: base, total, cobradoresUnicos: setCb.size };
     }
 
     if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
-      let base = pagosPorMesSorted[monthNum] ? pagosPorMesSorted[monthNum] : [];
+      let base = pagosPorMes[monthNum] ? pagosPorMes[monthNum] : [];
       if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
       let total = 0; const setCb = new Set();
       for (let i = 0; i < base.length; i++) { total += base[i]._precioNum; if (base[i]._cb) setCb.add(base[i]._cb); }
@@ -328,10 +282,10 @@ export default function DashboardContable() {
     let total = 0; const setCb = new Set();
     for (let i = 0; i < merged.length; i++) { total += merged[i]._precioNum; if (merged[i]._cb) setCb.add(merged[i]._cb); }
     return { registros: merged, total, cobradoresUnicos: setCb.size };
-  }, [pagosFlatEnriched, pagosPorMesSorted, periodMergedMap]);
+  }, [pagosFlatEnriched, pagosPorMes, periodMergedMap]);
 
   useEffect(() => {
-    if (!pagosFlatEnriched.length && !pagosPorMesSorted.some(arr => arr.length)) {
+    if (!pagosFlatEnriched.length && !pagosPorMes.some(arr => arr.length)) {
       setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
       setIsLoadingTable(false);
       return;
@@ -349,31 +303,31 @@ export default function DashboardContable() {
       });
     });
     return () => { cancelAnimationFrame(computeRAF1.current); cancelAnimationFrame(computeRAF2.current); };
-  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, pagosFlatEnriched, pagosPorMesSorted, recompute]);
+  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, pagosFlatEnriched, pagosPorMes, recompute]);
 
   // ==== Handlers ====
   const volver = useCallback(() => navigate(-1), [navigate]);
-  const handlePeriodoChange = useCallback((e) => setPeriodoSeleccionado(e.target.value), []);
-  const handleMesChange = useCallback((e) => setMesSeleccionado(e.target.value), []);
+  const handlePeriodoChange  = useCallback((e) => setPeriodoSeleccionado(e.target.value), []);
+  const handleMesChange      = useCallback((e) => setMesSeleccionado(e.target.value), []);
   const handleCobradorChange = useCallback((e) => setCobradorSeleccionado(e.target.value), []);
-  const handleYearChange = useCallback((e) => setAnioSeleccionado(e.target.value), []);
-  const handleSearch = useCallback((e) => setSearchText(e.target.value), []);
+  const handleYearChange     = useCallback((e) => setAnioSeleccionado(e.target.value), []);
+  const handleSearch         = useCallback((e) => setSearchText(e.target.value), []);
 
   // Buscador (aplica sobre registros visibles)
   const registrosFiltradosPorBusqueda = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return derived.registros;
     return (derived.registros || []).filter((r) => {
-      const socio = `${r.Apellido || ""} ${r.Nombre || ""}`.toLowerCase();
-      const cobr = (r._cb || "").toLowerCase();
+      const socio   = (r._nombreCompleto || "").toLowerCase();
+      const cobr    = (r._cb || "").toLowerCase();
       const periodo = (r.Mes_Pagado || "").toLowerCase();
-      const fecha = (r.fechaPago || "").toLowerCase();
-      const monto = String(r._precioNum || "").toLowerCase();
+      const fecha   = (r.fechaPago || "").toLowerCase();
+      const monto   = String(r._precioNum || "").toLowerCase();
       return socio.includes(q) || cobr.includes(q) || periodo.includes(q) || fecha.includes(q) || monto.includes(q);
     });
   }, [derived.registros, searchText]);
 
-  // Exportar Excel de lo que se ve (respeta búsqueda)
+  // Exportar Excel (respeta filtros/búsqueda)
   const exportarExcel = useCallback(() => {
     const rows = registrosFiltradosPorBusqueda || [];
     if (!rows.length) {
@@ -381,7 +335,7 @@ export default function DashboardContable() {
       return;
     }
     const data = rows.map((r) => ({
-      "SOCIO": `${r.Apellido || ""}${r.Apellido ? ", " : ""}${r.Nombre || ""}`,
+      "SOCIO": r._nombreCompleto,
       "MONTO": Number(r._precioNum || 0),
       "COBRADOR": r._cb || "",
       "FECHA DE PAGO": r.fechaPago || "",
@@ -402,7 +356,10 @@ export default function DashboardContable() {
     XLSX.writeFile(wb, fname);
   }, [registrosFiltradosPorBusqueda, anioSeleccionado, periodoSeleccionado, mesSeleccionado]);
 
-  const calcularTotalRegistros = useCallback(() => registrosFiltradosPorBusqueda.length, [registrosFiltradosPorBusqueda.length]);
+  const calcularTotalRegistros = useCallback(
+    () => registrosFiltradosPorBusqueda.length,
+    [registrosFiltradosPorBusqueda.length]
+  );
 
   return (
     <div className="contable-viewport">
@@ -460,7 +417,7 @@ export default function DashboardContable() {
                 {/* Año */}
                 <label className="side-field">
                   <span>Año</span>
-                  <select value={anioSeleccionado || ""} onChange={handleYearChange}>
+                  <select value={anioSeleccionado || ""} onChange={(e) => setAnioSeleccionado(e.target.value)}>
                     {aniosDisponibles.length === 0 ? (
                       <option value="">Sin pagos</option>
                     ) : (
@@ -474,7 +431,7 @@ export default function DashboardContable() {
                   <span>Período</span>
                   <select
                     value={periodoSeleccionado}
-                    onChange={handlePeriodoChange}
+                    onChange={(e) => setPeriodoSeleccionado(e.target.value)}
                     disabled={!anioSeleccionado}
                   >
                     <option value="Selecciona un periodo">Selecciona un periodo</option>
@@ -489,7 +446,7 @@ export default function DashboardContable() {
                   <span>Mes</span>
                   <select
                     value={mesSeleccionado}
-                    onChange={handleMesChange}
+                    onChange={(e) => setMesSeleccionado(e.target.value)}
                     disabled={!anioSeleccionado}
                   >
                     <option>Todos los meses</option>
@@ -502,7 +459,7 @@ export default function DashboardContable() {
                   <span>Cobrador</span>
                   <select
                     value={cobradorSeleccionado}
-                    onChange={handleCobradorChange}
+                    onChange={(e) => setCobradorSeleccionado(e.target.value)}
                     disabled={!anioSeleccionado}
                   >
                     <option value="todos">Todos</option>
@@ -586,7 +543,7 @@ export default function DashboardContable() {
                 type="text"
                 placeholder="Buscar por socio, cobrador, período, fecha o monto…"
                 value={searchText}
-                onChange={handleSearch}
+                onChange={(e) => setSearchText(e.target.value)}
                 disabled={!anioSeleccionado}
               />
             </div>
@@ -603,7 +560,7 @@ export default function DashboardContable() {
             <div className="gridtable" role="table" aria-rowcount={registrosFiltradosPorBusqueda.length || 0}>
               {/* Encabezado */}
               <div className="gridtable-header" role="row">
-                <div className="gridtable-cell" role="columnheader">Socio</div>
+                <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
                 <div className="gridtable-cell" role="columnheader">Monto</div>
                 <div className="gridtable-cell" role="columnheader">Cobrador</div>
                 <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
@@ -614,28 +571,22 @@ export default function DashboardContable() {
               {periodoSeleccionado === "Selecciona un periodo" && mesSeleccionado === "Todos los meses" ? (
                 <div className="gridtable-empty" role="row">
                   <div className="gridtable-empty-inner" role="cell">
-                    <div className="empty-icon">
-                      <FontAwesomeIcon icon={faFilter} /> 
-                    </div>
-                    {!anioSeleccionado
-                      ? "Seleccione un año para ver los pagos"
-                      : "Seleccione un período o un mes para ver los registros"}
+                    <div className="empty-icon"><FontAwesomeIcon icon={faFilter} /></div>
+                    {!anioSeleccionado ? "Seleccione un año para ver los pagos" : "Seleccione un período o un mes para ver los registros"}
                   </div>
                 </div>
               ) : registrosFiltradosPorBusqueda.length === 0 ? (
                 <div className="gridtable-empty" role="row">
                   <div className="gridtable-empty-inner" role="cell">
-                    <div className="empty-icon">
-                      <FontAwesomeIcon icon={faMagnifyingGlass} />
-                    </div>
+                    <div className="empty-icon"><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
                     No hay registros para ese filtro/búsqueda.
                   </div>
                 </div>
               ) : (
                 registrosFiltradosPorBusqueda.map((r, i) => (
                   <div className="gridtable-row" role="row" key={i}>
-                    <div className="gridtable-cell" role="cell" data-label="Socio">
-                      {`${r.Apellido || ""}${r.Apellido ? ", " : ""}${r.Nombre || ""}`}
+                    <div className="gridtable-cell" role="cell" data-label="Apellido y Nombre">
+                      {r._nombreCompleto}
                     </div>
                     <div className="gridtable-cell" role="cell" data-label="Monto">
                       ${nfPesos.format(r._precioNum)}

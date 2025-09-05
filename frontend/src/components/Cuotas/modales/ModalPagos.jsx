@@ -154,6 +154,8 @@ const ModalPagos = ({ socio, onClose }) => {
     () => seleccionados.filter(id => id !== ID_CONTADO_ANUAL),
     [seleccionados]
   );
+
+  // Para precio: solo aplica descuento anual si NO es condonación.
   const aplicaDescuentoAnual = !condonar && (seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO);
 
   const total = condonar
@@ -162,11 +164,9 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // Texto de períodos para el comprobante
   const periodoTextoFinal = useMemo(() => {
-    // 🔧 CAMBIO: si aplica el descuento anual (por 6 bimestres o por contar con "Contado Anual"),
-    // imprimimos "CONTADO ANUAL {anio}"
-    if (aplicaDescuentoAnual) return `CONTADO ANUAL ${anioTrabajo}`;
+    // si marcó 6 bimestres o seleccionó "Contado Anual", mostrarlo como tal
+    if (aplicaDescuentoAnual || seleccionIncluyeAnual) return `CONTADO ANUAL ${anioTrabajo}`;
 
-    if (seleccionIncluyeAnual) return `CONTADO ANUAL ${anioTrabajo}`;
     if (seleccionSinAnual.length === 0) return '';
     const partes = seleccionSinAnual
       .map(id => {
@@ -221,17 +221,16 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= COMPROBANTE / IMPRESIÓN =======
   const handleImprimirComprobante = async () => {
-    // 🔧 CAMBIO: si aplica anual (por 6 bimestres o por selección directa),
-    // forzamos el período a 7 (CONTADO ANUAL)
-    const esAnual = aplicaDescuentoAnual;
-    const periodoCodigo = esAnual ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
+    // Detectar ANUAL por selección (independiente de "condonar")
+    const esAnualSeleccion = seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO;
+    const periodoCodigo = esAnualSeleccion ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
 
     const socioParaImprimir = {
       ...socio,
       id_periodo: periodoCodigo,
       periodo_texto: periodoTextoFinal,
       importe_total: total,
-      anio: anioTrabajo, // ayuda al código de barras a fijar el año correcto
+      anio: anioTrabajo, // fija el año correcto para el código de barras
     };
 
     const win = window.open('', '_blank');
@@ -254,6 +253,9 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= VISTA DE ÉXITO =======
   if (pagoExitoso) {
+    const tituloExito = condonar ? '¡Condonación registrada con éxito!' : '¡Pago realizado con éxito!';
+    const subExito = 'Podés generar el comprobante ahora mismo.';
+
     return (
       <>
         {toast && (
@@ -283,8 +285,8 @@ const ModalPagos = ({ socio, onClose }) => {
 
             <div className="modal-body">
               <div className="success-card">
-                <h3 className="success-title">¡Pago realizado con éxito!</h3>
-                <p className="success-sub">Podés generar el comprobante ahora mismo.</p>
+                <h3 className="success-title">{tituloExito}</h3>
+                <p className="success-sub">{subExito}</p>
               </div>
             </div>
 

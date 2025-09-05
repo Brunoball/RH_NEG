@@ -13,7 +13,7 @@ import BASE_URL from '../config/config';
  * @param {Array<Object>} listaSocios
  * @param {string|number} periodoActual
  * @param {Window|null} ventana
- * @param {number|null} anioSeleccionado    // <-- NUEVO (opcional). Si viene, se prioriza para el texto y el código de barras.
+ * @param {number|null} anioSeleccionado
  */
 export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ventana = null, anioSeleccionado = null) => {
   // ---- helpers ----
@@ -147,27 +147,32 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
       const categoria = s.nombre_categoria || categorias[s.id_categoria] || '';
       const estado = s.nombre_estado || estados[s.id_estado] || '';
 
-      const codigoPeriodo = String(s.id_periodo || periodoActual || '0');
+      // 1) Tomo el período que venga (o el de la llamada) sin forzar aún
+      const codigoPeriodoRaw = String(s.id_periodo || periodoActual || '0');
 
-      const textoBasePeriodo = s.periodo_texto || periodos[codigoPeriodo] || `Período ${codigoPeriodo}`;
+      // 2) Necesito un texto base para decidir si es anual
+      const textoBasePeriodo = s.periodo_texto || periodos[codigoPeriodoRaw] || `Período ${codigoPeriodoRaw}`;
+
+      // 3) Detecto "anual" por id==7 o por texto
+      const esAnual =
+        codigoPeriodoRaw === '7' ||
+        (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL')) ||
+        String(textoBasePeriodo).toUpperCase().includes('ANUAL');
+
+      // 4) Si es anual, fuerzo id_periodo=7 para el código de barras; si no, uso el raw
+      const codigoPeriodo = esAnual ? '7' : codigoPeriodoRaw;
 
       // Año para el código y para mostrar al final del período
       const anioParaCodigo =
         (anioSeleccionado ?? null) ||
         s.anio || s.anioTrabajo || extraerAnio(textoBasePeriodo) || new Date().getFullYear();
 
-      // ¿Es ANUAL?
-      const esAnual =
-        codigoPeriodo === '7' ||
-        (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL')) ||
-        (String(textoBasePeriodo).toUpperCase().includes('ANUAL'));
-
-      // Texto que se imprime en "Período:" (AJUSTADO)
+      // Texto que se imprime en "Período:"
       const textoPeriodo = esAnual
         ? `CONTADO ANUAL /${anioParaCodigo}`
         : `${normalizarYOrdenarPeriodos(textoBasePeriodo)} /${anioParaCodigo}`;
 
-      // 💡 Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
+      // Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
       const importeStr = (typeof s.importe_total === 'number')
         ? formatARS(s.importe_total)
         : (typeof s.importe === 'number' ? formatARS(s.importe) : (s.importe || '$4000'));

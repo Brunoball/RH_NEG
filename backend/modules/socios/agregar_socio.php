@@ -4,6 +4,7 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=utf-8");
 
+// Producción: no mostrar errores (solo log)
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
@@ -21,13 +22,18 @@ try {
     }
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (Throwable $e) {
-    echo json_encode(['exito' => false, 'mensaje' => '❌ Error de conexión: ' . $e->getMessage()]);
+    echo json_encode(['exito' => false, 'mensaje' => '❌ Error de conexión: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-/** Helpers */
+/** Helpers **/
 function aMayus($texto) {
     return isset($texto) && trim($texto) !== '' ? mb_strtoupper(trim($texto), 'UTF-8') : null;
+}
+function collapse_spaces($s) {
+    if ($s === null) return null;
+    // Colapsa espacios internos múltiples a un único espacio
+    return preg_replace('/\s+/u', ' ', $s);
 }
 function responderError($errores) {
     echo json_encode(['exito' => false, 'errores' => $errores], JSON_UNESCAPED_UNICODE);
@@ -40,17 +46,39 @@ try {
         responderError(['general' => '❌ Datos no válidos o vacíos.']);
     }
 
-    // ✅ Obligatorio
-    $nombre = aMayus($data['nombre'] ?? '');
-    if (!$nombre || trim($nombre) === '') {
-        responderError(['nombre' => '⚠️ El nombre completo es obligatorio.']);
+    // ===== Campos separados: APELLIDO y NOMBRES =====
+    $apellido = aMayus($data['apellido'] ?? '');
+    $nombres  = aMayus($data['nombres']  ?? '');
+
+    // Colapsar espacios múltiples (permitimos varias palabras con espacios)
+    $apellido = collapse_spaces($apellido);
+    $nombres  = collapse_spaces($nombres);
+
+    // Validaciones obligatorias por campo (¡nunca validar "nombre" directo!)
+    if (!$apellido || trim($apellido) === '') {
+        responderError(['apellido' => '⚠️ El apellido es obligatorio.']);
     }
-    // Letras Unicode, espacios, punto, apóstrofo y guion. Máx 100. (SIN COMA)
-    if (!preg_match("/^[\p{L}\s.'-]+$/u", $nombre) || mb_strlen($nombre, 'UTF-8') > 100) {
-        responderError(['nombre' => '❌ Solo letras, espacios, puntos, apóstrofo y guiones. Máximo 100 caracteres.']);
+    if (!$nombres || trim($nombres) === '') {
+        responderError(['nombres' => '⚠️ El nombre es obligatorio.']);
     }
 
-    // ✅ Opcionales
+    // Solo letras Unicode y espacios, máx 100 c/u
+    if (!preg_match("/^[\p{L}\s]+$/u", $apellido) || mb_strlen($apellido, 'UTF-8') > 100) {
+        responderError(['apellido' => '❌ Solo letras y espacios. Máximo 100 caracteres.']);
+    }
+    if (!preg_match("/^[\p{L}\s]+$/u", $nombres) || mb_strlen($nombres, 'UTF-8') > 100) {
+        responderError(['nombres' => '❌ Solo letras y espacios. Máximo 100 caracteres.']);
+    }
+
+    // Nombre completo a persistir en la columna `nombre`
+    $nombre = trim($apellido . ' ' . $nombres);
+    $nombre = collapse_spaces($nombre);
+    // Truncar seguro a 100 (columna VARCHAR(100))
+    if (mb_strlen($nombre, 'UTF-8') > 100) {
+        $nombre = mb_substr($nombre, 0, 100, 'UTF-8');
+    }
+
+    // ===== Resto de campos (opcionales) =====
     $id_cobrador     = is_numeric($data['id_cobrador'] ?? null) ? (int)$data['id_cobrador'] : null;
     $id_categoria    = is_numeric($data['id_categoria'] ?? null) ? (int)$data['id_categoria'] : null;
     $domicilio       = aMayus($data['domicilio'] ?? '');
@@ -65,7 +93,7 @@ try {
     $ingreso         = date("Y-m-d");
     $activo          = 1;
 
-    // ✅ Validaciones (solo si traen valor)
+    // Validaciones de formato si traen valor
     if (!empty($domicilio) && (!preg_match("/^[\p{L}\p{N}\s.,-]+$/u", $domicilio) || mb_strlen($domicilio, 'UTF-8') > 100)) {
         responderError(['domicilio' => '❌ Domicilio inválido. Letras/números, espacios y . , -. Máximo 100 caracteres.']);
     }
@@ -87,12 +115,17 @@ try {
     if (!empty($dni) && (!preg_match("/^[0-9]+$/", $dni) || strlen($dni) > 20)) {
         responderError(['dni' => '❌ DNI inválido. Solo números. Máximo 20 caracteres.']);
     }
+    if (!empty($nacimiento) && !preg_match("/^\d{4}-\d{2}-\d{2}$/", $nacimiento)) {
+        responderError(['nacimiento' => '❌ Fecha inválida (YYYY-MM-DD).']);
+    }
 
+    // Normalización de vacíos a NULL
     foreach (['domicilio','numero','telefono_movil','telefono_fijo','comentario','nacimiento','dni'] as $campo) {
         if ($$campo === '') $$campo = null;
     }
     if ($domicilio_cobro === '') $domicilio_cobro = null;
 
+    // Insert
     $sql = "
         INSERT INTO socios (
             nombre, id_cobrador, id_categoria, domicilio, numero,
@@ -129,5 +162,9 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
-    echo json_encode(['exito' => false, 'mensaje' => '❌ Error inesperado: ' . $e->getMessage()]);
+    // Jamás devolvemos error bajo la clave 'nombre'
+    echo json_encode([
+        'exito' => false,
+        'mensaje' => '❌ Error inesperado: ' . $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }

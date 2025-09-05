@@ -10,14 +10,16 @@ import './ModalEliminarPago.css';
  * - periodo: string|number (ID del período seleccionado en la UI)
  * - periodoTexto: string (texto visible del período)
  * - esPagoAnual: boolean  -> true si el estado "pagado" proviene de un registro ANUAL
+ * - anio: number          -> ⬅️ NUEVO: año seleccionado en la UI
  * - onClose: fn
- * - onEliminado: fn(affectedPeriods: number[])
+ * - onEliminado: fn(affectedPeriods: number[] | void)
  */
 const ModalEliminarPago = ({
   socio,
   periodo,
   periodoTexto,
   esPagoAnual = false,
+  anio = 0,               // ⬅️ NUEVO
   onClose,
   onEliminado
 }) => {
@@ -29,6 +31,10 @@ const ModalEliminarPago = ({
   };
 
   const handleEliminar = async () => {
+    if (!anio) {
+      mostrarToast('error', 'No se recibió el año seleccionado.');
+      return;
+    }
     setCargando(true);
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=eliminar_pago`, {
@@ -37,6 +43,7 @@ const ModalEliminarPago = ({
         body: JSON.stringify({
           id_socio: socio.id_socio,
           id_periodo: periodo,
+          anio,                                 // ⬅️ NUEVO
         }),
       });
 
@@ -50,7 +57,7 @@ const ModalEliminarPago = ({
         setTimeout(() => {
           onEliminado?.(affected);
           onClose?.();
-        }, 900);
+        }, 700);
       } else {
         mostrarToast('error', 'Error: ' + (data.mensaje ?? 'No se pudo eliminar'));
       }
@@ -97,10 +104,9 @@ const ModalEliminarPago = ({
 
           <p className="soc-modal-texto-eliminar">
             ¿Deseás eliminar el pago del socio <strong>{socio.nombre}</strong> para{' '}
-            <strong>{etiquetaPeriodo}</strong>?
+            <strong>{etiquetaPeriodo}</strong> {anio ? <>del año <strong>{anio}</strong></> : null}?
           </p>
 
-          {/* Aviso requerido cuando el pago real es ANUAL pero el usuario está parado en un bimestre */}
           {esPagoAnual && esBimestre && (
             <div className="soc-alert soc-alert-danger" role="alert">
               Este pago corresponde a <strong>CONTADO ANUAL</strong>.{' '}
