@@ -51,13 +51,13 @@
   --pad-y: 0.8rem;
   --input-fs: 1rem;
   --label-fs: 0.95em;
-  --label-float-shift: 1.4em; /* cuánto sube el label al flotar (legacy) */
+  --label-float-shift: 1.4em;
 
   /* NUEVO: offset vertical para que el label flote FUERA del input */
   --label-float-top: -0.65rem;
 }
 
-/* Contenedor principal (sin height fija) */
+/* Contenedor principal */
 .add-socio-container {
   position: relative;
   display: flex;
@@ -116,11 +116,22 @@
   border-radius: var(--add-border-radius-lg) var(--add-border-radius-lg) 0 0;
 }
 
-.add-icon-title {
-  display: flex;
+/* ===== pill del ID junto al título ===== */
+.add-header { flex-wrap: wrap; gap: .75rem; }
+.add-icon-title { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+.add-id-inline {
+  display: inline-flex;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: .5rem;
+  margin-left: .4rem;
+  padding: .35rem .6rem;
+  border-radius: .5rem;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.25);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
 }
+.add-id-label { font-size: .85rem; color: #fff; opacity: .95; font-weight: 600; }
+.add-id-value { font-weight: 800; color: #fff; letter-spacing: .3px; }
 
 .add-icon-title h1 {
   font-size: var(--font-size-xl);
@@ -134,9 +145,7 @@
   margin: 0;
 }
 
-.add-icon {
-  font-size: 1.6rem;
-}
+.add-icon { font-size: 1.6rem; }
 
 .add-back-btn {
   display: flex;
@@ -244,12 +253,11 @@
   gap: 1rem;
 }
 
-/* === Inputs + floating labels (robusto) === */
+/* Inputs + floating labels */
 .add-socio-input-wrapper {
   position: relative;
   width: 100%;
-  /* IMPORTANTE: permitir que el label flote por fuera del borde del input */
-  overflow: visible;
+  overflow: visible; /* permite que el label flote por fuera */
 }
 
 .add-socio-label {
@@ -312,13 +320,12 @@
   transition: width .2s ease;
 }
 
-/* ✅ FLUJO ACTUALIZADO: el label sube FUERA del input */
 .add-socio-input-wrapper:focus-within .add-socio-input-highlight { width: 100%; }
 
 .add-socio-input-wrapper:focus-within .add-socio-label,
 .add-socio-input-wrapper.has-value .add-socio-label {
-  top: var(--label-float-top);            /* fuera de la caja */
-  transform: translateY(0) scale(0.88);   /* ya no centrado verticalmente */
+  top: var(--label-float-top);
+  transform: translateY(0) scale(0.88);
   color: var(--add-primary);
   background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(248,250,252,.98));
   padding: 0 .5rem;
@@ -454,12 +461,10 @@
 
 /* ======= Breakpoints ======= */
 
-/* Compactos y fixes generales */
 @media (max-width: 1200px) {
   .progress-steps { margin-bottom: 0; margin-top: .5rem; }
 }
 
-/* Moderar tamaños en pantallas grandes */
 @media (min-width: 1300px) {
   .add-socio-section-title { margin-bottom: 1.2rem; }
   .progress-steps { margin: 1.6rem 2rem .9rem; }
@@ -469,8 +474,8 @@
     --label-fs: 1rem;
     --pad-x: 1rem;
     --pad-y: 1rem;
-    --label-float-shift: 1.5em; /* legacy */
-    --label-float-top: -0.7rem; /* un poco más de espacio arriba */
+    --label-float-shift: 1.5em;
+    --label-float-top: -0.7rem;
   }
 }
 
@@ -499,7 +504,7 @@
     --pad-y: .9rem;
     --input-fs: .95rem;
     --label-fs: .9em;
-    --label-float-shift: 1.3em; /* legacy */
+    --label-float-shift: 1.3em;
     --label-float-top: -0.6rem;
   }
 
@@ -507,9 +512,14 @@
     padding-bottom: calc(var(--footer-h) + 1rem);
     scroll-padding-bottom: calc(var(--footer-h) + 1rem);
   }
+
+  /* pill del ID un poco más compacto */
+  .add-id-inline { padding: .3rem .55rem; }
+  .add-id-label { font-size: .8rem; }
+  .add-id-value { font-size: .9rem; }
 }
 
-/* Móvil grande / <=900px: versión compacta extra */
+/* Móvil grande / <=900px */
 @media (max-width: 900px) {
   .add-socio-form {
     padding: .5rem .8rem 1rem .75rem;
@@ -526,7 +536,7 @@
     --pad-y: .6rem;
     --input-fs: .9rem;
     --label-fs: .85em;
-    --label-float-shift: 1.2em; /* legacy */
+    --label-float-shift: 1.2em;
     --label-float-top: -0.58rem;
   }
 
@@ -550,7 +560,7 @@
     --pad-y: .55rem;
     --input-fs: .9rem;
     --label-fs: .85em;
-    --label-float-top: -0.55rem; /* un poco menos para no chocar */
+    --label-float-top: -0.55rem;
   }
 
   .add-socio-button { width: 100%; }

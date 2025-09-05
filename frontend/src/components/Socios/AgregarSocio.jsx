@@ -313,11 +313,7 @@ const AgregarSocio = () => {
 
       if (data.exito) {
         showToast('Socio agregado correctamente', 'exito');
-
-        // Refresca el próximo ID para que no quede clavado
         await fetchNextId();
-
-        // Si preferís quedarte cargando más, comentá la línea de navigate:
         setTimeout(() => navigate('/socios'), 1200);
       } else {
         let errs = {};
@@ -392,6 +388,7 @@ const AgregarSocio = () => {
           />
         )}
 
+        {/* ===== HEADER con ID al lado del título ===== */}
         <div className="add-header">
           <div className="add-icon-title">
             <FontAwesomeIcon icon={faUserPlus} className="add-icon" />
@@ -399,7 +396,19 @@ const AgregarSocio = () => {
               <h1>Agregar Nuevo Socio</h1>
               <p>Complete los datos del nuevo socio</p>
             </div>
+
+            {/* ID como pill al lado */}
+            <div
+              className="add-id-inline"
+              title="ID que se asignará al guardar"
+              role="status"
+              aria-label="Próximo ID"
+            >
+              <span className="add-id-label">ID</span>
+              <span className="add-id-value">{nextId ?? '—'}</span>
+            </div>
           </div>
+
           <button
             className="add-back-btn"
             onClick={() => navigate('/socios')}
@@ -412,25 +421,7 @@ const AgregarSocio = () => {
 
         <ProgressSteps />
 
-        {/* Mostrar el próximo ID (último + 1) */}
-        <div className="add-socio-section" style={{ marginTop: 10 }}>
-          <div className="add-socio-section-content">
-            <div className="add-socio-input-wrapper has-value always-active" title="ID que se asignará al guardar">
-              <label className="add-socio-label">
-                <FontAwesomeIcon icon={faHashtag} className="input-icon" />
-                ID (próximo)
-              </label>
-              <input
-                value={nextId ?? '—'}
-                readOnly
-                className="add-socio-input"
-                style={{ opacity: 0.8, cursor: 'not-allowed' }}
-              />
-              <span className="add-socio-input-highlight"></span>
-            </div>
-          </div>
-        </div>
-
+        {/* ===== FORM ===== */}
         <form
           onSubmit={(e) => e.preventDefault()}
           onKeyDown={handleFormKeyDown}
@@ -756,7 +747,6 @@ const AgregarSocio = () => {
               </div>
             </div>
           )}
-
         </form>
 
         <div className="add-socio-buttons-container">
