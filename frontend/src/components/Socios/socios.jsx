@@ -308,7 +308,7 @@ const BarraSuperior = React.memo(({
 
             {/* CATEGORÍAS */}
             <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('categoria')}>
-              <span>Categorías</span>
+              <span>Tipo de sangre</span>
               <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuCategoria ? 'soc-rotate' : ''}`} />
             </div>
             {mostrarSubmenuCategoria && (

@@ -40,8 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     try {
+        // ⬅️ AÑADIMOS id_cat_monto A LOS CAMPOS EDITABLES
         $campos = [
-            'nombre', 'id_cobrador', 'id_categoria', 'domicilio', 'numero',
+            'nombre', 'id_cobrador', 'id_categoria', 'id_cat_monto', 'domicilio', 'numero',
             'telefono_movil', 'telefono_fijo', 'comentario', 'nacimiento', 'id_estado',
             'domicilio_cobro', 'dni', 'ingreso'
         ];
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
 
             // Convertir a mayúsculas si es texto (excepto fechas y numéricos)
+            // NOTA: NO tocamos id_cat_monto (numérico), ni fechas/dnis/etc.
             if (in_array($campo, ['nombre', 'domicilio', 'numero', 'telefono_movil', 'telefono_fijo', 'comentario', 'domicilio_cobro', 'deuda_2024'])) {
                 $valor = aMayus($valor);
             }

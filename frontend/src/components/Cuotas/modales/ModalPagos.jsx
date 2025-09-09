@@ -6,20 +6,16 @@ import Toast from '../../Global/Toast';
 import './ModalPagos.css';
 import { imprimirRecibosUnicos } from '../../../utils/Recibosunicos';
 
-const PRECIO_MENSUAL = 4000;
-const PRECIO_ANUAL_CON_DESCUENTO = 21000; // total con descuento si pagan todo el año
-const MESES_ANIO = 6; // cuántos periodos bimestrales equivalen a "todo el año"
+// ======= CONSTANTES LÓGICAS (no montos) =======
+const MESES_ANIO = 6;     // cantidad de bimestres que equivale a "anual"
 const ID_CONTADO_ANUAL = 7;
-
-// Año mínimo a mostrar en el selector (el sistema existe desde 2025)
-const MIN_YEAR = 2025;
+const MIN_YEAR = 2025;    // primer año visible en el selector
 
 const obtenerPrimerMesDesdeNombre = (nombre) => {
   const match = nombre.match(/\d+/);
   return match ? parseInt(match[0], 10) : 1;
 };
 
-// Genera años desde 2025 hasta (año actual + 4)
 const construirListaAnios = (nowYear) => {
   const start = MIN_YEAR;
   const end = nowYear + 4;
@@ -34,17 +30,21 @@ const ModalPagos = ({ socio, onClose }) => {
   const [periodos, setPeriodos] = useState([]);
   const [seleccionados, setSeleccionados] = useState([]);
   const [periodosPagados, setPeriodosPagados] = useState([]);
+  const [estadosPorPeriodo, setEstadosPorPeriodo] = useState({});
   const [fechaIngreso, setFechaIngreso] = useState('');
   const [cargando, setCargando] = useState(false);
   const [toast, setToast] = useState(null);
   const [todosSeleccionados, setTodosSeleccionados] = useState(false);
   const [pagoExitoso, setPagoExitoso] = useState(false);
 
-  // NUEVO: condonar
+  // Montos desde DB (depende de la categoría del socio)
+  const [montoMensual, setMontoMensual] = useState(0);
+  const [montoAnual, setMontoAnual] = useState(0);
+
+  // condonar
   const [condonar, setCondonar] = useState(false);
 
-  // NUEVO: año de trabajo + selector emergente
-  // Por defecto el año actual, pero nunca menos que 2025
+  // Año de trabajo + selector
   const [anioTrabajo, setAnioTrabajo] = useState(Math.max(nowYear, MIN_YEAR));
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearOptions = useMemo(() => construirListaAnios(nowYear), [nowYear]);
@@ -53,7 +53,41 @@ const ModalPagos = ({ socio, onClose }) => {
     setToast({ tipo, mensaje, duracion });
   };
 
-  // Filtra periodos disponibles en función de la fecha de ingreso y el AÑO elegido
+  /* ===============================
+   * CARGA DE MONTOS POR CATEGORÍA
+   * =============================== */
+  useEffect(() => {
+    if (!socio) return;
+
+    const cargarMontos = async () => {
+      try {
+        // Preferimos enviar id_cat_monto. Si no viniera en el objeto, mandamos id_socio.
+        const qs = new URLSearchParams();
+        if (socio.id_cat_monto) qs.set('id_cat_monto', String(socio.id_cat_monto));
+        if (socio.id_socio)     qs.set('id_socio',     String(socio.id_socio));
+
+        const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
+        const data = await res.json();
+
+        if (data?.exito) {
+          setMontoMensual(Number(data.mensual) || 0);
+          setMontoAnual(Number(data.anual) || 0);
+        } else {
+          setMontoMensual(0);
+          setMontoAnual(0);
+          mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos para la categoría del socio.');
+        }
+      } catch (e) {
+        setMontoMensual(0);
+        setMontoAnual(0);
+        mostrarToast('error', 'Error al consultar montos para la categoría del socio.');
+      }
+    };
+
+    cargarMontos();
+  }, [socio]);
+
+  // Filtra periodos disponibles en función de la fecha de ingreso y el año elegido
   const filtrarPeriodosPorIngreso = () => {
     if (!fechaIngreso) return periodos;
 
@@ -64,8 +98,6 @@ const ModalPagos = ({ socio, onClose }) => {
     return periodos.filter((p) => {
       if (p.id === ID_CONTADO_ANUAL) return true; // siempre visible
       const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
-      // Si el socio ingresó antes del año elegido => todos los bimestres del año son válidos.
-      // Si ingresó en el mismo año => solo desde su mes de ingreso.
       return (anioIngreso < anioTrabajo) || (anioIngreso === anioTrabajo && primerMes >= mesIngreso);
     });
   };
@@ -79,7 +111,6 @@ const ModalPagos = ({ socio, onClose }) => {
       try {
         const [resListas, resPagados] = await Promise.all([
           fetch(`${BASE_URL}/api.php?action=listas`),
-          // ⬇️ Filtramos periodos pagados por AÑO
           fetch(`${BASE_URL}/api.php?action=periodos_pagados&id_socio=${socio.id_socio}&anio=${anioTrabajo}`)
         ]);
 
@@ -92,11 +123,18 @@ const ModalPagos = ({ socio, onClose }) => {
         }
 
         if (dataPagados.exito) {
-          setPeriodosPagados(dataPagados.periodos_pagados || []); // pagados o condonados (de ese año)
+          let mapa = dataPagados.estados_por_periodo;
+          if (!mapa || typeof mapa !== 'object') {
+            mapa = {};
+            (dataPagados.periodos_pagados || []).forEach((id) => { mapa[id] = 'pagado'; });
+          }
+          setEstadosPorPeriodo(mapa);
+          setPeriodosPagados(Object.keys(mapa).map((k) => parseInt(k, 10)).filter(Number.isFinite));
           setFechaIngreso(dataPagados.ingreso);
         } else {
+          setEstadosPorPeriodo({});
           setPeriodosPagados([]);
-          mostrarToast('advertencia', 'No se pudieron obtener períodos pagados/condonados para el año seleccionado');
+          mostrarToast('advertencia', 'No se pudieron obtener períodos marcados para el año seleccionado');
         }
       } catch (error) {
         console.error('Error al obtener datos:', error);
@@ -107,8 +145,7 @@ const ModalPagos = ({ socio, onClose }) => {
     };
 
     if (socio?.id_socio) fetchDatos();
-    // limpiamos selección al cambiar el año
-    setSeleccionados([]);
+    setSeleccionados([]); // limpiar selección al cambiar año
   }, [socio, anioTrabajo]);
 
   // ---- Helpers de selección ----
@@ -149,22 +186,20 @@ const ModalPagos = ({ socio, onClose }) => {
     }
   };
 
-  // ======= PRECIO / TOTAL =======
+  // ======= PRECIO / TOTAL (usa montos de DB) =======
   const seleccionSinAnual = useMemo(
     () => seleccionados.filter(id => id !== ID_CONTADO_ANUAL),
     [seleccionados]
   );
 
-  // Para precio: solo aplica descuento anual si NO es condonación.
   const aplicaDescuentoAnual = !condonar && (seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO);
 
   const total = condonar
     ? 0
-    : (aplicaDescuentoAnual ? PRECIO_ANUAL_CON_DESCUENTO : seleccionados.length * PRECIO_MENSUAL);
+    : (aplicaDescuentoAnual ? (montoAnual || 0) : (seleccionados.length * (montoMensual || 0)));
 
   // Texto de períodos para el comprobante
   const periodoTextoFinal = useMemo(() => {
-    // si marcó 6 bimestres o seleccionó "Contado Anual", mostrarlo como tal
     if (aplicaDescuentoAnual || seleccionIncluyeAnual) return `CONTADO ANUAL ${anioTrabajo}`;
 
     if (seleccionSinAnual.length === 0) return '';
@@ -193,14 +228,14 @@ const ModalPagos = ({ socio, onClose }) => {
           id_socio: socio.id_socio,
           periodos: seleccionados,
           condonar: condonar,
-          anio: anioTrabajo, // se registra en el año elegido
+          anio: anioTrabajo,
         })
       });
 
       const data = await res.json();
 
       if (data.exito) {
-        setPagoExitoso(true); // pantalla de éxito
+        setPagoExitoso(true);
       } else {
         if (Array.isArray(data.ya_registrados) && data.ya_registrados.length > 0) {
           const detalles = data.ya_registrados
@@ -221,7 +256,6 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= COMPROBANTE / IMPRESIÓN =======
   const handleImprimirComprobante = async () => {
-    // Detectar ANUAL por selección (independiente de "condonar")
     const esAnualSeleccion = seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO;
     const periodoCodigo = esAnualSeleccion ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
 
@@ -230,7 +264,7 @@ const ModalPagos = ({ socio, onClose }) => {
       id_periodo: periodoCodigo,
       periodo_texto: periodoTextoFinal,
       importe_total: total,
-      anio: anioTrabajo, // fija el año correcto para el código de barras
+      anio: anioTrabajo,
     };
 
     const win = window.open('', '_blank');
@@ -311,7 +345,7 @@ const ModalPagos = ({ socio, onClose }) => {
     );
   }
 
-  // ======= VISTA NORMAL (selección) =======
+  // ======= VISTA NORMAL =======
   const cantidadSeleccionados = seleccionados.length;
 
   return (
@@ -371,7 +405,6 @@ const ModalPagos = ({ socio, onClose }) => {
                 </span>
               </label>
 
-              {/* Panel derecho compacto: selector de año */}
               <div className="year-picker">
                 <button
                   type="button"
@@ -427,9 +460,15 @@ const ModalPagos = ({ socio, onClose }) => {
                   <div className="periodos-grid-container">
                     <div className="periodos-grid">
                       {periodosDisponibles.map((periodo) => {
-                        const yaMarcado = periodosPagados.includes(periodo.id); // pagado o condonado
+                        const estadoExacto = estadosPorPeriodo[periodo.id];  // 'pagado' | 'condonado' | undefined
+                        const yaMarcado = !!estadoExacto;
                         const checked = seleccionados.includes(periodo.id);
                         const disabled = yaMarcado || cargando;
+
+                        const etiquetaEstado =
+                          estadoExacto === 'condonado'
+                            ? 'Condonado'
+                            : (estadoExacto === 'pagado' ? 'Pagado' : '');
 
                         return (
                           <div
@@ -450,11 +489,11 @@ const ModalPagos = ({ socio, onClose }) => {
                             <label htmlFor={`periodo-${periodo.id}`} className="periodo-label">
                               {periodo.nombre}
                               {yaMarcado && (
-                                <span className="periodo-status">
-                                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <span className={`periodo-status ${estadoExacto === 'condonado' ? 'status-condonado' : 'status-pagado'}`}>
+                                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                                     <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
-                                  Pagado
+                                  {etiquetaEstado}
                                 </span>
                               )}
                             </label>

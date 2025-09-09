@@ -1,5 +1,13 @@
+// src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 
 import Inicio from './components/Login/Inicio';
 import Principal from './components/Principal/Principal';
@@ -10,16 +18,18 @@ import EditarSocio from './components/Socios/EditarSocio';
 import SociosBaja from './components/Socios/SociosBaja';
 import Cuotas from './components/Cuotas/Cuotas';
 
-// 🔹 importa tu panel contable (ajusta la ruta si tu archivo está en otra carpeta)
+// 🔹 Panel contable
 import DashboardContable from './components/Contable/DashboardContable';
+
+// 🔹 Sección Categorías (principal + nuevas pantallas)
+import Categorias from './components/Categorias/Categorias';
+import AgregarCategoria from './components/Categorias/AgregarCategoria';
+import EditarCategoria from './components/Categorias/EditarCategoria';
 
 /* =========================================================
    🔒 Cierre de sesión por inactividad (global)
-   - Cambiá INACTIVITY_MINUTES para ajustar el tiempo.
-   - Escucha mouse, teclado, scroll, toques y visibilidad.
-   - Solo corre cuando hay 'usuario' y NO estás en "/".
 ========================================================= */
-const INACTIVITY_MINUTES = 60; // ⬅️ ajustá acá (para pruebas podés usar 2)
+const INACTIVITY_MINUTES = 60;
 const INACTIVITY_MS = INACTIVITY_MINUTES * 60 * 1000;
 
 function InactivityLogout() {
@@ -31,7 +41,7 @@ function InactivityLogout() {
 
     const hasSession = () => {
       try {
-        return !!localStorage.getItem('usuario'); // tu RutaProtegida usa 'usuario'
+        return !!localStorage.getItem('usuario');
       } catch {
         return false;
       }
@@ -41,14 +51,14 @@ function InactivityLogout() {
       try { sessionStorage.clear(); } catch {}
       try {
         localStorage.removeItem('usuario');
-        localStorage.removeItem('token'); // por si usás token
+        localStorage.removeItem('token');
       } catch {}
       navigate('/', { replace: true });
     };
 
     const resetTimer = () => {
-      if (!hasSession()) return;           // si no hay sesión, no corras
-      if (location.pathname === '/') return; // en login no tiene sentido
+      if (!hasSession()) return;
+      if (location.pathname === '/') return; // no correr timer en login
       if (timerId) clearTimeout(timerId);
       timerId = setTimeout(doLogout, INACTIVITY_MS);
     };
@@ -63,7 +73,6 @@ function InactivityLogout() {
     activityEvents.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
     document.addEventListener('visibilitychange', onVisibility);
 
-    // iniciar el temporizador al montar/cambiar de ruta
     resetTimer();
 
     return () => {
@@ -73,37 +82,55 @@ function InactivityLogout() {
     };
   }, [location, navigate]);
 
-  return null; // no renderiza nada
+  return null;
+}
+
+/* =========================================================
+   🔐 Ruta protegida
+========================================================= */
+function RutaProtegida({ componente }) {
+  let usuario = null;
+  try {
+    usuario = JSON.parse(localStorage.getItem('usuario'));
+  } catch {
+    usuario = null;
+  }
+  return usuario ? componente : <Navigate to="/" replace />;
 }
 
 function App() {
   return (
     <Router>
-      {/* ⬇️ Activa el cierre por inactividad en toda la app */}
       <InactivityLogout />
 
       <Routes>
+        {/* Público */}
         <Route path="/" element={<Inicio />} />
+
+        {/* Protegidas */}
         <Route path="/panel" element={<RutaProtegida componente={<Principal />} />} />
         <Route path="/registro" element={<RutaProtegida componente={<Registro />} />} />
+
         <Route path="/socios" element={<RutaProtegida componente={<Socios />} />} />
         <Route path="/socios/agregar" element={<RutaProtegida componente={<AgregarSocio />} />} />
         <Route path="/socios/editar/:id" element={<RutaProtegida componente={<EditarSocio />} />} />
         <Route path="/socios/baja" element={<RutaProtegida componente={<SociosBaja />} />} />
+
         <Route path="/cuotas" element={<RutaProtegida componente={<Cuotas />} />} />
 
-        {/* 🔹 nueva ruta protegida al panel contable */}
+        {/* Panel contable */}
         <Route path="/contable" element={<RutaProtegida componente={<DashboardContable />} />} />
 
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* Categorías */}
+        <Route path="/categorias" element={<RutaProtegida componente={<Categorias />} />} />
+        <Route path="/categorias/nueva" element={<RutaProtegida componente={<AgregarCategoria />} />} />
+        <Route path="/categorias/editar/:id" element={<RutaProtegida componente={<EditarCategoria />} />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
-}
-
-function RutaProtegida({ componente }) {
-  const usuario = JSON.parse(localStorage.getItem('usuario'));
-  return usuario ? componente : <Navigate to="/" />;
 }
 
 export default App;

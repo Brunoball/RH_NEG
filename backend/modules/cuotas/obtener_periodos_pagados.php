@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $idSocio = isset($_GET['id_socio']) ? (int)$_GET['id_socio'] : 0;
-/* Nuevo: año a consultar. Si no llega, usamos el año actual */
+/* Año a consultar. Si no llega, usamos el año actual */
 $anio    = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
 
 if ($idSocio <= 0) {
@@ -23,36 +23,44 @@ if ($idSocio <= 0) {
 const ID_CONTADO_ANUAL = 7;
 
 try {
-    // Pagos/condonaciones SOLO del año solicitado
+    // Tomamos el último registro por período de ese año (por fecha de carga)
     $stmtPagos = $pdo->prepare("
         SELECT id_periodo, estado, fecha_pago
           FROM pagos
          WHERE id_socio = ?
            AND YEAR(fecha_pago) = ?
+         ORDER BY fecha_pago DESC, id_pago DESC
     ");
     $stmtPagos->execute([$idSocio, $anio]);
     $rows = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
 
-    $periodos = [];
-    $tieneAnual = false;
+    // Mapa: id_periodo => estado ('pagado' | 'condonado')
+    $estadosPorPeriodo = [];
+    $estadoAnual = null;
 
     foreach ($rows as $r) {
         $pid = (int)$r['id_periodo'];
-        if ($pid === ID_CONTADO_ANUAL) {
-            $tieneAnual = true;
+        $estado = strtolower(trim($r['estado'] ?? ''));
+        if (!isset($estadosPorPeriodo[$pid])) {
+            $estadosPorPeriodo[$pid] = $estado ?: 'pagado';
         }
-        // Guardamos todos los períodos del año (pagado o condonado)
-        $periodos[] = $pid;
+        if ($pid === ID_CONTADO_ANUAL && $estadoAnual === null) {
+            $estadoAnual = $estado ?: 'pagado';
+        }
     }
 
-    // Si en ese año está pago/condonado el ANUAL, marcamos 1..6 también
-    if ($tieneAnual) {
-        $periodos = array_merge($periodos, [1,2,3,4,5,6]);
+    // Si ese año tiene Contado Anual, propagamos su estado a 1..6 si no existen
+    if ($estadoAnual !== null) {
+        for ($m = 1; $m <= 6; $m++) {
+            if (!isset($estadosPorPeriodo[$m])) {
+                $estadosPorPeriodo[$m] = $estadoAnual;
+            }
+        }
     }
 
-    // Dejar únicos y ordenados
-    $periodos = array_values(array_unique(array_map('intval', $periodos)));
-    sort($periodos);
+    // IDs únicos ordenados (por compatibilidad con el frontend viejo)
+    $periodosIds = array_map('intval', array_keys($estadosPorPeriodo));
+    sort($periodosIds);
 
     // Fecha de ingreso (para filtrar disponibles en el modal)
     $stmtIngreso = $pdo->prepare("SELECT ingreso FROM socios WHERE id_socio = ? LIMIT 1");
@@ -65,10 +73,13 @@ try {
     }
 
     echo json_encode([
-        'exito'            => true,
-        'anio'             => $anio,
-        'periodos_pagados' => $periodos, // incluye condonados y propagación del anual del MISMO año
-        'ingreso'          => $socio['ingreso']
+        'exito'               => true,
+        'anio'                => $anio,
+        // Compatibilidad: sigue existiendo este array con los IDs marcados (pagado o condonado)
+        'periodos_pagados'    => $periodosIds,
+        // Nuevo: estado real por período
+        'estados_por_periodo' => $estadosPorPeriodo,
+        'ingreso'             => $socio['ingreso']
     ]);
 } catch (PDOException $e) {
     echo json_encode(['exito' => false, 'mensaje' => 'Error en la base de datos']);

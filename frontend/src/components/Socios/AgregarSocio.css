@@ -274,6 +274,9 @@
   padding: 0 .35rem;
   background: transparent;
   transform-origin: left center;
+
+  /* ¡Clave! El label no intercepta clics/taps */
+  pointer-events: none;
 }
 
 .input-icon {
@@ -281,6 +284,9 @@
   width: 1rem;
   color: var(--add-gray-500);
   transition: color .2s ease;
+
+  /* Ícono tampoco intercepta eventos */
+  pointer-events: none;
 }
 
 .add-socio-input,

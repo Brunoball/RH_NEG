@@ -18,7 +18,6 @@ if (isset($_GET['listar_anios'])) {
         $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
         $anios = array_values(array_map('intval', $rows ?: []));
         if (empty($anios)) {
-            // fallback mínimo para que la UI no quede vacía
             $anios = [(int)date('Y')];
         }
         echo json_encode(['exito' => true, 'anios' => $anios], JSON_UNESCAPED_UNICODE);
@@ -73,13 +72,18 @@ try {
     $incluirInactivos  = ($verPagados || $verCondonados);
 
     // ===== SOCIOS =====
+    // ⬇️ NUEVO: traemos la categoría de monto del socio + sus valores
     $sociosSql = "
         SELECT 
             s.id_socio, s.nombre, s.domicilio, s.numero, s.domicilio_cobro,
-            s.ingreso, c.nombre AS cobrador, e.descripcion AS estado, s.activo
+            s.ingreso, c.nombre AS cobrador, e.descripcion AS estado, s.activo,
+            s.id_cat_monto,
+            cm.monto_mensual AS monto_mensual_cat,
+            cm.monto_anual   AS monto_anual_cat
         FROM socios s
         LEFT JOIN cobrador c ON s.id_cobrador = c.id_cobrador
         LEFT JOIN estado   e ON s.id_estado   = e.id_estado
+        LEFT JOIN categoria_monto cm ON cm.id_cat_monto = s.id_cat_monto
     ";
     if ($incluirInactivos) {
         if ($idPeriodoFilter > 0) {
@@ -191,6 +195,10 @@ try {
                 'id_periodo'  => ID_CONTADO_ANUAL,
                 'estado_pago' => $estadoPago,
                 'origen_anual'=> $origenAnual,
+
+                // ⬇️ NUEVO: montos por categoría
+                'monto_mensual' => (int)($socio['monto_mensual_cat'] ?? 0),
+                'monto_anual'   => (int)($socio['monto_anual_cat'] ?? 0),
             ];
         }
 
@@ -241,6 +249,10 @@ try {
                 'id_periodo'  => $idPeriodo,
                 'estado_pago' => $estadoPago,
                 'origen_anual'=> $origenAnual,
+
+                // ⬇️ NUEVO: montos por categoría
+                'monto_mensual' => (int)($socio['monto_mensual_cat'] ?? 0),
+                'monto_anual'   => (int)($socio['monto_anual_cat'] ?? 0),
             ];
         }
     }
