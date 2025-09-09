@@ -24,6 +24,13 @@ const construirListaAnios = (nowYear) => {
   return arr;
 };
 
+// ✔️ Descuento anual sólo habilitado antes del 1 de marzo del año actual
+const descuentoAnualHabilitado = () => {
+  const hoy = new Date();
+  const corte = new Date(hoy.getFullYear(), 2, 1); // 1 de marzo (mes 2)
+  return hoy < corte;
+};
+
 const ModalPagos = ({ socio, onClose }) => {
   const nowYear = new Date().getFullYear();
 
@@ -186,7 +193,7 @@ const ModalPagos = ({ socio, onClose }) => {
     }
   };
 
-  // ======= PRECIO / TOTAL (usa montos de DB) =======
+  // ======= PRECIO / TOTAL (usa montos de DB + REGLA DE MARZO) =======
   const seleccionSinAnual = useMemo(
     () => seleccionados.filter(id => id !== ID_CONTADO_ANUAL),
     [seleccionados]
@@ -194,9 +201,12 @@ const ModalPagos = ({ socio, onClose }) => {
 
   const aplicaDescuentoAnual = !condonar && (seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO);
 
+  // ✔️ Regla: antes del 1/3 usa precio anual de DB; desde 1/3 cobra mensual × 6
   const total = condonar
     ? 0
-    : (aplicaDescuentoAnual ? (montoAnual || 0) : (seleccionados.length * (montoMensual || 0)));
+    : (aplicaDescuentoAnual
+        ? (descuentoAnualHabilitado() ? (montoAnual || 0) : (montoMensual || 0) * MESES_ANIO)
+        : (seleccionados.length * (montoMensual || 0)));
 
   // Texto de períodos para el comprobante
   const periodoTextoFinal = useMemo(() => {
