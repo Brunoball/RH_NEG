@@ -19,7 +19,9 @@ import {
   faMobileScreen,
   faPhone,
   faMoneyBillWave,
-  faComment
+  faComment,
+  faTags,
+  faDroplet, // ⬅️ nuevo ícono para “Tipo de sangre”
 } from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
@@ -28,10 +30,12 @@ import './AgregarSocio.css';
 const AgregarSocio = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+
   const [listas, setListas] = useState({
     categorias: [],
     cobradores: [],
     estados: [],
+    categorias_monto: [],
     loaded: false
   });
 
@@ -42,7 +46,8 @@ const AgregarSocio = () => {
     apellido: '',
     nombres: '',
     id_cobrador: '',
-    id_categoria: '',
+    id_categoria: '',   // ← ahora se muestra como “Tipo de sangre”
+    id_cat_monto: '',
     domicilio: '',
     numero: '',
     telefono_movil: '',
@@ -56,37 +61,22 @@ const AgregarSocio = () => {
 
   const [errores, setErrores] = useState({});
   const [mostrarErrores, setMostrarErrores] = useState(false);
-  const [toast, setToast] = useState({
-    show: false,
-    message: '',
-    type: 'exito'
-  });
+  const [toast, setToast] = useState({ show: false, message: '', type: 'exito' });
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
   const nacimientoRef = useRef(null);
 
-  /* ============================
-     Helpers UI
-  ============================ */
+  /* Helpers */
   const openDateWithGesture = (ref) => (e) => {
     const el = ref.current;
     if (!el) return;
     e.preventDefault();
     el.focus({ preventScroll: true });
-    if (typeof el.showPicker === 'function') {
-      try { el.showPicker(); } catch {}
-    } else {
-      el.click();
-    }
+    if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } else { el.click(); }
   };
+  const showToast = (message, type = 'exito') => setToast({ show: true, message, type });
 
-  const showToast = (message, type = 'exito') => {
-    setToast({ show: true, message, type });
-  };
-
-  /* ============================
-     Cargar listas
-  ============================ */
+  /* Cargar listas */
   useEffect(() => {
     const fetchListas = async () => {
       try {
@@ -94,10 +84,15 @@ const AgregarSocio = () => {
         const res = await fetch(`${BASE_URL}/api.php?action=listas`);
         const json = await res.json();
         if (json.exito) {
-          setListas({
-            ...json.listas,
-            loaded: true
-          });
+          const listasCargadas = { ...json.listas, loaded: true };
+
+          // Si hay UNA sola categoría de monto, setearla por defecto
+          if (Array.isArray(listasCargadas.categorias_monto) && listasCargadas.categorias_monto.length === 1) {
+            const unico = listasCargadas.categorias_monto[0];
+            setFormData((prev) => ({ ...prev, id_cat_monto: String(unico.id_cat_monto) }));
+          }
+
+          setListas(listasCargadas);
         } else {
           showToast('Error al cargar listas: ' + (json.mensaje || 'Desconocido'), 'error');
         }
@@ -110,36 +105,26 @@ const AgregarSocio = () => {
     fetchListas();
   }, []);
 
-  /* ============================
-     Próximo ID (último + 1)
-  ============================ */
+  /* Próximo ID */
   const fetchNextId = async () => {
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=next_id_socio`);
       const json = await res.json();
-      if (json && json.exito) {
-        setNextId(json.next_id ?? null);
-      } else {
+      if (json && json.exito) setNextId(json.next_id ?? null);
+      else {
         setNextId(null);
-        if (json && json.mensaje) {
-          showToast('No se pudo obtener el próximo ID: ' + json.mensaje, 'error');
-        }
+        if (json && json.mensaje) showToast('No se pudo obtener el próximo ID: ' + json.mensaje, 'error');
       }
     } catch (err) {
       setNextId(null);
       showToast('Error obteniendo el próximo ID: ' + err.message, 'error');
     }
   };
+  useEffect(() => { fetchNextId(); }, []);
 
-  useEffect(() => {
-    fetchNextId();
-  }, []);
-
-  /* ============================
-     Validaciones (Front-End)
-  ============================ */
-  const regexNombre = /^[\p{L}\s]+$/u;                  // letras y espacios
-  const regexTextoLibre = /^[\p{L}\p{N}\s.,-]+$/u;      // letras/números + . , -
+  /* Validaciones */
+  const regexNombre = /^[\p{L}\s]+$/u;
+  const regexTextoLibre = /^[\p{L}\p{N}\s.,-]+$/u;
   const regexSoloNumeros = /^[0-9]+$/;
   const regexTel = /^[0-9\-]+$/;
 
@@ -191,6 +176,7 @@ const AgregarSocio = () => {
       case 'id_categoria':
       case 'id_estado':
       case 'id_cobrador':
+      case 'id_cat_monto':
         if (!val) return null;
         if (!/^\d+$/.test(val)) return 'Valor inválido.';
         break;
@@ -205,45 +191,32 @@ const AgregarSocio = () => {
   };
 
   const validarTodo = (data) => {
-    const campos = Object.keys(data);
     const nuevos = {};
-    for (const k of campos) {
+    for (const k of Object.keys(data)) {
       const err = validarCampo(k, data[k]);
       if (err) nuevos[k] = err;
     }
-    if (!data.apellido || !String(data.apellido).trim()) {
-      nuevos.apellido = 'El apellido es obligatorio.';
-    }
-    if (!data.nombres || !String(data.nombres).trim()) {
-      nuevos.nombres = 'El nombre es obligatorio.';
-    }
+    if (!data.apellido?.trim()) nuevos.apellido = 'El apellido es obligatorio.';
+    if (!data.nombres?.trim())  nuevos.nombres  = 'El nombre es obligatorio.';
     return nuevos;
   };
 
-  /* ============================
-     Handlers inputs
-  ============================ */
+  /* Handlers */
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
     const numericValue = value.replace(/[^0-9-]/g, '');
     setFormData(prev => ({ ...prev, [name]: numericValue }));
-    const eMsg = validarCampo(name, numericValue);
-    setErrores(prev => ({ ...prev, [name]: eMsg || undefined }));
+    setErrores(prev => ({ ...prev, [name]: validarCampo(name, numericValue) || undefined }));
   };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     let nuevoValor = value;
-    if (name === 'apellido' || name === 'nombres') {
-      nuevoValor = value.replace(/\s+/g, ' ');
-    }
+    if (name === 'apellido' || name === 'nombres') nuevoValor = value.replace(/\s+/g, ' ');
     const valor = typeof nuevoValor === 'string' ? nuevoValor.toUpperCase() : nuevoValor;
     setFormData(prev => ({ ...prev, [name]: valor }));
-    const eMsg = validarCampo(name, valor);
-    setErrores(prev => ({ ...prev, [name]: eMsg || undefined }));
+    setErrores(prev => ({ ...prev, [name]: validarCampo(name, valor) || undefined }));
   };
-
-  const handleFocus = (fieldName) => setActiveField(fieldName);
+  const handleFocus = (f) => setActiveField(f);
   const handleBlur = () => setActiveField(null);
 
   const handleNextStep = () => {
@@ -255,14 +228,11 @@ const AgregarSocio = () => {
       showToast(errApe || errNom || 'Corregí los errores.', 'error');
       return;
     }
-    setCurrentStep(prev => Math.min(prev + 1, 3));
+    setCurrentStep((p) => Math.min(p + 1, 3));
     setMostrarErrores(false);
   };
 
-  const handlePrevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-    setMostrarErrores(false);
-  };
+  const handlePrevStep = () => { setCurrentStep((p) => Math.max(p - 1, 1)); setMostrarErrores(false); };
 
   const flattenErrores = (errObj) => {
     if (!errObj || typeof errObj !== 'object') return '';
@@ -276,41 +246,37 @@ const AgregarSocio = () => {
       comentario: 'Comentarios',
       nacimiento: 'Fecha nacimiento',
       id_estado: 'Estado',
-      id_categoria: 'Categoría',
+      id_categoria: 'Tipo de sangre',   // ⬅️ cambiado
+      id_cat_monto: 'Categoría (Monto)',
       id_cobrador: 'Método de pago',
       domicilio_cobro: 'Domicilio de cobro',
       dni: 'DNI',
       general: 'General'
     };
-    const msgs = Object.entries(errObj)
+    return Object.entries(errObj)
       .filter(([, msg]) => !!msg)
       .map(([campo, msg]) => `• ${labelMap[campo] || campo}: ${msg}`)
       .join('\n');
-    return msgs || '';
   };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
-
     const nuevos = validarTodo(formData);
     if (Object.keys(nuevos).length > 0) {
-      setErrores(nuevos);
-      setMostrarErrores(true);
-      const msg = flattenErrores(nuevos) || 'Por favor corrige los errores.';
-      showToast(msg, 'error');
+      setErrores(nuevos); setMostrarErrores(true);
+      showToast(flattenErrores(nuevos) || 'Por favor corrige los errores.', 'error');
       return;
     }
 
     try {
       setLoading(true);
       const payload = { ...formData };
-      const response = await fetch(`${BASE_URL}/api.php?action=agregar_socio`, {
+      const res = await fetch(`${BASE_URL}/api.php?action=agregar_socio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
-      const data = await response.json();
-
+      const data = await res.json();
       if (data.exito) {
         showToast('Socio agregado correctamente', 'exito');
         await fetchNextId();
@@ -319,22 +285,21 @@ const AgregarSocio = () => {
         let errs = {};
         if (data.errores && typeof data.errores === 'object') {
           errs = { ...data.errores };
+          // compat por si backend manda 'nombre'
           if (Object.prototype.hasOwnProperty.call(errs, 'nombre')) {
             delete errs.nombre;
             if (!errs.apellido) errs.apellido = 'El apellido es obligatorio.';
-            if (!errs.nombres) errs.nombres = 'El nombre es obligatorio.';
+            if (!errs.nombres)  errs.nombres  = 'El nombre es obligatorio.';
           }
         }
         if (Object.keys(errs).length) {
-          setErrores(errs);
-          setMostrarErrores(true);
-          const msg = flattenErrores(errs);
-          showToast(msg || 'Error de validación.', 'error');
+          setErrores(errs); setMostrarErrores(true);
+          showToast(flattenErrores(errs) || 'Error de validación.', 'error');
         } else {
           showToast('Error: ' + (data.mensaje || 'Desconocido'), 'error');
         }
       }
-    } catch (error) {
+    } catch {
       showToast('Error de conexión con el servidor', 'error');
     } finally {
       setLoading(false);
@@ -342,18 +307,13 @@ const AgregarSocio = () => {
   };
 
   const handleFormKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (currentStep < 3) handleNextStep();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); if (currentStep < 3) handleNextStep(); }
   };
 
-  /* ============================
-     UI
-  ============================ */
+  /* UI */
   const ProgressSteps = () => (
     <div className="progress-steps">
-      {[1, 2, 3].map((step) => (
+      {[1,2,3].map((step) => (
         <div
           key={step}
           className={`progress-step ${currentStep === step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
@@ -367,12 +327,7 @@ const AgregarSocio = () => {
           </div>
         </div>
       ))}
-      <div className="progress-bar">
-        <div
-          className="progress-bar-fill"
-          style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
-        />
-      </div>
+      <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${((currentStep - 1) / 2) * 100}%` }} /></div>
     </div>
   );
 
@@ -384,11 +339,11 @@ const AgregarSocio = () => {
             tipo={toast.type}
             mensaje={toast.message}
             onClose={() => setToast(prev => ({ ...prev, show: false }))}
-            duracion={4000}
+            duracion={1800}
           />
         )}
 
-        {/* ===== HEADER con ID al lado del título ===== */}
+        {/* Header */}
         <div className="add-header">
           <div className="add-icon-title">
             <FontAwesomeIcon icon={faUserPlus} className="add-icon" />
@@ -397,144 +352,67 @@ const AgregarSocio = () => {
               <p>Complete los datos del nuevo socio</p>
             </div>
 
-            {/* ID como pill al lado */}
-            <div
-              className="add-id-inline"
-              title="ID que se asignará al guardar"
-              role="status"
-              aria-label="Próximo ID"
-            >
+            {/* ID */}
+            <div className="add-id-inline" title="ID que se asignará al guardar" role="status" aria-label="Próximo ID">
               <span className="add-id-label">ID</span>
               <span className="add-id-value">{nextId ?? '—'}</span>
             </div>
           </div>
 
-          <button
-            className="add-back-btn"
-            onClick={() => navigate('/socios')}
-            disabled={loading}
-          >
-            <FontAwesomeIcon icon={faArrowLeft} />
-            Volver
+          <button className="add-back-btn" onClick={() => navigate('/socios')} disabled={loading}>
+            <FontAwesomeIcon icon={faArrowLeft} /> Volver
           </button>
         </div>
 
         <ProgressSteps />
 
-        {/* ===== FORM ===== */}
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          onKeyDown={handleFormKeyDown}
-          className="add-socio-form"
-        >
-          {/* Paso 1: Información Básica */}
+        {/* FORM */}
+        <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleFormKeyDown} className="add-socio-form">
+          {/* Paso 1 */}
           {currentStep === 1 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Información Básica</h3>
               <div className="add-socio-section-content">
                 <div className="add-socio-group-row">
+                  {/* Apellido */}
                   <div className={`add-socio-input-wrapper ${formData.apellido || activeField === 'apellido' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faUser} className="input-icon" />
-                      Apellido
-                    </label>
-                    <input
-                      name="apellido"
-                      value={formData.apellido || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('apellido')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faUser} className="input-icon" />Apellido</label>
+                    <input name="apellido" value={formData.apellido || ''} onChange={handleChange} onFocus={() => handleFocus('apellido')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.apellido && (
-                      <span className="add-socio-error">{errores.apellido}</span>
-                    )}
+                    {mostrarErrores && errores.apellido && <span className="add-socio-error">{errores.apellido}</span>}
                   </div>
-
+                  {/* Nombre */}
                   <div className={`add-socio-input-wrapper ${formData.nombres || activeField === 'nombres' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faUser} className="input-icon" />
-                      Nombre
-                    </label>
-                    <input
-                      name="nombres"
-                      value={formData.nombres || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('nombres')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faUser} className="input-icon" />Nombre</label>
+                    <input name="nombres" value={formData.nombres || ''} onChange={handleChange} onFocus={() => handleFocus('nombres')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.nombres && (
-                      <span className="add-socio-error">{errores.nombres}</span>
-                    )}
+                    {mostrarErrores && errores.nombres && <span className="add-socio-error">{errores.nombres}</span>}
                   </div>
                 </div>
 
                 <div className="add-socio-group-row">
+                  {/* DNI */}
                   <div className={`add-socio-input-wrapper ${formData.dni || activeField === 'dni' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faIdCard} className="input-icon" />
-                      DNI
-                    </label>
-                    <input
-                      name="dni"
-                      value={formData.dni || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('dni')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      inputMode="numeric"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faIdCard} className="input-icon" />DNI</label>
+                    <input name="dni" value={formData.dni || ''} onChange={handleNumberChange} onFocus={() => handleFocus('dni')} onBlur={handleBlur} className="add-socio-input" inputMode="numeric" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.dni && (
-                      <span className="add-socio-error">{errores.dni}</span>
-                    )}
+                    {mostrarErrores && errores.dni && <span className="add-socio-error">{errores.dni}</span>}
                   </div>
 
-                  <div
-                    className="add-socio-input-wrapper always-active"
-                    onMouseDown={openDateWithGesture(nacimientoRef)}
-                    onTouchStart={openDateWithGesture(nacimientoRef)}
-                  >
-                    <label
-                      htmlFor="nacimiento"
-                      className="add-socio-label"
-                      onMouseDown={openDateWithGesture(nacimientoRef)}
-                      onTouchStart={openDateWithGesture(nacimientoRef)}
-                    >
-                      <FontAwesomeIcon icon={faCalendarDays} className="input-icon" />
-                      Fecha Nacimiento
-                    </label>
-
-                    <input
-                      id="nacimiento"
-                      ref={nacimientoRef}
-                      type="date"
-                      name="nacimiento"
-                      value={formData.nacimiento || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('nacimiento')}
-                      onBlur={handleBlur}
-                      onClick={openDateWithGesture(nacimientoRef)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          openDateWithGesture(nacimientoRef)(e);
-                        }
-                      }}
-                      className="add-socio-input"
-                    />
+                  {/* Fecha nacimiento */}
+                  <div className="add-socio-input-wrapper always-active" onMouseDown={openDateWithGesture(nacimientoRef)} onTouchStart={openDateWithGesture(nacimientoRef)}>
+                    <label htmlFor="nacimiento" className="add-socio-label"><FontAwesomeIcon icon={faCalendarDays} className="input-icon" />Fecha Nacimiento</label>
+                    <input id="nacimiento" ref={nacimientoRef} type="date" name="nacimiento" value={formData.nacimiento || ''} onChange={handleChange} onFocus={() => handleFocus('nacimiento')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
                   </div>
                 </div>
 
                 <div className="add-socio-group-row">
+                  {/* Tipo de sangre (antes “Categoría”) */}
                   <div className={`add-socio-input-wrapper always-active ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faUserTag} className="input-icon" />
-                      Categoría
+                      <FontAwesomeIcon icon={faDroplet} className="input-icon" />
+                      Tipo de sangre
                     </label>
                     <select
                       name="id_categoria"
@@ -545,244 +423,147 @@ const AgregarSocio = () => {
                       className="add-socio-input"
                       disabled={loading || !listas.loaded}
                     >
-                      <option value="" disabled hidden>Seleccione categoría</option>
+                      <option value="" disabled hidden>Seleccione tipo de sangre</option>
                       {listas.categorias.map(c => (
                         <option key={c.id} value={c.id}>{c.descripcion}</option>
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_categoria && (
-                      <span className="add-socio-error">{errores.id_categoria}</span>
-                    )}
+                    {mostrarErrores && errores.id_categoria && <span className="add-socio-error">{errores.id_categoria}</span>}
                   </div>
 
-                  <div className={`add-socio-input-wrapper always-active ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faCircleInfo} className="input-icon" />
-                      Estado
-                    </label>
+                  {/* Categoría Monto */}
+                  <div className={`add-socio-input-wrapper always-active ${formData.id_cat_monto || activeField === 'id_cat_monto' ? 'has-value' : ''}`}>
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faTags} className="input-icon" />Categoría (Cuota)</label>
                     <select
-                      name="id_estado"
-                      value={formData.id_estado || ''}
+                      name="id_cat_monto"
+                      value={formData.id_cat_monto || ''}
                       onChange={handleChange}
-                      onFocus={() => handleFocus('id_estado')}
+                      onFocus={() => handleFocus('id_cat_monto')}
                       onBlur={handleBlur}
                       className="add-socio-input"
                       disabled={loading || !listas.loaded}
                     >
-                      <option value="" disabled hidden>Seleccione estado</option>
-                      {listas.estados.map(e => (
-                        <option key={e.id} value={e.id}>{e.descripcion}</option>
+                      {(!listas.categorias_monto || listas.categorias_monto.length !== 1) && (
+                        <option value="" disabled hidden>Seleccione categoría/monto</option>
+                      )}
+                      {listas.categorias_monto.map(cm => (
+                        <option key={cm.id_cat_monto} value={String(cm.id_cat_monto)}>
+                          {cm.nombre_categoria} — ${cm.monto_mensual} / anual ${cm.monto_anual}
+                        </option>
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_estado && (
-                      <span className="add-socio-error">{errores.id_estado}</span>
-                    )}
+                    {mostrarErrores && errores.id_cat_monto && <span className="add-socio-error">{errores.id_cat_monto}</span>}
+                  </div>
+                </div>
+
+                {/* Estado */}
+                <div className="add-socio-group-row">
+                  <div className={`add-socio-input-wrapper always-active ${formData.id_estado || activeField === 'id_estado' ? 'has-value' : ''}`}>
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faCircleInfo} className="input-icon" />Estado</label>
+                    <select name="id_estado" value={formData.id_estado || ''} onChange={handleChange} onFocus={() => handleFocus('id_estado')} onBlur={handleBlur} className="add-socio-input" disabled={loading || !listas.loaded}>
+                      <option value="" disabled hidden>Seleccione estado</option>
+                      {listas.estados.map(e => (<option key={e.id} value={e.id}>{e.descripcion}</option>))}
+                    </select>
+                    <span className="add-socio-input-highlight"></span>
+                    {mostrarErrores && errores.id_estado && <span className="add-socio-error">{errores.id_estado}</span>}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Paso 2: Contacto y Cobro */}
+          {/* Paso 2 */}
           {currentStep === 2 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Contacto y Cobro</h3>
               <div className="add-socio-section-content">
                 <div className="add-socio-domicilio-group">
                   <div className={`add-socio-input-wrapper ${formData.domicilio || activeField === 'domicilio' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faHome} className="input-icon" />
-                      Domicilio
-                    </label>
-                    <input
-                      name="domicilio"
-                      value={formData.domicilio || ''}
-                      onChange={handleChange}
-                      onFocus={() => handleFocus('domicilio')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faHome} className="input-icon" />Domicilio</label>
+                    <input name="domicilio" value={formData.domicilio || ''} onChange={handleChange} onFocus={() => handleFocus('domicilio')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.domicilio && (
-                      <span className="add-socio-error">{errores.domicilio}</span>
-                    )}
+                    {mostrarErrores && errores.domicilio && <span className="add-socio-error">{errores.domicilio}</span>}
                   </div>
-
                   <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faHashtag} className="input-icon" />
-                      Número
-                    </label>
-                    <input
-                      name="numero"
-                      value={formData.numero || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('numero')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      inputMode="numeric"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faHashtag} className="input-icon" />Número</label>
+                    <input name="numero" value={formData.numero || ''} onChange={handleNumberChange} onFocus={() => handleFocus('numero')} onBlur={handleBlur} className="add-socio-input" inputMode="numeric" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.numero && (
-                      <span className="add-socio-error">{errores.numero}</span>
-                    )}
+                    {mostrarErrores && errores.numero && <span className="add-socio-error">{errores.numero}</span>}
                   </div>
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.domicilio_cobro || activeField === 'domicilio_cobro' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">
-                    <FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />
-                    Domicilio de Cobro
-                  </label>
-                  <input
-                    name="domicilio_cobro"
-                    value={formData.domicilio_cobro || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('domicilio_cobro')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                  />
+                  <label className="add-socio-label"><FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />Domicilio de Cobro</label>
+                  <input name="domicilio_cobro" value={formData.domicilio_cobro || ''} onChange={handleChange} onFocus={() => handleFocus('domicilio_cobro')} onBlur={handleBlur} className="add-socio-input" />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.domicilio_cobro && (
-                    <span className="add-socio-error">{errores.domicilio_cobro}</span>
-                  )}
+                  {mostrarErrores && errores.domicilio_cobro && <span className="add-socio-error">{errores.domicilio_cobro}</span>}
                 </div>
 
                 <div className="add-socio-group-row">
                   <div className={`add-socio-input-wrapper ${formData.telefono_movil || activeField === 'telefono_movil' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faMobileScreen} className="input-icon" />
-                      Teléfono Móvil
-                    </label>
-                    <input
-                      name="telefono_movil"
-                      value={formData.telefono_movil || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('telefono_movil')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      inputMode="tel"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faMobileScreen} className="input-icon" />Teléfono Móvil</label>
+                    <input name="telefono_movil" value={formData.telefono_movil || ''} onChange={handleNumberChange} onFocus={() => handleFocus('telefono_movil')} onBlur={handleBlur} className="add-socio-input" inputMode="tel" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_movil && (
-                      <span className="add-socio-error">{errores.telefono_movil}</span>
-                    )}
+                    {mostrarErrores && errores.telefono_movil && <span className="add-socio-error">{errores.telefono_movil}</span>}
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
-                    <label className="add-socio-label">
-                      <FontAwesomeIcon icon={faPhone} className="input-icon" />
-                      Teléfono Fijo
-                    </label>
-                    <input
-                      name="telefono_fijo"
-                      value={formData.telefono_fijo || ''}
-                      onChange={handleNumberChange}
-                      onFocus={() => handleFocus('telefono_fijo')}
-                      onBlur={handleBlur}
-                      className="add-socio-input"
-                      inputMode="tel"
-                    />
+                    <label className="add-socio-label"><FontAwesomeIcon icon={faPhone} className="input-icon" />Teléfono Fijo</label>
+                    <input name="telefono_fijo" value={formData.telefono_fijo || ''} onChange={handleNumberChange} onFocus={() => handleFocus('telefono_fijo')} onBlur={handleBlur} className="add-socio-input" inputMode="tel" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_fijo && (
-                      <span className="add-socio-error">{errores.telefono_fijo}</span>
-                    )}
+                    {mostrarErrores && errores.telefono_fijo && <span className="add-socio-error">{errores.telefono_fijo}</span>}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Paso 3: Cobro y Comentarios */}
+          {/* Paso 3 */}
           {currentStep === 3 && (
             <div className="add-socio-section">
               <h3 className="add-socio-section-title">Cobro y Comentarios</h3>
               <div className="add-socio-section-content">
                 <div className={`add-socio-input-wrapper always-active ${formData.id_cobrador || activeField === 'id_cobrador' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">
-                    <FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />
-                    Métodos de Pago
-                  </label>
-                  <select
-                    name="id_cobrador"
-                    value={formData.id_cobrador || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('id_cobrador')}
-                    onBlur={handleBlur}
-                    className="add-socio-input"
-                    disabled={loading || !listas.loaded}
-                  >
+                  <label className="add-socio-label"><FontAwesomeIcon icon={faMoneyBillWave} className="input-icon" />Métodos de Pago</label>
+                  <select name="id_cobrador" value={formData.id_cobrador || ''} onChange={handleChange} onFocus={() => handleFocus('id_cobrador')} onBlur={handleBlur} className="add-socio-input" disabled={loading || !listas.loaded}>
                     <option value="" disabled hidden>Seleccione método</option>
-                    {listas.cobradores.map(c => (
-                      <option key={c.id} value={c.id}>{c.nombre}</option>
-                    ))}
+                    {listas.cobradores.map(c => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
                   </select>
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.id_cobrador && (
-                    <span className="add-socio-error">{errores.id_cobrador}</span>
-                  )}
+                  {mostrarErrores && errores.id_cobrador && <span className="add-socio-error">{errores.id_cobrador}</span>}
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
-                  <label className="add-socio-label">
-                    <FontAwesomeIcon icon={faComment} className="input-icon" />
-                    Comentarios
-                  </label>
-                  <textarea
-                    name="comentario"
-                    value={formData.comentario || ''}
-                    onChange={handleChange}
-                    onFocus={() => handleFocus('comentario')}
-                    onBlur={handleBlur}
-                    className="add-socio-textarea"
-                    rows="4"
-                  />
+                  <label className="add-socio-label"><FontAwesomeIcon icon={faComment} className="input-icon" />Comentarios</label>
+                  <textarea name="comentario" value={formData.comentario || ''} onChange={handleChange} onFocus={() => handleFocus('comentario')} onBlur={handleBlur} className="add-socio-textarea" rows="4" />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.comentario && (
-                    <span className="add-socio-error">{errores.comentario}</span>
-                  )}
+                  {mostrarErrores && errores.comentario && <span className="add-socio-error">{errores.comentario}</span>}
                 </div>
               </div>
             </div>
           )}
         </form>
 
+        {/* Botonera */}
         <div className="add-socio-buttons-container">
           {currentStep > 1 && (
-            <button
-              type="button"
-              className="add-socio-button prev-step"
-              onClick={handlePrevStep}
-              disabled={loading}
-            >
+            <button type="button" className="add-socio-button prev-step" onClick={handlePrevStep} disabled={loading}>
               <FontAwesomeIcon icon={faStepBack} className="add-socio-icon-button" />
               <span className="add-socio-button-text">Anterior</span>
             </button>
           )}
 
           {currentStep < 3 ? (
-            <button
-              type="button"
-              className="add-socio-button next-step"
-              onClick={handleNextStep}
-              disabled={loading}
-            >
+            <button type="button" className="add-socio-button next-step" onClick={handleNextStep} disabled={loading}>
               <span className="add-socio-button-text">Siguiente</span>
               <FontAwesomeIcon icon={faArrowRight} className="add-socio-icon-button" />
             </button>
           ) : (
-            <button
-              type="button"
-              className="add-socio-button"
-              onClick={handleSubmit}
-              disabled={loading}
-            >
+            <button type="button" className="add-socio-button" onClick={handleSubmit} disabled={loading}>
               <FontAwesomeIcon icon={faSave} className="add-socio-icon-button" />
-              <span className="add-socio-button-text">
-                {loading ? 'Guardando...' : 'Guardar Socio'}
-              </span>
+              <span className="add-socio-button-text">{loading ? 'Guardando...' : 'Guardar Socio'}</span>
             </button>
           )}
         </div>

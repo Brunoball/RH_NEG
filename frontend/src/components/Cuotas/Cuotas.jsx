@@ -26,7 +26,7 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaExclamationTriangle,
-  FaFileExcel,                // ⬅️ NUEVO (icono Excel)
+  FaFileExcel,
 } from 'react-icons/fa';
 import { FiChevronLeft, FiChevronRight, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import ModalPagos from './modales/ModalPagos';
@@ -39,7 +39,7 @@ import Toast from '../Global/Toast';
 import './Cuotas.css';
 import axios from 'axios';
 import ModalMesCuotas from './modales/ModalMesCuotas';
-import * as XLSX from 'xlsx'; // ⬅️ NUEVO (exportar Excel)
+import * as XLSX from 'xlsx';
 
 /* =========================
  * API con interceptor
@@ -59,8 +59,7 @@ api.interceptors.response.use(
   }
 );
 
-const PRECIO_MENSUAL = 4000;
-const PRECIO_ANUAL_CON_DESCUENTO = 21000;
+// ⚠️ Ya no hay precios fijos en el frontend
 const ID_CONTADO_ANUAL_FALLBACK = 7;
 
 /* =========================
@@ -129,7 +128,6 @@ const Row = React.memo(function Row({ index, style, data }) {
       <div className="cuo_col-acciones">
         <div className="cuo_acciones-cell">
           {estadoPagoSeleccionado === 'deudor' ? (
-            /* ⬇️ OCULTAR BOTÓN VERDE DE PAGO SI ES "vista" */
             isAdmin ? (
               <button
                 className="cuo_boton-accion cuo_boton-accion-success"
@@ -203,7 +201,7 @@ const CuotasList = React.memo(function CuotasList({
       onEliminarCondonacion,
       onImprimir,
       getId,
-      isAdmin, // ⬅️ PASAMOS isAdmin A Row
+      isAdmin,
     }),
     [items, estadoPagoSeleccionado, onPagar, onEliminarPago, onEliminarCondonacion, onImprimir, getId, isAdmin]
   );
@@ -744,20 +742,25 @@ const Cuotas = () => {
   const primerIdSeleccionado = (ids) =>
     ids.length ? String([...ids].sort((a, b) => Number(a) - Number(b))[0]) : '0';
 
+  // ⬇️ NUEVO: cálculo de importe por socio usando precios que vienen del backend
   const calcularImportePorSeleccion = useCallback(
-    (idsSeleccion) => {
+    (idsSeleccion, socio) => {
       if (!idsSeleccion || idsSeleccion.length === 0) return 0;
-      const anual = getAnualPeriodo();
+
+      const mensual = Number(socio?.monto_mensual) || 0;
+      const anual   = Number(socio?.monto_anual)   || (mensual * 12);
+
+      const anualPeriodo = getAnualPeriodo();
       const idsStr = idsSeleccion.map(String);
 
-      const esSoloAnual = anual && idsStr.length === 1 && idsStr[0] === String(anual.id);
+      const nonAnualIds = getNonAnualIds();
+      const esSeisMeses = nonAnualIds.length > 0 &&
+                          idsStr.length === nonAnualIds.length &&
+                          nonAnualIds.every((id) => idsStr.includes(id));
+      const incluyeAnual = anualPeriodo && idsStr.includes(String(anualPeriodo.id));
 
-      // Detectar “6 meses = anual”
-      const nonAnual = getNonAnualIds();
-      const esSeisMeses = nonAnual.length > 0 && idsStr.length === nonAnual.length && nonAnual.every((id) => idsStr.includes(id));
-
-      if (esSoloAnual || esSeisMeses) return PRECIO_ANUAL_CON_DESCUENTO;
-      return idsSeleccion.length * PRECIO_MENSUAL;
+      if (incluyeAnual || esSeisMeses) return anual;
+      return idsSeleccion.length * mensual;
     },
     [getAnualPeriodo, getNonAnualIds]
   );
@@ -811,7 +814,6 @@ const Cuotas = () => {
     setLoadingPrint(true);
     try {
       const ids = [periodoSeleccionado];
-      const importeTotal = calcularImportePorSeleccion(ids);
       const periodoTexto = construirPeriodoTexto(ids, anioSeleccionado);
       const anual = getAnualPeriodo();
       const periodoIdImpresion = (anual && ids.map(String).includes(String(anual.id)))
@@ -819,11 +821,12 @@ const Cuotas = () => {
         : primerIdSeleccionado(ids);
       const anioNum = Number(anioSeleccionado) || new Date().getFullYear();
 
+      // ⬇️ NUEVO: importe por socio (usa campos del backend)
       const listaEnriquecida = cuotasFiltradas.map((c) => ({
         ...c,
         id_periodo: periodoIdImpresion,
         periodo_texto: periodoTexto,
-        importe_total: importeTotal,
+        importe_total: calcularImportePorSeleccion(ids, c),
         anio: anioNum,
       }));
 
@@ -872,7 +875,6 @@ const Cuotas = () => {
         const anual = getAnualPeriodo();
         const listaOrdenada = [...seleccionados].sort((a, b) => Number(a) - Number(b));
         const idsStr = listaOrdenada.map(String);
-        const importeTotal = calcularImportePorSeleccion(listaOrdenada);
         const textoPeriodo = construirPeriodoTexto(listaOrdenada, anio);
         const periodoCodigo = (anual && idsStr.includes(String(anual.id)))
           ? String(anual.id)
@@ -884,7 +886,7 @@ const Cuotas = () => {
             ...cuotaParaImprimir,
             id_periodo: periodoCodigo,
             periodo_texto: textoPeriodo,
-            importe_total: importeTotal,
+            importe_total: calcularImportePorSeleccion(listaOrdenada, cuotaParaImprimir),
             anio: anioNum,
           };
           await imprimirRecibosUnicos([socioConPeriodos], periodoCodigo, ventanaImpresion);
@@ -893,7 +895,7 @@ const Cuotas = () => {
             ...c,
             id_periodo: periodoCodigo,
             periodo_texto: textoPeriodo,
-            importe_total: importeTotal,
+            importe_total: calcularImportePorSeleccion(listaOrdenada, c),
             anio: anioNum,
           }));
           if (listaEnriquecida.length > 0) {
@@ -927,7 +929,6 @@ const Cuotas = () => {
 
   // Handlers estables para acciones de fila
   const handlePagar = useCallback((cuota) => () => {
-    // ⬇️ BLOQUEO EXTRA por seguridad (si no es admin, no abre modal)
     if (!isAdmin) return;
     setSocioParaPagar(cuota);
     setMostrarModalPagos(true);
@@ -956,7 +957,7 @@ const Cuotas = () => {
     return periodo ? periodo.nombre : id;
   };
 
-  // ======= Exportar Excel (NUEVO) =======
+  // ======= Exportar Excel =======
   const handleExportarExcel = () => {
     if (cuotasFiltradas.length === 0) {
       setToastTipo('error');
@@ -985,7 +986,6 @@ const Cuotas = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Cuotas');
 
-    // Nombre de archivo legible
     const limpiar = (t = '') =>
       String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_-]+/g, '_');
     const fileName = `cuotas_${limpiar(estadoTexto)}_${limpiar(periodoTexto)}_${anioSeleccionado || currentYear}.xlsx`;
@@ -1266,7 +1266,6 @@ const Cuotas = () => {
             </div>
 
             <div className="cuo_content-actions">
-              {/* ⬇️ OCULTAR CÓDIGO DE BARRAS SI ES "vista" */}
               {isAdmin && (
                 <button
                   className="cuo_boton cuo_boton-success"
@@ -1294,7 +1293,6 @@ const Cuotas = () => {
                 )}
               </button>
 
-              {/* ⬇️ Exportar Excel (de lo visible) — permitido para todos */}
               <button
                 className="cuo_boton cuo_boton-secondary"
                 onClick={handleExportarExcel}
@@ -1357,7 +1355,7 @@ const Cuotas = () => {
                   onImprimir={handleImprimirFila}
                   listRef={listRef}
                   getId={getId}
-                  isAdmin={isAdmin}   // ⬅️ PASAMOS EL ROL
+                  isAdmin={isAdmin}
                 />
               )}
             </div>
@@ -1420,7 +1418,7 @@ const Cuotas = () => {
               (socioParaPagar?.periodo_origen && String(socioParaPagar.periodo_origen).toLowerCase().includes('anual'))
             )
           }
-          anio={Number(anioSeleccionado)}             // ⬅️ NUEVO
+          anio={Number(anioSeleccionado)}
           onClose={() => setMostrarModalEliminarPago(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
@@ -1452,7 +1450,7 @@ const Cuotas = () => {
               (socioParaPagar?.periodo_origen && String(socioParaPagar.periodo_origen).toLowerCase().includes('anual'))
             )
           }
-          anio={Number(anioSeleccionado)}             // ⬅️ NUEVO
+          anio={Number(anioSeleccionado)}
           onClose={() => setMostrarModalEliminarCond(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
@@ -1479,7 +1477,7 @@ const Cuotas = () => {
             setCuotaParaImprimir(null);
             setMostrarModalSeleccionPeriodos(false);
           }}
-          onImprimir={handleImprimirSeleccionados}  
+          onImprimir={handleImprimirSeleccionados}
           anios={anios}
           anioSeleccionado={anioSeleccionado}
           onAnioChange={setAnioSeleccionado}

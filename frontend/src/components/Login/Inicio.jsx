@@ -15,13 +15,8 @@ const Inicio = () => {
 
   const navigate = useNavigate();
 
-  // Si ya hay sesión, ir directo al panel
-  useEffect(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem('usuario'));
-      if (u && u.id) navigate('/panel', { replace: true });
-    } catch {}
-  }, [navigate]);
+  // ✅ Ya NO redirige automáticamente si hay "usuario" en localStorage.
+  //    Solo se queda mostrando el formulario.
 
   // Prefill si estaba recordado
   useEffect(() => {
@@ -55,7 +50,6 @@ const Inicio = () => {
         body: JSON.stringify({ nombre: user, contrasena: pass })
       });
 
-      // Intentar parsear siempre como JSON
       let data = null;
       try { data = await res.json(); } catch { data = null; }
 
@@ -64,7 +58,6 @@ const Inicio = () => {
       }
 
       if (data.exito) {
-        // data.usuario debe traer { id, nombre, rol }
         // Guardar sesión
         if (data.usuario) {
           localStorage.setItem('usuario', JSON.stringify(data.usuario)); // incluye rol
@@ -73,7 +66,7 @@ const Inicio = () => {
           localStorage.setItem('token', data.token);
         }
 
-        // Recordar cuenta
+        // Recordar cuenta (solo usuario y pass, NO iniciar sesión automática)
         if (recordar) {
           localStorage.setItem('recordarCuenta', '1');
           localStorage.setItem('usuarioRecordado', user);

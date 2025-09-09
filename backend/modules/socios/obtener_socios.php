@@ -16,7 +16,7 @@ try {
     if (isset($_GET['baja']) && $_GET['baja'] == '1') {
         $socios = obtenerSociosPorEstado($pdo, 0);
     } else {
-        // Por defecto, obtenemos socios activos (activo = 1)
+        // Por defecto, socios activos (activo = 1)
         $socios = obtenerSociosPorEstado($pdo, 1);
     }
 

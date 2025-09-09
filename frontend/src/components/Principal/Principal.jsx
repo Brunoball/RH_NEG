@@ -11,7 +11,8 @@ import {
   faMoneyBillWave,
   faUserPlus,
   faSignOutAlt,
-  faFileInvoiceDollar
+  faFileInvoiceDollar,
+  faTags, // ⬅️ NUEVO: icono para Categorías
 } from '@fortawesome/free-solid-svg-icons';
 
 /* ================================
@@ -104,6 +105,7 @@ const Principal = () => {
   const displayName = usuario?.nombre || usuario?.Nombre_Completo || 'Usuario';
   const rol = (usuario?.rol || 'vista').toLowerCase();
   const isAdmin = rol === 'admin';
+  const isViewer = rol === 'vista';
 
   const navigate = useNavigate();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -139,6 +141,7 @@ const Principal = () => {
   const goCuotas = useCallback(() => navigate('/cuotas'), [navigate]);
   const goContable = useCallback(() => navigate('/contable'), [navigate]);
   const goRegistro = useCallback(() => navigate('/registro'), [navigate]);
+  const goCategorias = useCallback(() => navigate('/categorias'), [navigate]); // ⬅️ NUEVO
 
   return (
     <div className="princ-contenedor-padre">
@@ -165,6 +168,7 @@ const Principal = () => {
         </div>
 
         <div className="princ-grid-opciones">
+          {/* Siempre visible */}
           <button className="princ-opcion princ-opcion-socios" onClick={goSocios}>
             <div className="princ-opcion-content">
               <div className="princ-opcion-icono-container">
@@ -175,25 +179,41 @@ const Principal = () => {
             </div>
           </button>
 
-          <button className="princ-opcion princ-opcion-cuotas" onClick={goCuotas}>
-            <div className="princ-opcion-content">
-              <div className="princ-opcion-icono-container">
-                <FontAwesomeIcon icon={faMoneyBillWave} className="princ-opcion-icono" />
-              </div>
-              <span className="princ-opcion-texto">Gestionar Cuotas</span>
-              <span className="princ-opcion-desc">Control de pagos y cuotas</span>
-            </div>
-          </button>
+          {/* Ocultas para rol vista */}
+          {!isViewer && (
+            <>
+              <button className="princ-opcion princ-opcion-cuotas" onClick={goCuotas}>
+                <div className="princ-opcion-content">
+                  <div className="princ-opcion-icono-container">
+                    <FontAwesomeIcon icon={faMoneyBillWave} className="princ-opcion-icono" />
+                  </div>
+                  <span className="princ-opcion-texto">Gestionar Cuotas</span>
+                  <span className="princ-opcion-desc">Control de pagos y cuotas</span>
+                </div>
+              </button>
 
-          <button className="princ-opcion princ-opcion-categorias" onClick={goContable}>
-            <div className="princ-opcion-content">
-              <div className="princ-opcion-icono-container">
-                <FontAwesomeIcon icon={faFileInvoiceDollar} className="princ-opcion-icono" />
-              </div>
-              <span className="princ-opcion-texto">Gestión contable</span>
-              <span className="princ-opcion-desc">Ingresos por mes y categorías</span>
-            </div>
-          </button>
+              {/* ⬇️ NUEVO: botón Categorías */}
+              <button className="princ-opcion princ-opcion-categorias" onClick={goCategorias}>
+                <div className="princ-opcion-content">
+                  <div className="princ-opcion-icono-container">
+                    <FontAwesomeIcon icon={faTags} className="princ-opcion-icono" />
+                  </div>
+                  <span className="princ-opcion-texto">Categorías</span>
+                  <span className="princ-opcion-desc">Internos / Externos y montos</span>
+                </div>
+              </button>
+
+              <button className="princ-opcion princ-opcion-contable" onClick={goContable}>
+                <div className="princ-opcion-content">
+                  <div className="princ-opcion-icono-container">
+                    <FontAwesomeIcon icon={faFileInvoiceDollar} className="princ-opcion-icono" />
+                  </div>
+                  <span className="princ-opcion-texto">Gestión contable</span>
+                  <span className="princ-opcion-desc">Ingresos por mes y categorías</span>
+                </div>
+              </button>
+            </>
+          )}
 
           {/* 🔒 Solo ADMIN ve la caja de Registro de Usuarios */}
           {isAdmin && (

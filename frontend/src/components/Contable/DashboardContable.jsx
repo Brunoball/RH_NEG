@@ -83,8 +83,9 @@ export default function DashboardContable() {
     p?.Cobrador || p?.Nombre_Cobrador || p?.nombre_cobrador || p?.cobrador || p?.Cobrador_Nombre || "";
   const isAnualLabel = (s) => String(s || "").toUpperCase().includes("ANUAL");
 
-  // === Nombre del socio (tomar “Socio” si viene, igual que Socios/Cuotas) ===
   const getTxt = (o, k) => (typeof o?.[k] === "string" ? o[k].trim() : "");
+
+  // Nombre socio
   const getNombreSocio = (p) => {
     const combinado =
       getTxt(p, "Socio") || getTxt(p, "socio") ||
@@ -103,6 +104,21 @@ export default function DashboardContable() {
     return ape || nom || "";
   };
 
+  // Categoría
+  const getCategoriaTxt = (p) =>
+    getTxt(p, "Nombre_Categoria") ||
+    getTxt(p, "nombre_categoria") ||
+    getTxt(p, "Categoria") ||
+    getTxt(p, "categoria") ||
+    "";
+
+  // Formato “Cat (Monto)”
+  const catMontoStr = (cat, precioNum) => {
+    const montoFmt = Number.isFinite(precioNum) ? nfPesos.format(precioNum) : "0";
+    const catTxt = (cat || "-").toString().trim() || "-";
+    return `${catTxt} (${montoFmt})`;
+  };
+
   /* ========= Carga inicial ========= */
   useEffect(() => {
     const ctrl = new AbortController();
@@ -118,7 +134,7 @@ export default function DashboardContable() {
               .filter((p) => {
                 const id = typeof p === "object" && p ? String(p.id ?? "") : "";
                 const nombre = typeof p === "string" ? p : (p?.nombre || "");
-                if (id === "7") return false;                 // oculto el anual en los filtros si existiera
+                if (id === "7") return false; // oculto anual en filtros
                 if (isAnualLabel(nombre)) return false;
                 return true;
               })
@@ -204,9 +220,10 @@ export default function DashboardContable() {
           const p = b.pagos[j];
           const _cb        = String(getNombreCobrador(p)).trim();
           const _month     = getMonthFromDate(p?.fechaPago);
-          const _precioNum = parseFloat(p?.Precio) || 0;     // viene del backend como Precio
-          const _nombreCompleto = getNombreSocio(p);         // usa 'Socio' si viene
-          out.push({ ...p, _cb, _month, _precioNum, _nombreCompleto, _originalIndex: out.length });
+          const _precioNum = parseFloat(p?.Precio) || 0; // del backend
+          const _nombreCompleto = getNombreSocio(p);
+          const _categoriaTxt   = getCategoriaTxt(p);
+          out.push({ ...p, _cb, _month, _precioNum, _nombreCompleto, _categoriaTxt, _originalIndex: out.length });
         }
       }
     }
@@ -257,18 +274,27 @@ export default function DashboardContable() {
   // ======= Derivados (con transición) =======
   const [derived, setDerived] = useState({ registros: [], total: 0, cobradoresUnicos: 0 });
 
+  // ordenar por fecha desc (más reciente primero)
+  const byFechaDesc = (a, b) => {
+    const da = Date.parse(a?.fechaPago || "") || 0;
+    const db = Date.parse(b?.fechaPago || "") || 0;
+    return db - da;
+  };
+  const sortByFechaDesc = (arr) => [...arr].sort(byFechaDesc);
+
   const recompute = useCallback((periodLabel, monthSel, cobrador) => {
     const monthNum = monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
 
     if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
-      const base = (cobrador === "todos") ? pagosFlatEnriched : pagosFlatEnriched.filter((p) => p._cb === cobrador);
+      let base = (cobrador === "todos") ? pagosFlatEnriched : pagosFlatEnriched.filter((p) => p._cb === cobrador);
+      base = sortByFechaDesc(base);
       let total = 0; const setCb = new Set();
       for (let i = 0; i < base.length; i++) { total += base[i]._precioNum; if (base[i]._cb) setCb.add(base[i]._cb); }
       return { registros: base, total, cobradoresUnicos: setCb.size };
     }
 
     if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
-      let base = pagosPorMes[monthNum] ? pagosPorMes[monthNum] : [];
+      let base = pagosPorMes[monthNum] ? sortByFechaDesc(pagosPorMes[monthNum]) : [];
       if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
       let total = 0; const setCb = new Set();
       for (let i = 0; i < base.length; i++) { total += base[i]._precioNum; if (base[i]._cb) setCb.add(base[i]._cb); }
@@ -278,6 +304,7 @@ export default function DashboardContable() {
     let merged = periodMergedMap.get(periodLabel) || [];
     if (monthNum) merged = merged.filter((p) => p._month === monthNum);
     if (cobrador !== "todos") merged = merged.filter((p) => p._cb === cobrador);
+    merged = sortByFechaDesc(merged);
 
     let total = 0; const setCb = new Set();
     for (let i = 0; i < merged.length; i++) { total += merged[i]._precioNum; if (merged[i]._cb) setCb.add(merged[i]._cb); }
@@ -313,7 +340,7 @@ export default function DashboardContable() {
   const handleYearChange     = useCallback((e) => setAnioSeleccionado(e.target.value), []);
   const handleSearch         = useCallback((e) => setSearchText(e.target.value), []);
 
-  // Buscador (aplica sobre registros visibles)
+  // Buscador (aplica sobre registros visibles) — incluye CATEGORÍA
   const registrosFiltradosPorBusqueda = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return derived.registros;
@@ -323,11 +350,12 @@ export default function DashboardContable() {
       const periodo = (r.Mes_Pagado || "").toLowerCase();
       const fecha   = (r.fechaPago || "").toLowerCase();
       const monto   = String(r._precioNum || "").toLowerCase();
-      return socio.includes(q) || cobr.includes(q) || periodo.includes(q) || fecha.includes(q) || monto.includes(q);
+      const categ   = (r._categoriaTxt || "").toLowerCase();
+      return socio.includes(q) || cobr.includes(q) || periodo.includes(q) || fecha.includes(q) || monto.includes(q) || categ.includes(q);
     });
   }, [derived.registros, searchText]);
 
-  // Exportar Excel (respeta filtros/búsqueda)
+  // Exportar Excel (respeta filtros/búsqueda) — mantenemos columnas separadas
   const exportarExcel = useCallback(() => {
     const rows = registrosFiltradosPorBusqueda || [];
     if (!rows.length) {
@@ -336,6 +364,7 @@ export default function DashboardContable() {
     }
     const data = rows.map((r) => ({
       "SOCIO": r._nombreCompleto,
+      "CATEGORIA": r._categoriaTxt || "",
       "MONTO": Number(r._precioNum || 0),
       "COBRADOR": r._cb || "",
       "FECHA DE PAGO": r.fechaPago || "",
@@ -343,9 +372,9 @@ export default function DashboardContable() {
     }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data, {
-      header: ["SOCIO","MONTO","COBRADOR","FECHA DE PAGO","PERIODO PAGO"],
+      header: ["SOCIO","CATEGORIA","MONTO","COBRADOR","FECHA DE PAGO","PERIODO PAGO"],
     });
-    ws["!cols"] = [{ wch: 32 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 32 }, { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 18 }];
     XLSX.utils.book_append_sheet(wb, ws, "Pagos");
 
     const parts = [];
@@ -541,7 +570,7 @@ export default function DashboardContable() {
               <FontAwesomeIcon icon={faSearch} />
               <input
                 type="text"
-                placeholder="Buscar por socio, cobrador, período, fecha o monto…"
+                placeholder="Buscar por socio, categoría, cobrador, período, fecha o monto…"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 disabled={!anioSeleccionado}
@@ -561,7 +590,7 @@ export default function DashboardContable() {
               {/* Encabezado */}
               <div className="gridtable-header" role="row">
                 <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
-                <div className="gridtable-cell" role="columnheader">Monto</div>
+                <div className="gridtable-cell" role="columnheader">Categoría</div> {/* UNIFICADO */}
                 <div className="gridtable-cell" role="columnheader">Cobrador</div>
                 <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
                 <div className="gridtable-cell" role="columnheader">Periodo pago</div>
@@ -588,8 +617,8 @@ export default function DashboardContable() {
                     <div className="gridtable-cell" role="cell" data-label="Apellido y Nombre">
                       {r._nombreCompleto}
                     </div>
-                    <div className="gridtable-cell" role="cell" data-label="Monto">
-                      ${nfPesos.format(r._precioNum)}
+                    <div className="gridtable-cell" role="cell" data-label="Categoría (Monto)">
+                      {catMontoStr(r._categoriaTxt, r._precioNum)}
                     </div>
                     <div className="gridtable-cell" role="cell" data-label="Cobrador">
                       {r._cb || "-"}

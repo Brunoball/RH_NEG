@@ -5,6 +5,7 @@ import './ModalInfoSocio.css';
 const ModalInfoSocio = ({ socio, onClose }) => {
   const [listas, setListas] = useState({
     categorias: [],
+    categorias_monto: [],   // ⬅️ NUEVO
     cobradores: [],
     estados: []
   });
@@ -21,6 +22,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
         if (data.exito && data.listas) {
           setListas({
             categorias: data.listas.categorias || [],
+            categorias_monto: data.listas.categorias_monto || [], // ⬅️ NUEVO
             cobradores: data.listas.cobradores || [],
             estados: data.listas.estados || []
           });
@@ -33,7 +35,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
     };
 
     obtenerListas();
-  }, [socio]);
+  }, [socio, BASE_URL]);
 
   if (!socio) return null;
 
@@ -43,10 +45,22 @@ const ModalInfoSocio = ({ socio, onClose }) => {
     return `${day}/${month}/${year}`;
   };
 
-  const obtenerDescripcion = (lista, id, campo = 'descripcion') => {
+  // Busca por "id" (default) y devuelve el campo solicitado
+  const obtenerDescripcion = (lista, id, campo = 'descripcion', idField = 'id') => {
     if (!Array.isArray(lista)) return '-';
-    const item = lista.find(el => el.id == id);
-    return item ? item[campo] : '-';
+    const item = lista.find(el => String(el?.[idField]) === String(id));
+    return item ? (item[campo] ?? '-') : '-';
+  };
+
+  // Formatea la categoría de monto: "Nombre — $mensual / anual $anual"
+  const formatCatMonto = (lista, idCatMonto) => {
+    if (!Array.isArray(lista)) return '-';
+    const item = lista.find(el => String(el?.id_cat_monto) === String(idCatMonto));
+    if (!item) return '-';
+    const nombre = item.nombre_categoria ?? '-';
+    const mensual = item.monto_mensual ?? '-';
+    const anual = item.monto_anual ?? '-';
+    return `${nombre} — $${mensual} / anual $${anual}`;
   };
 
   return (
@@ -57,8 +71,8 @@ const ModalInfoSocio = ({ socio, onClose }) => {
             <h2 className="modal-title">Información del Socio</h2>
             <p className="modal-subtitle">ID: {socio.id_socio} | {socio.nombre}</p>
           </div>
-          <button 
-            className="modal-close-btn" 
+          <button
+            className="modal-close-btn"
             onClick={onClose}
             aria-label="Cerrar modal"
           >
@@ -71,14 +85,14 @@ const ModalInfoSocio = ({ socio, onClose }) => {
 
         <div className="modal-content">
           <div className="modal-tabs">
-            <div 
-              className={`tab ${pestañaActiva === 'datos' ? 'active' : ''}`} 
+            <div
+              className={`tab ${pestañaActiva === 'datos' ? 'active' : ''}`}
               onClick={() => setPestañaActiva('datos')}
             >
               Datos Generales
             </div>
-            <div 
-              className={`tab ${pestañaActiva === 'contacto' ? 'active' : ''}`} 
+            <div
+              className={`tab ${pestañaActiva === 'contacto' ? 'active' : ''}`}
               onClick={() => setPestañaActiva('contacto')}
             >
               Contacto
@@ -103,12 +117,22 @@ const ModalInfoSocio = ({ socio, onClose }) => {
                 <div className="info-card">
                   <h3 className="info-card-title">Membresía</h3>
                   <div className="info-item">
-                    <span className="info-label">Categoría:</span>
-                    <span className="info-value">{obtenerDescripcion(listas.categorias, socio.id_categoria)}</span>
+                    <span className="info-label">Tipo de sangre:</span>
+                    <span className="info-value">
+                      {obtenerDescripcion(listas.categorias, socio.id_categoria)}
+                    </span>
+                  </div>
+                  <div className="info-item">
+                    <span className="info-label">Categoría (Cuota):</span>
+                    <span className="info-value">
+                      {formatCatMonto(listas.categorias_monto, socio.id_cat_monto)}
+                    </span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Estado:</span>
-                    <span className="info-value">{obtenerDescripcion(listas.estados, socio.id_estado)}</span>
+                    <span className="info-value">
+                      {obtenerDescripcion(listas.estados, socio.id_estado)}
+                    </span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Ingreso:</span>
@@ -120,7 +144,9 @@ const ModalInfoSocio = ({ socio, onClose }) => {
                   <h3 className="info-card-title">Cobranza</h3>
                   <div className="info-item">
                     <span className="info-label">Cobrador:</span>
-                    <span className="info-value">{obtenerDescripcion(listas.cobradores, socio.id_cobrador, 'nombre')}</span>
+                    <span className="info-value">
+                      {obtenerDescripcion(listas.cobradores, socio.id_cobrador, 'nombre')}
+                    </span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Domicilio Cobro:</span>
@@ -128,7 +154,9 @@ const ModalInfoSocio = ({ socio, onClose }) => {
                   </div>
                   <div className="info-item comentario">
                     <span className="info-label">Comentario:</span>
-                    <span className="info-value">{(socio.comentario && socio.comentario.trim() !== '') ? socio.comentario : '-'}</span>
+                    <span className="info-value">
+                      {(socio.comentario && socio.comentario.trim() !== '') ? socio.comentario : '-'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -142,7 +170,9 @@ const ModalInfoSocio = ({ socio, onClose }) => {
                   <h3 className="info-card-title">Direcciones</h3>
                   <div className="info-item">
                     <span className="info-label">Domicilio:</span>
-                    <span className="info-value">{socio.domicilio || '-'} {socio.numero || ''}</span>
+                    <span className="info-value">
+                      {socio.domicilio || '-'} {socio.numero || ''}
+                    </span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Domicilio Cobro:</span>

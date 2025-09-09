@@ -1,5 +1,5 @@
 // src/components/Cuotas/modales/ModalCodigoBarras.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FaTimes, FaCheck, FaSpinner, FaBarcode,
   FaUser, FaHome, FaPhone, FaCalendarAlt,
@@ -8,9 +8,6 @@ import {
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalCodigoBarras.css';
-
-const PRECIO_MENSUAL = 4000;
-const PRECIO_ANUAL = 21000;
 
 const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [codigo, setCodigo] = useState('');
@@ -23,16 +20,58 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [estadoPeriodo, setEstadoPeriodo] = useState(null); // 'pendiente' | 'pagado' | 'condonado' | 'bloqueado' | null
   const [verificandoEstado, setVerificandoEstado] = useState(false);
 
+  // MONTOS dinámicos (desde DB) — igual que ModalPagos
+  const [montoMensual, setMontoMensual] = useState(0);
+  const [montoAnual, setMontoAnual] = useState(0);
+
   // TOAST
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastQueue, setToastQueue] = useState([]); // sin cola real, por compat
+  const [toastQueue, setToastQueue] = useState([]); // placeholder
   const [currentToast, setCurrentToast] = useState(null);
+
+  // Modales de confirmación
+  const [mostrarConfirmarCondonacion, setMostrarConfirmarCondonacion] = useState(false);
+  const [mostrarConfirmarPago, setMostrarConfirmarPago] = useState(false);
 
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (inputRef.current) inputRef.current.focus();
   }, []);
+
+  // === Cargar MONTOS al tener socioEncontrado (igual que ModalPagos) ===
+  useEffect(() => {
+    const cargarMontos = async () => {
+      if (!socioEncontrado) {
+        setMontoMensual(0);
+        setMontoAnual(0);
+        return;
+      }
+      try {
+        const qs = new URLSearchParams();
+        if (socioEncontrado.id_cat_monto) qs.set('id_cat_monto', String(socioEncontrado.id_cat_monto));
+        if (socioEncontrado.id_socio)     qs.set('id_socio',     String(socioEncontrado.id_socio));
+
+        const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
+        const data = await res.json();
+
+        if (data?.exito) {
+          setMontoMensual(Number(data.mensual) || 0);
+          setMontoAnual(Number(data.anual) || 0);
+        } else {
+          setMontoMensual(0);
+          setMontoAnual(0);
+          mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos para la categoría del socio.');
+        }
+      } catch {
+        setMontoMensual(0);
+        setMontoAnual(0);
+        mostrarToast('error', 'Error al consultar montos para la categoría del socio.');
+      }
+    };
+
+    cargarMontos();
+  }, [socioEncontrado]);
 
   useEffect(() => {
     const delay = setTimeout(() => {
@@ -210,7 +249,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         body: JSON.stringify({
           id_socio: socioEncontrado.id_socio,
           periodos: [socioEncontrado.id_periodo], // incluye 7 (anual)
-          anio: socioEncontrado.anio,             // ⬅️ MUY IMPORTANTE
+          anio: socioEncontrado.anio,
           ...(condonar ? { condonar: true } : {})
         })
       });
@@ -239,9 +278,9 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
+  // Antes pagaba directo; ahora se confirma
   const registrarPago = () => callRegistrar({ condonar: false });
 
-  const [mostrarConfirmarCondonacion, setMostrarConfirmarCondonacion] = useState(false);
   const abrirConfirmacionCondonar = () => setMostrarConfirmarCondonacion(true);
   const cerrarConfirmacionCondonar = () => setMostrarConfirmarCondonacion(false);
   const confirmarCondonacion = async () => {
@@ -249,15 +288,23 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     setMostrarConfirmarCondonacion(false);
   };
 
+  const abrirConfirmacionPago = () => setMostrarConfirmarPago(true);
+  const cerrarConfirmacionPago = () => setMostrarConfirmarPago(false);
+  const confirmarPago = async () => {
+    await registrarPago();
+    setMostrarConfirmarPago(false);
+  };
+
   const mostrarPeriodoFormateado = (id) => {
     const mapa = { 1: '1/2', 2: '3/4', 3: '5/6', 4: '7/8', 5: '9/10', 6: '11/12', 7: 'CONTADO ANUAL' };
     return mapa[id] || `Período ${id}`;
   };
 
-  const montoMostrar = (() => {
-    if (!socioEncontrado) return PRECIO_MENSUAL;
-    return socioEncontrado.id_periodo === 7 ? PRECIO_ANUAL : PRECIO_MENSUAL;
-  })();
+  // Monto a mostrar: dinámico (DB). Si no hay socio todavía, 0.
+  const montoMostrar = useMemo(() => {
+    if (!socioEncontrado) return 0;
+    return socioEncontrado.id_periodo === 7 ? (montoAnual || 0) : (montoMensual || 0);
+  }, [socioEncontrado, montoMensual, montoAnual]);
 
   const estadoBadge = (estado) => {
     if (!estado) return null;
@@ -354,7 +401,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
 
                 <div className="codb-actions-row">
                   <button
-                    onClick={() => setMostrarConfirmarCondonacion(true)}
+                    onClick={abrirConfirmacionCondonar}
                     disabled={accionesDeshabilitadas}
                     className="codb-condonar-button"
                     title="Condonar período"
@@ -371,7 +418,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   </button>
 
                   <button
-                    onClick={registrarPago}
+                    onClick={abrirConfirmacionPago}
                     disabled={accionesDeshabilitadas}
                     className="codb-payment-button"
                     title="Registrar pago"
@@ -409,14 +456,14 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
             <div className="soc-modal-botones-condonar">
               <button
                 className="soc-boton-cancelar-condonar"
-                onClick={() => setMostrarConfirmarCondonacion(false)}
+                onClick={cerrarConfirmacionCondonar}
                 disabled={loadingCondonar}
               >
                 Cancelar
               </button>
               <button
                 className="soc-boton-confirmar-condonar"
-                onClick={async () => await confirmarCondonacion()}
+                onClick={confirmarCondonacion}
                 disabled={loadingCondonar || estadoPeriodo === 'pagado' || estadoPeriodo === 'condonado' || estadoPeriodo === 'bloqueado'}
                 title="Condonar período"
               >
@@ -426,6 +473,47 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   </>
                 ) : (
                   'Condonar'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmación PAGAR */}
+      {mostrarConfirmarPago && socioEncontrado && (
+        <div className="soc-modal-overlay-pagar" role="dialog" aria-modal="true">
+          <div className="soc-modal-contenido-pagar" role="document">
+            <div className="soc-modal-icono-pagar">
+              <FaCheck />
+            </div>
+            <h3 className="soc-modal-titulo-pagar">Confirmar Pago</h3>
+            <p className="soc-modal-texto-pagar">
+              Vas a <strong>REGISTRAR EL PAGO</strong> del período{' '}
+              <span className="codb-confirm-pill">{mostrarPeriodoFormateado(socioEncontrado.id_periodo)}</span>{' '}
+              del socio <strong>{socioEncontrado.nombre}</strong> (ID {socioEncontrado.id_socio}) por un monto de{' '}
+              <strong>{formatearARS(montoMostrar)}</strong>.
+            </p>
+            <div className="soc-modal-botones-pagar">
+              <button
+                className="soc-boton-cancelar-pagar"
+                onClick={cerrarConfirmacionPago}
+                disabled={loadingPago}
+              >
+                Cancelar
+              </button>
+              <button
+                className="soc-boton-confirmar-pagar"
+                onClick={confirmarPago}
+                disabled={loadingPago || estadoPeriodo === 'pagado' || estadoPeriodo === 'condonado' || estadoPeriodo === 'bloqueado'}
+                title="Registrar pago"
+              >
+                {loadingPago ? (
+                  <>
+                    <FaSpinner className="codb-spinner" /> Procesando...
+                  </>
+                ) : (
+                  'Confirmar Pago'
                 )}
               </button>
             </div>
