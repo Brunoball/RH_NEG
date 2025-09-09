@@ -21,17 +21,24 @@ const EditarCategoria = () => {
   });
   const [cargando, setCargando] = useState(!fromState);
   const [guardando, setGuardando] = useState(false);
-  const [toast, setToast] = useState({ show: false, tipo: 'exito', mensaje: '' });
   const nombreRef = useRef(null);
 
-  const api = (action) => `${BASE_URL}/api.php?action=${action}`;
-  const showToast = (tipo, mensaje, duracion = 2800) => {
+  // ===== TOAST =====
+  const [toast, setToast] = useState({
+    show: false,
+    tipo: 'exito',
+    mensaje: '',
+    duracion: 3000,
+  });
+  const showToast = (tipo, mensaje, duracion = 3000) => {
     setToast({ show: true, tipo, mensaje, duracion });
-    setTimeout(() => setToast({ show: false, tipo, mensaje: '' }), duracion);
   };
+  const closeToast = () => setToast((t) => ({ ...t, show: false }));
+
+  const api = (action) => `${BASE_URL}/api.php?action=${action}`;
   const toUpper = (v) => (v ?? '').toString().toLocaleUpperCase('es-AR');
 
-  // Si entran directo por URL sin state, obtenemos por id (si el backend lo soporta)
+  // Si entran directo por URL sin state, obtenemos por id
   useEffect(() => {
     const fetchById = async () => {
       try {
@@ -51,13 +58,13 @@ const EditarCategoria = () => {
             montoAnual: c.montoAnual ?? '',
           });
         } else {
-          showToast('error', 'No se pudo obtener la categoría.');
-          navigate('/categorias', { replace: true });
+          showToast('error', 'No se pudo obtener la categoría.', 3000);
+          setTimeout(() => navigate('/categorias', { replace: true }), 3000);
         }
       } catch (e) {
         console.error(e);
-        showToast('error', 'No se pudo obtener la categoría.');
-        navigate('/categorias', { replace: true });
+        showToast('error', 'No se pudo obtener la categoría.', 3000);
+        setTimeout(() => navigate('/categorias', { replace: true }), 3000);
       } finally {
         setCargando(false);
       }
@@ -69,11 +76,12 @@ const EditarCategoria = () => {
 
   const onGuardar = async (e) => {
     e?.preventDefault?.();
-    if (!form.nombre.trim()) return showToast('error', 'El nombre es obligatorio.');
+    if (!form.nombre.trim()) return showToast('error', 'El nombre es obligatorio.', 2800);
+
     const mMensual = Number(form.montoMensual);
     const mAnual = Number(form.montoAnual);
-    if (Number.isNaN(mMensual) || mMensual < 0) return showToast('error', 'Monto mensual inválido.');
-    if (Number.isNaN(mAnual) || mAnual < 0) return showToast('error', 'Monto anual inválido.');
+    if (Number.isNaN(mMensual) || mMensual < 0) return showToast('error', 'Monto mensual inválido.', 2800);
+    if (Number.isNaN(mAnual) || mAnual < 0) return showToast('error', 'Monto anual inválido.', 2800);
 
     try {
       setGuardando(true);
@@ -89,11 +97,14 @@ const EditarCategoria = () => {
       });
       const data = await r.json();
       if (!data?.ok) throw new Error(data?.mensaje || 'Error al guardar');
-      showToast('exito', 'Categoría actualizada.');
-      navigate('/categorias', { replace: true });
+
+      const dur = 2000;
+      showToast('exito', 'Categoría actualizada.', dur);
+      // Navegar luego de que el toast termine
+      setTimeout(() => navigate('/categorias', { replace: true }), dur);
     } catch (e) {
       console.error(e);
-      showToast('error', 'No se pudo guardar la categoría.');
+      showToast('error', 'No se pudo guardar la categoría.', 3000);
     } finally {
       setGuardando(false);
     }
@@ -105,17 +116,16 @@ const EditarCategoria = () => {
         <div className="cat_edi_card">
           <header className="cat_edi_header">
             <h2 className="cat_edi_title">Editar categoría</h2>
-            <button
-              className="cat_edi_btn cat_edi_btn_primary cat_edi_btn_back"
-              onClick={() => navigate('/categorias')}
-              title="Volver"
-              aria-label="Volver"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} />
-              <span className="cat_edi_btn_text">Volver</span>
-            </button>
           </header>
           <div className="cat_edi_loading">Cargando…</div>
+          {toast.show && (
+            <Toast
+              tipo={toast.tipo}
+              mensaje={toast.mensaje}
+              duracion={toast.duracion}
+              onClose={closeToast}
+            />
+          )}
         </div>
       </div>
     );
@@ -126,15 +136,6 @@ const EditarCategoria = () => {
       <div className="cat_edi_card">
         <header className="cat_edi_header">
           <h2 className="cat_edi_title">Editar categoría</h2>
-          <button
-            className="cat_edi_btn cat_edi_btn_primary cat_edi_btn_back"
-            onClick={() => navigate('/categorias')}
-            title="Volver"
-            aria-label="Volver"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} />
-            <span className="cat_edi_btn_text">Volver</span>
-          </button>
         </header>
 
         <form className="cat_edi_form" onSubmit={onGuardar}>
@@ -185,18 +186,41 @@ const EditarCategoria = () => {
           </div>
 
           <div className="cat_edi_form_actions">
-            {/* Solo botón Guardar */}
-            <button type="submit" className="cat_edi_btn cat_edi_btn_primary" disabled={guardando}>
+            {/* Volver */}
+            <button
+              type="button"
+              className="cat_edi_btn"
+              onClick={() => navigate('/categorias')}
+              title="Volver"
+              aria-label="Volver"
+              disabled={guardando}
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+              <span className="cat_edi_btn_text">Volver</span>
+            </button>
+
+            {/* Guardar */}
+            <button type="submit" className="cat_edi_btn_primary" disabled={guardando}>
               <FontAwesomeIcon icon={faSave} />
-              <span className="cat_edi_btn_text">{guardando ? 'Guardando…' : 'Guardar'}</span>
+              <span className="cat_edi_btn_text">{guardando ? 'Guardar' : 'Guardar'}</span>
             </button>
           </div>
         </form>
       </div>
 
-      {toast.show && <Toast tipo={toast.tipo} mensaje={toast.mensaje} />}
+      {toast.show && (
+        <Toast
+          tipo={toast.tipo}
+          mensaje={toast.mensaje}
+          duracion={toast.duracion}
+          onClose={closeToast}
+        />
+      )}
     </div>
   );
 };
 
 export default EditarCategoria;
+
+
+

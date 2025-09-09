@@ -54,7 +54,7 @@
 .cat_edi_card{
   width:100%;
   max-width:720px;
-  padding:28px 22px 24px;
+  padding:2rem;
   background: rgba(255,255,255,.95);
   border-radius: var(--edi-radius-xl);
   box-shadow: var(--edi-shadow-lg),
@@ -118,13 +118,6 @@
   box-shadow: 0 0 0 1px rgba(255,255,255,.3);
 }
 
-/* Botón Volver arriba a la derecha */
-.cat_edi_btn_back{
-  position:absolute;
-  top:0;
-  right:0;
-}
-
 /* Loading */
 .cat_edi_loading{
   padding:16px;
@@ -176,16 +169,16 @@
   box-shadow: 0 0 0 3px rgba(37,99,235,.15);
 }
 
-/* Actions (solo botón Guardar) */
+/* Actions */
 .cat_edi_form_actions{
   display:flex;
   align-items:center;
-  justify-content:flex-end;
+  justify-content:space-between; /* Volver a la izq, Guardar a la der */
   gap:12px;
   margin-top:6px;
 }
 
-/* Botones */
+/* Botones base */
 .cat_edi_btn{
   display:inline-flex;
   align-items:center;
@@ -201,17 +194,43 @@
   box-shadow: var(--edi-shadow-md);
   position:relative;
   overflow:hidden;
+
+  /* Base gris (se usa para "Volver" si no lleva .cat_edi_btn_primary) */
+  background: var(--edi-text-gradient);
+  color:#fff;
 }
 .cat_edi_btn_text{display:inline}
 
+/* Variante primaria (gradiente). Usada solo donde quieras color principal. */
 .cat_edi_btn_primary{
-  background: var(--edi-text-gradient);
-  color:#fff;
+    display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px 16px;
+  border-radius:50px;
+  font-weight:600;
+  font-size:.95rem;
+  cursor:pointer;
+  border:none;
+  transition: var(--edi-transition);
+  box-shadow: var(--edi-shadow-md);
+  position:relative;
+  overflow:hidden;
+    background-color: var(--edi-gray-200);
+  color: var(--edi-gray-800);
 }
 .cat_edi_btn_primary:hover{
   transform: translateY(-2px);
   box-shadow: var(--edi-shadow-lg);
+  background-color: var(--edi-gray-400);color: var(--edi-gray-100);
 }
+.cat_edi_btn:hover{
+  transform: translateY(-2px);
+  box-shadow: var(--edi-shadow-lg);
+}
+
+/* Estado disabled con shimmer */
 .cat_edi_btn[disabled]{opacity:.7; cursor:not-allowed;}
 .cat_edi_btn[disabled]::after{
   content:'';
@@ -221,6 +240,21 @@
   animation: cat_edi_loading_anim 1.5s infinite;
 }
 @keyframes cat_edi_loading_anim{100%{left:100%}}
+
+/* ===== Estilo específico para el BOTÓN GUARDAR =====
+   Requerimiento: fondo gris-200, texto gris-800 y al hover gris-400.
+   Forzamos a pesar de .cat_edi_btn_primary para el submit. */
+.cat_edi_form_actions .cat_edi_btn[type="submit"]{
+  background: var(--edi-gray-200) !important;
+  color: var(--edi-gray-800) !important;
+  box-shadow: var(--edi-shadow-md);
+}
+.cat_edi_form_actions .cat_edi_btn[type="submit"]:hover{
+  background: var(--edi-gray-400) !important;
+  color: var(--edi-gray-800) !important; /* mantiene texto gris 800 */
+  transform: translateY(-2px);
+  box-shadow: var(--edi-shadow-lg);
+}
 
 /* Accesibilidad: focus visible */
 :where(button, [href], input){

@@ -33,12 +33,73 @@ const Modal = ({ open, title, onClose, children, width = 720 }) => {
   );
 };
 
+/* ===== Modal Confirmar Eliminación (estilo Principal) ===== */
+function ConfirmDeleteModal({ open, categoria, onConfirm, onCancel, loading }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onCancel?.();
+      if (e.key === 'Enter') onConfirm?.();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onConfirm, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="catdel-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="catdel-modal-title"
+      onClick={onCancel}
+    >
+      <div
+        className="catdel-modal-container catdel-modal--danger"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="catdel-modal__icon" aria-hidden="true">
+          <FontAwesomeIcon icon={faTrash} />
+        </div>
+
+        <h3 id="catdel-modal-title" className="catdel-modal-title catdel-modal-title--danger">
+          Eliminar categoría
+        </h3>
+
+        <p className="catdel-modal-text">
+          ¿Seguro que querés eliminar <strong>{categoria?.nombre}</strong>? Esta acción no se puede deshacer.
+        </p>
+
+        <div className="catdel-modal-buttons">
+          <button className="catdel-btn catdel-btn--ghost" onClick={onCancel} autoFocus disabled={loading}>
+            Cancelar
+          </button>
+          <button
+            className="catdel-btn catdel-btn--solid-danger"
+            onClick={onConfirm}
+            disabled={loading}
+            aria-busy={loading ? 'true' : 'false'}
+          >
+            {loading ? 'Eliminando…' : 'Confirmar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Categorias = () => {
   const navigate = useNavigate();
 
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState({ show: false, tipo: 'exito', mensaje: '' });
+
+  // ====== TOAST ======
+  const [toast, setToast] = useState({ show: false, tipo: 'exito', mensaje: '', duracion: 3000 });
+  const showToast = (tipo, mensaje, duracion = 3000) => setToast({ show: true, tipo, mensaje, duracion });
+  const closeToast = () => setToast((t) => ({ ...t, show: false }));
+
   const nombreRef = useRef(null);
 
   // ====== Historial
@@ -47,12 +108,11 @@ const Categorias = () => {
   const [hist, setHist] = useState([]); // [{id_historial, precio_viejo, precio_nuevo, fecha_cambio}]
   const [histCategoria, setHistCategoria] = useState({ id: null, nombre: '' });
 
+  // ====== Eliminar (modal)
+  const [delState, setDelState] = useState({ open: false, cat: null, loading: false });
+
   // Helpers
   const api = (action) => `${BASE_URL}/api.php?action=${action}`;
-  const showToast = (tipo, mensaje, duracion = 2800) => {
-    setToast({ show: true, tipo, mensaje, duracion });
-    setTimeout(() => setToast({ show: false, tipo, mensaje: '' }), duracion);
-  };
 
   const cargar = async () => {
     try {
@@ -72,9 +132,17 @@ const Categorias = () => {
 
   const filtradas = useMemo(() => lista, [lista]);
 
-  const onEliminar = async (cat) => {
-    if (!window.confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) return;
+  // Abrir modal de confirmación
+  const pedirConfirmacionEliminar = (cat) => {
+    setDelState({ open: true, cat, loading: false });
+  };
+
+  // Confirmar eliminación (llamado por el modal)
+  const confirmarEliminar = async () => {
+    const cat = delState.cat;
+    if (!cat) return setDelState({ open: false, cat: null, loading: false });
     try {
+      setDelState((s) => ({ ...s, loading: true }));
       const r = await fetch(api('categorias_eliminar'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,10 +151,12 @@ const Categorias = () => {
       const resp = await r.json();
       if (!resp?.ok) throw new Error(resp?.mensaje || 'Error al eliminar');
       showToast('exito', 'Categoría eliminada.');
+      setDelState({ open: false, cat: null, loading: false });
       await cargar();
     } catch (e) {
       console.error(e);
       showToast('error', 'No se pudo eliminar la categoría.');
+      setDelState((s) => ({ ...s, loading: false }));
     }
   };
 
@@ -120,7 +190,6 @@ const Categorias = () => {
     const pv = Number(viejo);
     const pn = Number(nuevo);
     if (!(pv > 0)) {
-      // Sin base válida para porcentaje
       return <span className="cat_change_dash">—</span>;
     }
     const diff = pn - pv;
@@ -142,27 +211,7 @@ const Categorias = () => {
       <div className="cat_card">
         <header className="cat_header">
           <h2 className="cat_title">Categorías</h2>
-          <button
-            className="cat_btn cat_btn_primary cat_btn_back"
-            onClick={() => navigate('/panel')}
-            title="Volver"
-            aria-label="Volver"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} />
-            <span className="cat_btn_text">Volver</span>
-          </button>
         </header>
-
-        <section className="cat_toolbar">
-          <div className="cat_toolbar_spacer" />
-          <button
-            className="cat_btn cat_btn_outline"
-            onClick={() => navigate('/categorias/nueva')}
-          >
-            <FontAwesomeIcon icon={faPlus} />
-            <span className="cat_btn_text">Nueva</span>
-          </button>
-        </section>
 
         <div className="cat_list">
           <div className="cat_list_head">
@@ -214,7 +263,7 @@ const Categorias = () => {
                   </button>
                   <button
                     className="cat_icon_btn cat_icon_btn_danger"
-                    onClick={() => onEliminar(c)}
+                    onClick={() => pedirConfirmacionEliminar(c)}
                     title="Eliminar"
                     aria-label={`Eliminar categoría ${c.nombre}`}
                   >
@@ -225,6 +274,27 @@ const Categorias = () => {
             ))
           )}
         </div>
+                  <section className="cat_toolbar">
+            <button
+              className="cat_btn cat_btn_primary cat_btn_back"
+              onClick={() => navigate('/panel')}
+              title="Volver"
+              aria-label="Volver"
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+              <span className="cat_btn_text">Volver</span>
+            </button>
+
+            <div className="cat_toolbar_spacer" />
+
+            <button
+              className="cat_btn cat_btn_outline"
+              onClick={() => navigate('/categorias/nueva')}
+            >
+              <FontAwesomeIcon icon={faPlus} />
+              <span className="cat_btn_text">Nueva</span>
+            </button>
+          </section>
       </div>
 
       {/* Modal Historial */}
@@ -267,7 +337,24 @@ const Categorias = () => {
         )}
       </Modal>
 
-      {toast.show && <Toast tipo={toast.tipo} mensaje={toast.mensaje} />}
+      {/* Modal Confirmar Eliminación */}
+      <ConfirmDeleteModal
+        open={delState.open}
+        categoria={delState.cat}
+        onConfirm={confirmarEliminar}
+        onCancel={() => setDelState({ open: false, cat: null, loading: false })}
+        loading={delState.loading}
+      />
+
+      {/* TOAST */}
+      {toast.show && (
+        <Toast
+          tipo={toast.tipo}
+          mensaje={toast.mensaje}
+          duracion={toast.duracion}
+          onClose={closeToast}
+        />
+      )}
     </div>
   );
 };

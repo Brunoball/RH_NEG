@@ -54,7 +54,7 @@
 .cat_agr_card{
   width:100%;
   max-width:720px;
-  padding:28px 22px 24px;
+  padding:2rem;
   background: rgba(255,255,255,.95);
   border-radius: var(--agr-radius-xl);
   box-shadow: var(--agr-shadow-lg),
@@ -174,7 +174,7 @@
 .cat_agr_form_actions{
   display:flex;
   align-items:center;
-  justify-content:flex-end;
+  justify-content:space-between;
   gap:12px;
   margin-top:6px;
 }
@@ -199,13 +199,16 @@
 .cat_agr_btn_text{display:inline}
 
 .cat_agr_btn_primary{
-  background: var(--agr-text-gradient);
-  color:#fff;
+  background: var(--agr-gray-200);
+  color:var(--princ-gray-800);
 }
 .cat_agr_btn_primary:hover{
   transform: translateY(-2px);
-  box-shadow: var(--agr-shadow-lg);
+  background: var(--agr-gray-400);
+  color: var(--agr-gray-100);
 }
+.cat_agr_btn_back{background: var(--cat-text-gradient); color: #fff;}
+.cat_agr_btn_back:hover{   transform: translateY(-2px); background: var(--cat-text-gradient); }
 .cat_agr_btn[disabled]{opacity:.7; cursor:not-allowed;}
 .cat_agr_btn[disabled]::after{
   content:'';
