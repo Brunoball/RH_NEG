@@ -21,10 +21,13 @@ import Cuotas from './components/Cuotas/Cuotas';
 // 🔹 Panel contable
 import DashboardContable from './components/Contable/DashboardContable';
 
-// 🔹 Sección Categorías (principal + nuevas pantallas)
+// 🔹 Sección Categorías
 import Categorias from './components/Categorias/Categorias';
 import AgregarCategoria from './components/Categorias/AgregarCategoria';
 import EditarCategoria from './components/Categorias/EditarCategoria';
+
+// 🔹 Familias (ubicado dentro de components/Socios)
+import Familias from './components/Socios/Familias';
 
 /* =========================================================
    🔒 Cierre de sesión por inactividad (global)
@@ -115,6 +118,9 @@ function App() {
         <Route path="/socios/agregar" element={<RutaProtegida componente={<AgregarSocio />} />} />
         <Route path="/socios/editar/:id" element={<RutaProtegida componente={<EditarSocio />} />} />
         <Route path="/socios/baja" element={<RutaProtegida componente={<SociosBaja />} />} />
+
+        {/* Familias (Grupos familiares) */}
+        <Route path="/familias" element={<RutaProtegida componente={<Familias />} />} />
 
         <Route path="/cuotas" element={<RutaProtegida componente={<Cuotas />} />} />
 

@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FaTimes, FaCheck, FaSpinner, FaBarcode,
   FaUser, FaHome, FaPhone, FaCalendarAlt,
-  FaMoneyBillWave, FaIdCard, FaBan, FaExclamationTriangle
+  FaMoneyBillWave, FaIdCard, FaBan, FaExclamationTriangle, FaTag
 } from 'react-icons/fa';
 import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalCodigoBarras.css';
+
+const ANUAL_ID = 7; // Contado anual
 
 const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [codigo, setCodigo] = useState('');
@@ -26,7 +28,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
 
   // TOAST
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastQueue, setToastQueue] = useState([]); // placeholder
   const [currentToast, setCurrentToast] = useState(null);
 
   // Modales de confirmación
@@ -117,14 +118,12 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     const nuevo = { id: Date.now() + Math.random(), tipo, mensaje, duracion };
     setCurrentToast(nuevo);
     setToastVisible(true);
-    setToastQueue([]);
   };
 
   const handleToastClose = () => {
     const t = currentToast;
     setCurrentToast(null);
     setToastVisible(false);
-    setToastQueue([]);
     if (t && t.tipo === 'exito' && (t.mensaje.includes('Pago registrado') || t.mensaje.includes('Condonación'))) {
       limpiarFormulario();
     }
@@ -292,7 +291,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const cerrarConfirmacionPago = () => setMostrarConfirmarPago(false);
   const confirmarPago = async () => {
     await registrarPago();
-    setMostrarConfirmarPago(false);
+    setMostrarConfirmarPago(false); // ✅ correcto
   };
 
   const mostrarPeriodoFormateado = (id) => {
@@ -300,10 +299,40 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     return mapa[id] || `Período ${id}`;
   };
 
-  // Monto a mostrar: dinámico (DB). Si no hay socio todavía, 0.
-  const montoMostrar = useMemo(() => {
-    if (!socioEncontrado) return 0;
-    return socioEncontrado.id_periodo === 7 ? (montoAnual || 0) : (montoMensual || 0);
+  /** =========
+   * PRECIO a mostrar (según socio/categoría) con lógica de anual con o sin descuento.
+   * - Enero/Febrero del AÑO del código → usa montoAnual (se asume con descuento). Fallback: mensual*6.
+   * - Desde Marzo → mensual*6 (sin descuento).
+   * - Períodos normales → mensual.
+   * ========= */
+  const { montoMostrar, anualConDescuento } = useMemo(() => {
+    if (!socioEncontrado) return { montoMostrar: 0, anualConDescuento: false };
+
+    // Período NO anual: siempre "montoMensual" (monto por período)
+    if (Number(socioEncontrado.id_periodo) !== ANUAL_ID) {
+      return { montoMostrar: Number(montoMensual) || 0, anualConDescuento: false };
+    }
+
+    // Período ANUAL:
+    const hoy = new Date();
+    const mesActual = hoy.getMonth(); // 0 = enero, 1 = febrero, 2 = marzo...
+    const anioActual = hoy.getFullYear();
+
+    // El código trae AA → "anio" (YYYY) para el que se paga el anual
+    const anioCodigo = Number(socioEncontrado.anio) || anioActual;
+
+    // Si estamos en ENE/FEB del mismo año del código → descuento
+    const esEneFeb = (mesActual === 0 || mesActual === 1) && anioActual === anioCodigo;
+
+    if (esEneFeb) {
+      const prefer = Number(montoAnual) || 0;              // se asume "con descuento" desde el backend
+      const fallback = (Number(montoMensual) || 0) * 6;    // por si anual no viene
+      return { montoMostrar: prefer || fallback, anualConDescuento: true };
+    }
+
+    // Desde marzo (o si el año no coincide): sin descuento => 6 períodos
+    const sinDesc = (Number(montoMensual) || 0) * 6;
+    return { montoMostrar: sinDesc, anualConDescuento: false };
   }, [socioEncontrado, montoMensual, montoAnual]);
 
   const estadoBadge = (estado) => {
@@ -393,8 +422,14 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   </div>
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaMoneyBillWave /> Monto:</div>
-                    <div className="codb-info-value codb-amount">
+                    <div className="codb-info-value codb-amount" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {formatearARS(montoMostrar)}
+                      {Number(socioEncontrado.id_periodo) === ANUAL_ID && anualConDescuento && (
+                        <span className="codb-discount-pill">
+                          <FaTag style={{ marginRight: 4 }} />
+                          con descuento (Ene/Feb)
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

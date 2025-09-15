@@ -7,10 +7,11 @@ try {
     $input = json_decode($inputRaw, true) ?? [];
 
     // acepta camelCase o snake_case
-    $nombre        = strtoupper(trim($input['nombre'] ?? ''));
-    $mMensualIn    = $input['montoMensual'] ?? $input['monto_mensual'] ?? $input['monto'] ?? null;
-    $mAnualIn      = $input['montoAnual']   ?? $input['monto_anual']   ?? null;
+    $nombre     = strtoupper(trim($input['nombre'] ?? ''));
+    $mMensualIn = $input['montoMensual'] ?? $input['monto_mensual'] ?? $input['monto'] ?? null;
+    $mAnualIn   = $input['montoAnual']   ?? $input['monto_anual']   ?? null;
 
+    // ===== Validaciones =====
     if ($nombre === '') {
         http_response_code(400);
         echo json_encode(['ok' => false, 'mensaje' => 'El nombre es obligatorio.']);
@@ -28,11 +29,11 @@ try {
     }
 
     $mMensual = (int)$mMensualIn;
-    // si no te lo mandan, podés fijarlo a 0 o a 21000. Dejo 0 para que lo decidas desde la UI.
+    // Si no mandan monto anual, queda en 0
     $mAnual   = ($mAnualIn === null) ? 0 : (int)$mAnualIn;
 
-    // opcional: evitar nombres duplicados
-    $chk = $pdo->prepare("SELECT 1 FROM rh_neg.categoria_monto WHERE nombre_categoria = :n LIMIT 1");
+    // ===== Evitar nombres duplicados =====
+    $chk = $pdo->prepare("SELECT 1 FROM categoria_monto WHERE nombre_categoria = :n LIMIT 1");
     $chk->execute([':n' => $nombre]);
     if ($chk->fetchColumn()) {
         http_response_code(409);
@@ -40,7 +41,8 @@ try {
         exit;
     }
 
-    $sql = "INSERT INTO rh_neg.categoria_monto
+    // ===== Insertar categoría =====
+    $sql = "INSERT INTO categoria_monto
                 (nombre_categoria, monto_mensual, monto_anual, fecha_creacion)
             VALUES (:nombre, :mm, :ma, CURDATE())";
     $st = $pdo->prepare($sql);
@@ -51,7 +53,13 @@ try {
     ]);
 
     echo json_encode(['ok' => true, 'id' => $pdo->lastInsertId()], JSON_UNESCAPED_UNICODE);
+
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'mensaje' => 'Error al guardar categoría', 'error' => $e->getMessage()]);
+    echo json_encode([
+        'ok' => false,
+        'mensaje' => 'Error al guardar categoría',
+        // Descomenta para debug:
+        // 'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }

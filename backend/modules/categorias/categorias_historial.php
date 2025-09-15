@@ -15,7 +15,7 @@ try {
     // Trae historial ordenado del más reciente al más antiguo
     $st = $pdo->prepare(
         "SELECT id_historial, id_cat_monto, precio_viejo, precio_nuevo, fecha_cambio
-           FROM rh_neg.precios_historicos
+           FROM precios_historicos
           WHERE id_cat_monto = :id
           ORDER BY fecha_cambio DESC, id_historial DESC"
     );
@@ -26,5 +26,10 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'mensaje' => 'Error al obtener historial', 'error' => $e->getMessage()]);
+    echo json_encode([
+        'ok' => false,
+        'mensaje' => 'Error al obtener historial',
+        // Descomenta la línea siguiente para ver el detalle en debug:
+        // 'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }
