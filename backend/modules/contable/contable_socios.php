@@ -1,18 +1,20 @@
 <?php
+// backend/modules/contable/contable.php
 require_once __DIR__ . '/../../config/db.php';
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 try {
+    // Asegurar excepciones en PDO
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    /* ===== Helpers de categoría y precios ===== */
+    /* ========= Helpers de categoría y precios ========= */
 
     // Categoría por defecto (por si algún socio no tiene asignada)
     function catDefaultId(PDO $pdo): ?int {
         $id = $pdo->query("
             SELECT id_cat_monto
-            FROM rh_neg.categoria_monto
+            FROM categoria_monto
             ORDER BY id_cat_monto ASC
             LIMIT 1
         ")->fetchColumn();
@@ -22,92 +24,127 @@ try {
     // Cache simple de info de categoría
     function getCatInfo(PDO $pdo, int $catId, array &$cache): ?array {
         if (isset($cache[$catId])) return $cache[$catId];
+
         $st = $pdo->prepare("
             SELECT id_cat_monto, nombre_categoria, monto_mensual, monto_anual
-            FROM rh_neg.categoria_monto
+            FROM categoria_monto
             WHERE id_cat_monto = :id
             LIMIT 1
         ");
         $st->execute([':id' => $catId]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
+
         $cache[$catId] = [
-            'id'       => (int)$row['id_cat_monto'],
-            'nombre'   => (string)$row['nombre_categoria'],
-            'm_mensual'=> (int)$row['monto_mensual'],
-            'm_anual'  => (int)$row['monto_anual'],
+            'id'        => (int)$row['id_cat_monto'],
+            'nombre'    => (string)$row['nombre_categoria'],
+            'm_mensual' => (int)$row['monto_mensual'],
+            'm_anual'   => (int)$row['monto_anual'],
         ];
         return $cache[$catId];
     }
 
     /**
-     * Precio vigente al MES de $fecha para:
+     * Precio vigente para el MES de $fecha ($fecha en formato YYYY-MM-DD o YYYY-MM)
      *   $tipo = 'M' (mensual) o 'A' (anual)
-     * Regla:
-     *  - Si existe un cambio con fecha_cambio POSTERIOR a $fecha, el precio vigente es precio_viejo de ese primer cambio posterior.
-     *  - Si NO hay cambio posterior, rige el valor actual de categoria_monto.
-     * Soporta tipo 'M'/'A' o 'mensual'/'anual' en la tabla histórica.
+     *
+     * REGLA POR MES:
+     *  1) Si hay cambios en ese mismo YYYY-MM -> usar el último precio_nuevo de ese mes.
+     *  2) Si no hay cambios ese mes pero existe un cambio POSTERIOR a ese mes -> usar precio_viejo de ese primer cambio posterior.
+     *  3) Si no existe cambio posterior -> usar el valor actual en categoria_monto.
+     *
+     * Soporta 'M'/'A' y 'mensual'/'anual' en precios_historicos.
      */
     function precioVigente(PDO $pdo, int $catId, string $tipo, string $fecha, array &$cache): int {
-        $ym   = substr($fecha ?? '', 0, 7);
-        $t    = strtoupper($tipo) === 'A' ? 'A' : 'M';
-        $key  = $t . '|' . $catId . '|' . $ym;
+        // Normalizar mes objetivo
+        $ym = substr(trim($fecha), 0, 7); // YYYY-MM
+        if (!preg_match('/^\d{4}-\d{2}$/', $ym)) {
+            // fallback: intentar de la fecha completa
+            $ym = date('Y-m', strtotime($fecha));
+        }
+
+        $t = strtoupper($tipo) === 'A' ? 'A' : 'M';
+        $key = $t . '|' . $catId . '|' . $ym;
         if (isset($cache[$key])) return $cache[$key];
 
-        $tChar = $t;                   // 'M' / 'A'
+        $tChar = $t;                               // 'M' / 'A'
         $tWord = ($t === 'A') ? 'anual' : 'mensual';
 
-        // Primer cambio posterior a la fecha
-        $sql = "
-            SELECT precio_viejo
-            FROM rh_neg.precios_historicos
+        // 1) ¿Hay cambios dentro del MISMO MES? -> usar el ÚLTIMO precio_nuevo de ese mes
+        $sqlMes = "
+            SELECT precio_nuevo
+            FROM precios_historicos
             WHERE id_cat_monto = :id
               AND (tipo = :tchar OR tipo = :tword)
-              AND DATE(fecha_cambio) > DATE(:f)
-            ORDER BY fecha_cambio ASC
+              AND DATE_FORMAT(fecha_cambio, '%Y-%m') = :ym
+            ORDER BY fecha_cambio DESC
             LIMIT 1
         ";
-        $st = $pdo->prepare($sql);
-        $st->execute([
+        $stMes = $pdo->prepare($sqlMes);
+        $stMes->execute([
             ':id'    => $catId,
             ':tchar' => $tChar,
             ':tword' => $tWord,
-            ':f'     => $fecha,
+            ':ym'    => $ym,
         ]);
-        $pv = $st->fetchColumn();
-        if ($pv !== false) {
-            return $cache[$key] = (int)$pv;
+        $nuevoEnMes = $stMes->fetchColumn();
+        if ($nuevoEnMes !== false) {
+            return $cache[$key] = (int)$nuevoEnMes;
         }
 
-        // Sin cambios posteriores: valor actual de la categoría
+        // 2) No hubo cambio en ese mes -> buscar PRIMER cambio POSTERIOR al mes
+        $sqlPosterior = "
+            SELECT precio_viejo
+            FROM precios_historicos
+            WHERE id_cat_monto = :id
+              AND (tipo = :tchar OR tipo = :tword)
+              AND DATE_FORMAT(fecha_cambio, '%Y-%m') > :ym
+            ORDER BY fecha_cambio ASC
+            LIMIT 1
+        ";
+        $stPos = $pdo->prepare($sqlPosterior);
+        $stPos->execute([
+            ':id'    => $catId,
+            ':tchar' => $tChar,
+            ':tword' => $tWord,
+            ':ym'    => $ym,
+        ]);
+        $precioViejoAntesDePosterior = $stPos->fetchColumn();
+        if ($precioViejoAntesDePosterior !== false) {
+            // Estamos antes del primer cambio posterior → rige el precio viejo
+            return $cache[$key] = (int)$precioViejoAntesDePosterior;
+        }
+
+        // 3) No hay cambio posterior → rige el valor actual de la categoría
         if ($t === 'M') {
-            $q = $pdo->prepare("SELECT monto_mensual FROM rh_neg.categoria_monto WHERE id_cat_monto = :id");
+            $q = $pdo->prepare("SELECT monto_mensual FROM categoria_monto WHERE id_cat_monto = :id");
         } else {
-            $q = $pdo->prepare("SELECT monto_anual FROM rh_neg.categoria_monto WHERE id_cat_monto = :id");
+            $q = $pdo->prepare("SELECT monto_anual FROM categoria_monto WHERE id_cat_monto = :id");
         }
         $q->execute([':id' => $catId]);
         $val = (int)($q->fetchColumn() ?: 0);
         return $cache[$key] = $val;
     }
 
-    /* ===== Años con pagos (para combos) ===== */
+    /* ========= Años con pagos (para combos) ========= */
     $yearsStmt = $pdo->query("
         SELECT DISTINCT YEAR(fecha_pago) AS y
-        FROM rh_neg.pagos
+        FROM pagos
         WHERE estado = 'pagado'
         ORDER BY y ASC
     ");
     $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
 
-    /* ===== Año aplicado ===== */
+    /* ========= Año aplicado ========= */
     $anioParam    = isset($_GET['anio']) ? (int)$_GET['anio'] : 0;
     $anioAplicado = $anioParam > 0 ? $anioParam : (!empty($aniosDisponibles) ? max($aniosDisponibles) : 0);
 
-    /* ===== Total de socios (activos) ===== */
-    $stmtTot     = $pdo->query("SELECT COUNT(*) AS c FROM rh_neg.socios WHERE activo = 1");
+    /* ========= Total de socios (activos) ========= */
+    $stmtTot     = $pdo->query("SELECT COUNT(*) AS c FROM socios WHERE activo = 1");
     $rowTot      = $stmtTot->fetch(PDO::FETCH_ASSOC);
     $totalSocios = (int)($rowTot['c'] ?? 0);
 
+    // Si todavía no tenés pagos (p. ej., DB nueva), devolvemos estructura vacía
     if ($anioAplicado === 0) {
         echo json_encode([
             'exito'         => true,
@@ -120,7 +157,7 @@ try {
         exit;
     }
 
-    /* ===== Pagos pagados del año ===== */
+    /* ========= Pagos pagados del año ========= */
     $sql = "
         SELECT
             p.id_pago,
@@ -133,10 +170,10 @@ try {
             s.id_cat_monto  AS socio_id_cat_monto,
             cb.nombre       AS cobrador_nombre,
             per.nombre      AS periodo_nombre
-        FROM rh_neg.pagos p
-        INNER JOIN rh_neg.socios   s   ON s.id_socio     = p.id_socio
-        INNER JOIN rh_neg.periodo  per ON per.id_periodo = p.id_periodo
-        LEFT  JOIN rh_neg.cobrador cb  ON cb.id_cobrador = s.id_cobrador
+        FROM pagos p
+        INNER JOIN socios   s   ON s.id_socio     = p.id_socio
+        INNER JOIN periodo  per ON per.id_periodo = p.id_periodo
+        LEFT  JOIN cobrador cb  ON cb.id_cobrador = s.id_cobrador
         WHERE p.estado = 'pagado'
           AND YEAR(p.fecha_pago) = :anio
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
@@ -146,7 +183,7 @@ try {
     $stmt->execute();
     $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    /* ===== Pagos condonados del año (para el pie del modal) ===== */
+    /* ========= Pagos condonados del año (para el pie del modal) ========= */
     $sqlCond = "
         SELECT
             p.id_pago,
@@ -159,10 +196,10 @@ try {
             s.id_cat_monto  AS socio_id_cat_monto,
             cb.nombre       AS cobrador_nombre,
             per.nombre      AS periodo_nombre
-        FROM rh_neg.pagos p
-        INNER JOIN rh_neg.socios   s   ON s.id_socio     = p.id_socio
-        INNER JOIN rh_neg.periodo  per ON per.id_periodo = p.id_periodo
-        LEFT  JOIN rh_neg.cobrador cb  ON cb.id_cobrador = s.id_cobrador
+        FROM pagos p
+        INNER JOIN socios   s   ON s.id_socio     = p.id_socio
+        INNER JOIN periodo  per ON per.id_periodo = p.id_periodo
+        LEFT  JOIN cobrador cb  ON cb.id_cobrador = s.id_cobrador
         WHERE p.estado = 'condonado'
           AND YEAR(p.fecha_pago) = :anio
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
@@ -172,11 +209,11 @@ try {
     $stmtCond->execute();
     $condonadosRaw = $stmtCond->fetchAll(PDO::FETCH_ASSOC);
 
-    /* ===== Agrupación y construcción de salida ===== */
+    /* ========= Agrupación y construcción de salida ========= */
 
     // Caches
-    $precioCache = [];      // por (tipo|cat|YYYY-MM)
-    $catInfoCache = [];     // por id_cat_monto
+    $precioCache  = [];   // por (tipo|cat|YYYY-MM)
+    $catInfoCache = [];   // por id_cat_monto
 
     // Fallback de categoría
     $fallbackCat = catDefaultId($pdo) ?? 0;
@@ -224,7 +261,7 @@ try {
         }
     }
 
-    // Moda de cobrador
+    // Moda de cobrador (nombre más repetido)
     $modoCobrador = function(array $lista) {
         if (empty($lista)) return '';
         $counts = [];
@@ -241,8 +278,8 @@ try {
         $catId       = (int)$g['cat_id'];
 
         // Info de categoría
-        $catInfo = $catId ? getCatInfo($pdo, $catId, $catInfoCache) : null;
-        $catNombre = $catInfo['nombre']   ?? null;
+        $catInfo   = $catId ? getCatInfo($pdo, $catId, $catInfoCache) : null;
+        $catNombre = $catInfo['nombre']    ?? null;
         $baseM     = (int)($catInfo['m_mensual'] ?? 0);
         $baseA     = (int)($catInfo['m_anual']   ?? 0);
 
@@ -265,10 +302,10 @@ try {
         $cobradorNombre    = $modoCobrador($g['cobradores']);
         $tieneSeisPeriodos = (count($g['periodos_set']) === 6);
 
-        // === Caso "CONTADO ANUAL"
+        // ==== Caso "CONTADO ANUAL"
         if ($g['has_anual'] || $tieneSeisPeriodos) {
             $periodoNombre = 'CONTADO ANUAL';
-            $precioAnual = $catId ? precioVigente($pdo, $catId, 'A', $fechaRep, $precioCache) : 0;
+            $precioAnual   = $catId ? precioVigente($pdo, $catId, 'A', $fechaRep, $precioCache) : 0;
 
             if (!isset($porPeriodo[$periodoNombre])) {
                 $porPeriodo[$periodoNombre] = ['nombre' => $periodoNombre, 'pagos' => []];
@@ -276,11 +313,11 @@ try {
             $porPeriodo[$periodoNombre]['pagos'][] = [
                 'ID_Socio'         => $idSocio,
                 'Socio'            => $socioNombre,
-                'Precio'           => (float)$precioAnual,     // usado por frontend
-                'Tipo_Precio'      => 'A',                     // 'A'nual
+                'Precio'           => (float)$precioAnual,
+                'Tipo_Precio'      => 'A',
                 'Categoria_Id'     => $catId,
                 'Nombre_Categoria' => $catNombre,
-                'Monto_Base_M'     => (float)$baseM,           // base actual por info
+                'Monto_Base_M'     => (float)$baseM,
                 'Monto_Base_A'     => (float)$baseA,
                 'Cobrador'         => $cobradorNombre,
                 'fechaPago'        => $fechaRep,
@@ -290,7 +327,7 @@ try {
             continue;
         }
 
-        // === Periodos normales (precio mensual según fecha)
+        // ==== Periodos normales (precio mensual según MES de la fecha)
         foreach ($g['rows'] as $r) {
             $periodoNombre = (string)$r['periodo_nombre'];
             $fechaFila     = (string)($r['fecha_pago'] ?? $fechaRep);
@@ -303,7 +340,7 @@ try {
                 'ID_Socio'         => $idSocio,
                 'Socio'            => $socioNombre,
                 'Precio'           => (float)$precioMensual,
-                'Tipo_Precio'      => 'M',                     // 'M'ensual
+                'Tipo_Precio'      => 'M',
                 'Categoria_Id'     => $catId,
                 'Nombre_Categoria' => $catNombre,
                 'Monto_Base_M'     => (float)$baseM,

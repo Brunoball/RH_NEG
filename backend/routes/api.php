@@ -1,133 +1,211 @@
 <?php
-// CORS global para permitir solicitudes desde el frontend
-header("Access-Control-Allow-Origin: http://localhost:3000");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json");
+// backend/routes/api.php
 
-// Manejo de preflight OPTIONS
+/* =========================
+   CORS
+   (habilita localhost:3000 y tu dominio; si querés, dejá '*')
+========================= */
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowed = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://rhnegativo.3devsnet.com',
+];
+$allowOrigin = in_array($origin, $allowed, true) ? $origin : '*';
+
+header("Access-Control-Allow-Origin: $allowOrigin");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header('Content-Type: application/json; charset=utf-8');
+
+// Preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    http_response_code(204);
     exit;
 }
 
-// Acción solicitada
-$action = $_GET['action'] ?? '';
+// Evitar que warnings/notice rompan el JSON
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-switch ($action) {
-    /* =========================
-       LOGIN / REGISTRO / SOCIOS
-    ========================= */
-    case 'inicio':
-        require_once __DIR__ . '/../modules/login/inicio.php';
-        break;
+/* =========================
+   DB (una sola vez)
+========================= */
+require_once __DIR__ . '/../config/db.php';
 
-    case 'registro':
-        require_once __DIR__ . '/../modules/login/registro.php';
-        break;
+/* =========================
+   Router por acción
+========================= */
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-    case 'socios':
-        require_once __DIR__ . '/../modules/socios/obtener_socios.php';
-        break;
+try {
+    switch ($action) {
+        /* =========================
+           LOGIN / REGISTRO / SOCIOS
+        ========================= */
+        case 'inicio':
+            require_once __DIR__ . '/../modules/login/inicio.php';
+            exit;
 
-    case 'agregar_socio':
-        require_once __DIR__ . '/../modules/socios/agregar_socio.php';
-        break;
+        case 'registro':
+            require_once __DIR__ . '/../modules/login/registro.php';
+            exit;
 
-    case 'eliminar_socio':
-        require_once __DIR__ . '/../modules/socios/eliminar_socio.php';
-        break;
+        case 'socios':
+            require_once __DIR__ . '/../modules/socios/obtener_socios.php';
+            exit;
 
-    case 'editar_socio':
-        require_once __DIR__ . '/../modules/socios/editar_socio.php';
-        break;
+        case 'agregar_socio':
+            require_once __DIR__ . '/../modules/socios/agregar_socio.php';
+            exit;
 
-    case 'next_id_socio':
-        require_once __DIR__ . '/../modules/socios/next_id_socio.php';
-        break;
+        case 'eliminar_socio':
+            require_once __DIR__ . '/../modules/socios/eliminar_socio.php';
+            exit;
 
-    case 'listas':
-        require_once __DIR__ . '/../modules/global/obtener_listas.php';
-        break;
+        case 'editar_socio':
+            require_once __DIR__ . '/../modules/socios/editar_socio.php';
+            exit;
 
-    case 'dar_baja_socio':
-        require_once __DIR__ . '/../modules/socios/dar_baja_socio.php';
-        break;
+        case 'next_id_socio':
+            require_once __DIR__ . '/../modules/socios/next_id_socio.php';
+            exit;
 
-    case 'dar_alta_socio':
-        require_once __DIR__ . '/../modules/socios/dar_alta_socio.php';
-        break;
+        case 'listas':
+            require_once __DIR__ . '/../modules/global/obtener_listas.php';
+            exit;
 
-    /* =========================
-              CUOTAS
-    ========================= */
-    case 'cuotas':
-        require_once __DIR__ . '/../modules/cuotas/cuotas.php';
-        break;
+        case 'dar_baja_socio':
+            require_once __DIR__ . '/../modules/socios/dar_baja_socio.php';
+            exit;
 
-    case 'registrar_pago':
-        require_once __DIR__ . '/../modules/cuotas/registrar_pago.php';
-        break;
+        case 'dar_alta_socio':
+            require_once __DIR__ . '/../modules/socios/dar_alta_socio.php';
+            exit;
 
-    case 'periodos_pagados':
-        require_once __DIR__ . '/../modules/cuotas/obtener_periodos_pagados.php';
-        break;
+        /* =========================
+           FAMILIAS (archivos separados)
+        ========================= */
+        case 'familias_listar':
+            require_once __DIR__ . '/../modules/socios/familias/familias_listar.php';
+            exit;
 
-    case 'socio_comprobante':
-        require_once __DIR__ . '/../modules/cuotas/obtener_socio_comprobante.php';
-        break;
+        case 'familia_agregar':
+            require_once __DIR__ . '/../modules/socios/familias/agregar_familia.php';
+            exit;
 
-    case 'buscar_socio_codigo':
-        require_once __DIR__ . '/../modules/cuotas/buscar_socio_codigo.php';
-        break;
+        case 'familia_editar':
+            require_once __DIR__ . '/../modules/socios/familias/editar_familia.php';
+            exit;
 
-    case 'eliminar_pago':
-        require_once __DIR__ . '/../modules/cuotas/eliminar_pago.php';
-        break;
+        case 'familia_eliminar':
+            require_once __DIR__ . '/../modules/socios/familias/eliminar_familia.php';
+            exit;
 
-    case 'estado_periodo_socio':
-        require_once __DIR__ . '/../modules/cuotas/estado_periodo_socio.php';
-        break;
+        case 'familia_miembros':
+            require_once __DIR__ . '/../modules/socios/familias/familia_miembros.php';
+            exit;
 
-    case 'montos':
-        // ⬅️ RUTA CORRECTA (antes estaba mal)
-        require_once __DIR__ . '/../modules/cuotas/montos.php';
-        break;
-        
+        case 'socios_sin_familia':
+            require_once __DIR__ . '/../modules/socios/familias/socios_sin_familia.php';
+            exit;
 
-    /* =========================
-             CONTABLE
-    ========================= */
-    case 'contable':
-        require_once __DIR__ . '/../modules/contable/contable_socios.php';
-        break;
+        case 'familia_agregar_miembros':
+            require_once __DIR__ . '/../modules/socios/familias/familia_agregar_miembros.php';
+            exit;
 
-    /* =========================
-            CATEGORÍAS (NUEVO)
-       Tabla: rh_neg.categoria_monto
-    ========================= */
-    case 'categorias_listar':
-        require_once __DIR__ . '/../modules/categorias/categorias_listar.php';
-        break;
+        case 'familia_quitar_miembro':
+            require_once __DIR__ . '/../modules/socios/familias/familia_quitar_miembro.php';
+            exit;
 
-    case 'categorias_guardar':
-        require_once __DIR__ . '/../modules/categorias/categorias_guardar.php';
-        break;
+        // Compatibilidad con tu frontend actual (POST familia_guardar)
+        // El archivo detecta si viene id_familia para decidir INSERT/UPDATE.
+        case 'familia_guardar':
+            require_once __DIR__ . '/../modules/socios/familias/familia_guardar.php';
+            exit;
 
-    case 'categorias_actualizar':
-        require_once __DIR__ . '/../modules/categorias/categorias_actualizar.php';
-        break;
+        /* =========================
+                  CUOTAS
+        ========================= */
+        case 'cuotas':
+            require_once __DIR__ . '/../modules/cuotas/cuotas.php';
+            exit;
 
-    case 'categorias_eliminar':
-        require_once __DIR__ . '/../modules/categorias/categorias_eliminar.php';
-        break;
+        case 'registrar_pago':
+            require_once __DIR__ . '/../modules/cuotas/registrar_pago.php';
+            exit;
 
-    case 'categorias_historial':
-        require_once __DIR__ . '/../modules/categorias/categorias_historial.php';
-        break;
+        case 'periodos_pagados':
+            require_once __DIR__ . '/../modules/cuotas/obtener_periodos_pagados.php';
+            exit;
 
+        case 'socio_comprobante':
+            require_once __DIR__ . '/../modules/cuotas/obtener_socio_comprobante.php';
+            exit;
 
-    default:
-        echo json_encode(['ok' => false, 'mensaje' => 'Acción no válida.']);
-        break;
+        case 'buscar_socio_codigo':
+            require_once __DIR__ . '/../modules/cuotas/buscar_socio_codigo.php';
+            exit;
+
+        case 'eliminar_pago':
+            require_once __DIR__ . '/../modules/cuotas/eliminar_pago.php';
+            exit;
+
+        case 'estado_periodo_socio':
+            require_once __DIR__ . '/../modules/cuotas/estado_periodo_socio.php';
+            exit;
+
+        case 'montos':
+            require_once __DIR__ . '/../modules/cuotas/montos.php';
+            exit;
+
+        /* =========================
+                CATEGORÍAS
+           (sin prefijo de DB)
+        ========================= */
+        case 'categorias_listar':
+            require_once __DIR__ . '/../modules/categorias/categorias_listar.php';
+            exit;
+
+        case 'categorias_guardar':
+            require_once __DIR__ . '/../modules/categorias/categorias_guardar.php';
+            exit;
+
+        case 'categorias_actualizar':
+            require_once __DIR__ . '/../modules/categorias/categorias_actualizar.php';
+            exit;
+
+        case 'categorias_eliminar':
+            require_once __DIR__ . '/../modules/categorias/categorias_eliminar.php';
+            exit;
+
+        case 'categorias_historial':
+            require_once __DIR__ . '/../modules/categorias/categorias_historial.php';
+            exit;
+
+        /* =========================
+                CONTABLE
+        ========================= */
+        case 'contable':
+            require_once __DIR__ . '/../modules/contable/contable_socios.php';
+            exit;
+
+        /* =========================
+               DEFAULT / 404
+        ========================= */
+        default:
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'mensaje' => 'Acción no válida: ' . $action]);
+            exit;
+    }
+
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'ok' => false,
+        'mensaje' => 'Error en router',
+        // Descomentar para depurar:
+        // 'error' => $e->getMessage(),
+    ]);
+    exit;
 }

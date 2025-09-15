@@ -1,5 +1,5 @@
 // src/components/Socios/AgregarSocio.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -10,7 +10,6 @@ import {
   faArrowLeft as faStepBack,
   faUser,
   faIdCard,
-  faUserTag,
   faCircleInfo,
   faCalendarDays,
   faHome,
@@ -21,11 +20,69 @@ import {
   faMoneyBillWave,
   faComment,
   faTags,
-  faDroplet, // ⬅️ nuevo ícono para “Tipo de sangre”
+  faDroplet,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
 import './AgregarSocio.css';
+
+/* ===== Modal Confirmar “Volver sin guardar” (mismo diseño catdel-*) ===== */
+function ConfirmLeaveModal({ open, onConfirm, onCancel, loading }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onCancel?.();
+      if (e.key === 'Enter') onConfirm?.();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onConfirm, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="catdel-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="addleave-modal-title"
+      onClick={onCancel}
+    >
+      <div
+        className="catdel-modal-container catdel-modal--danger"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="catdel-modal__icon" aria-hidden="true">
+          <FontAwesomeIcon icon={faTriangleExclamation} />
+        </div>
+
+        <h3 id="addleave-modal-title" className="catdel-modal-title catdel-modal-title--danger">
+          Volver sin guardar
+        </h3>
+
+        <p className="catdel-modal-text">
+          ¿Estás seguro de volver? <br />
+          Si no guardás, vas a <strong>perder todos los cambios</strong>.
+        </p>
+
+        <div className="catdel-modal-buttons">
+          <button className="catdel-btn catdel-btn--ghost" onClick={onCancel} autoFocus disabled={loading}>
+            Cancelar
+          </button>
+          <button
+            className="catdel-btn catdel-btn--solid-danger"
+            onClick={onConfirm}
+            disabled={loading}
+            aria-busy={loading ? 'true' : 'false'}
+          >
+            {loading ? 'Volviendo…' : 'Volver sin guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const AgregarSocio = () => {
   const navigate = useNavigate();
@@ -42,11 +99,11 @@ const AgregarSocio = () => {
   // Próximo ID (último + 1)
   const [nextId, setNextId] = useState(null);
 
-  const [formData, setFormData] = useState({
+  const initialForm = useMemo(() => ({
     apellido: '',
     nombres: '',
     id_cobrador: '',
-    id_categoria: '',   // ← ahora se muestra como “Tipo de sangre”
+    id_categoria: '',   // ← “Tipo de sangre”
     id_cat_monto: '',
     domicilio: '',
     numero: '',
@@ -57,7 +114,9 @@ const AgregarSocio = () => {
     id_estado: '',
     domicilio_cobro: '',
     dni: ''
-  });
+  }), []);
+
+  const [formData, setFormData] = useState(initialForm);
 
   const [errores, setErrores] = useState({});
   const [mostrarErrores, setMostrarErrores] = useState(false);
@@ -65,6 +124,23 @@ const AgregarSocio = () => {
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
   const nacimientoRef = useRef(null);
+
+  // ===== Baseline para detectar cambios reales (ignora autocompletados iniciales) =====
+  const baselineRef = useRef(initialForm);
+
+  // ===== Modal de confirmación de salida =====
+  const [showConfirmLeave, setShowConfirmLeave] = useState(false);
+
+  // Determina si hay cambios sin guardar comparando vs baseline
+  const isDirty = useMemo(() => {
+    const base = baselineRef.current || {};
+    for (const [k, v] of Object.entries(formData)) {
+      const a = String(v ?? '').trim();
+      const b = String(base[k] ?? '').trim();
+      if (a !== b) return true;
+    }
+    return false;
+  }, [formData]);
 
   /* Helpers */
   const openDateWithGesture = (ref) => (e) => {
@@ -86,10 +162,12 @@ const AgregarSocio = () => {
         if (json.exito) {
           const listasCargadas = { ...json.listas, loaded: true };
 
-          // Si hay UNA sola categoría de monto, setearla por defecto
+          // Autoselect de categoría/monto si viene solo una
+          let nextForm = null;
           if (Array.isArray(listasCargadas.categorias_monto) && listasCargadas.categorias_monto.length === 1) {
             const unico = listasCargadas.categorias_monto[0];
-            setFormData((prev) => ({ ...prev, id_cat_monto: String(unico.id_cat_monto) }));
+            nextForm = (prev) => ({ ...prev, id_cat_monto: String(unico.id_cat_monto) });
+            setFormData(nextForm);
           }
 
           setListas(listasCargadas);
@@ -104,6 +182,14 @@ const AgregarSocio = () => {
     };
     fetchListas();
   }, []);
+
+  // Una vez que las listas quedan "loaded", fijamos el baseline al formulario actual
+  useEffect(() => {
+    if (listas.loaded) {
+      baselineRef.current = { ...formData };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listas.loaded]);
 
   /* Próximo ID */
   const fetchNextId = async () => {
@@ -246,7 +332,7 @@ const AgregarSocio = () => {
       comentario: 'Comentarios',
       nacimiento: 'Fecha nacimiento',
       id_estado: 'Estado',
-      id_categoria: 'Tipo de sangre',   // ⬅️ cambiado
+      id_categoria: 'Tipo de sangre',
       id_cat_monto: 'Categoría (Monto)',
       id_cobrador: 'Método de pago',
       domicilio_cobro: 'Domicilio de cobro',
@@ -285,7 +371,6 @@ const AgregarSocio = () => {
         let errs = {};
         if (data.errores && typeof data.errores === 'object') {
           errs = { ...data.errores };
-          // compat por si backend manda 'nombre'
           if (Object.prototype.hasOwnProperty.call(errs, 'nombre')) {
             delete errs.nombre;
             if (!errs.apellido) errs.apellido = 'El apellido es obligatorio.';
@@ -309,6 +394,35 @@ const AgregarSocio = () => {
   const handleFormKeyDown = (e) => {
     if (e.key === 'Enter') { e.preventDefault(); if (currentStep < 3) handleNextStep(); }
   };
+
+  // ===== Volver con confirmación si hay cambios =====
+  const handleVolverClick = () => {
+    if (isDirty) {
+      setShowConfirmLeave(true);
+    } else {
+      navigate('/socios');
+    }
+  };
+
+  const confirmLeave = () => {
+    setShowConfirmLeave(false);
+    navigate('/socios');
+  };
+
+  const cancelLeave = () => setShowConfirmLeave(false);
+
+  // Cerrar modal con ESC (redundante pero ok)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!showConfirmLeave) return;
+      if (e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27) {
+        e.preventDefault();
+        cancelLeave();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showConfirmLeave]);
 
   /* UI */
   const ProgressSteps = () => (
@@ -359,7 +473,7 @@ const AgregarSocio = () => {
             </div>
           </div>
 
-          <button className="add-back-btn" onClick={() => navigate('/socios')} disabled={loading}>
+          <button className="add-back-btn" onClick={handleVolverClick} disabled={loading}>
             <FontAwesomeIcon icon={faArrowLeft} /> Volver
           </button>
         </div>
@@ -408,7 +522,7 @@ const AgregarSocio = () => {
                 </div>
 
                 <div className="add-socio-group-row">
-                  {/* Tipo de sangre (antes “Categoría”) */}
+                  {/* Tipo de sangre */}
                   <div className={`add-socio-input-wrapper always-active ${formData.id_categoria || activeField === 'id_categoria' ? 'has-value' : ''}`}>
                     <label className="add-socio-label">
                       <FontAwesomeIcon icon={faDroplet} className="input-icon" />
@@ -568,6 +682,14 @@ const AgregarSocio = () => {
           )}
         </div>
       </div>
+
+      {/* ===== Modal Confirmación de Volver sin guardar (catdel-*) ===== */}
+      <ConfirmLeaveModal
+        open={showConfirmLeave}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+        loading={false}
+      />
     </div>
   );
 };

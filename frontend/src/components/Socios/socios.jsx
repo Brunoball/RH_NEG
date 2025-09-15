@@ -1293,6 +1293,7 @@ const Socios = () => {
                 <FaUserPlus className="soc-boton-icono" /> Agregar Socio
               </button>
             )}
+
             <button
               className="soc-boton soc-boton-exportar"
               onClick={exportarExcel}
@@ -1300,8 +1301,14 @@ const Socios = () => {
             >
               <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
             </button>
+
             <button className="soc-boton soc-boton-baja" onClick={() => navigate('/socios/baja')}>
               <FaUserSlash className="soc-boton-icono" /> Dados de Baja
+            </button>
+
+            {/* 🔹 Nuevo: botón Familias */}
+            <button className="soc-boton" onClick={() => navigate('/familias')}>
+              <FaUsers className="soc-boton-icono" /> Familias
             </button>
           </div>
         </div>

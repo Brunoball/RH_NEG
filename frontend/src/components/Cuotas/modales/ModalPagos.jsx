@@ -24,11 +24,19 @@ const construirListaAnios = (nowYear) => {
   return arr;
 };
 
-// ✔️ Descuento anual sólo habilitado antes del 1 de marzo del año actual
-const descuentoAnualHabilitado = () => {
+/** Ventana anual activa: visible del 15-dic al 28/29-feb (implementado como [15-dic, 1-mar)). */
+const ventanaAnualActiva = () => {
   const hoy = new Date();
-  const corte = new Date(hoy.getFullYear(), 2, 1); // 1 de marzo (mes 2)
-  return hoy < corte;
+  const y = hoy.getFullYear();
+  const startActual = new Date(y, 11, 15);   // 15-dic-y
+  const endSiguiente = new Date(y + 1, 2, 1); // 1-mar-(y+1)
+  if (hoy >= startActual && hoy < endSiguiente) return true;
+
+  const startPrev = new Date(y - 1, 11, 15); // 15-dic-(y-1)
+  const endActual = new Date(y, 2, 1);       // 1-mar-y
+  if (hoy >= startPrev && hoy < endActual) return true;
+
+  return false;
 };
 
 const ModalPagos = ({ socio, onClose }) => {
@@ -60,56 +68,37 @@ const ModalPagos = ({ socio, onClose }) => {
     setToast({ tipo, mensaje, duracion });
   };
 
+  // ===== helpers para (re)consultar montos exactos al instante =====
+  const buildMontosQS = () => {
+    const qs = new URLSearchParams();
+    if (socio?.id_cat_monto) qs.set('id_cat_monto', String(socio.id_cat_monto));
+    if (socio?.id_socio)     qs.set('id_socio',     String(socio.id_socio));
+    return qs.toString();
+  };
+
+  const refrescarMontosActuales = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api.php?action=montos&${buildMontosQS()}`);
+      const data = await res.json();
+      if (data?.exito) {
+        setMontoMensual(Number(data.mensual) || 0);
+        setMontoAnual(Number(data.anual) || 0);
+      } else {
+        mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos actualizados.');
+      }
+    } catch {
+      mostrarToast('error', 'Error al consultar montos actualizados.');
+    }
+  };
+
   /* ===============================
-   * CARGA DE MONTOS POR CATEGORÍA
+   * CARGA DE MONTOS POR CATEGORÍA (inicial)
    * =============================== */
   useEffect(() => {
     if (!socio) return;
-
-    const cargarMontos = async () => {
-      try {
-        // Preferimos enviar id_cat_monto. Si no viniera en el objeto, mandamos id_socio.
-        const qs = new URLSearchParams();
-        if (socio.id_cat_monto) qs.set('id_cat_monto', String(socio.id_cat_monto));
-        if (socio.id_socio)     qs.set('id_socio',     String(socio.id_socio));
-
-        const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
-        const data = await res.json();
-
-        if (data?.exito) {
-          setMontoMensual(Number(data.mensual) || 0);
-          setMontoAnual(Number(data.anual) || 0);
-        } else {
-          setMontoMensual(0);
-          setMontoAnual(0);
-          mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos para la categoría del socio.');
-        }
-      } catch (e) {
-        setMontoMensual(0);
-        setMontoAnual(0);
-        mostrarToast('error', 'Error al consultar montos para la categoría del socio.');
-      }
-    };
-
-    cargarMontos();
+    refrescarMontosActuales();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socio]);
-
-  // Filtra periodos disponibles en función de la fecha de ingreso y el año elegido
-  const filtrarPeriodosPorIngreso = () => {
-    if (!fechaIngreso) return periodos;
-
-    const fecha = new Date(fechaIngreso);
-    const mesIngreso = fecha.getMonth() + 1;
-    const anioIngreso = fecha.getFullYear();
-
-    return periodos.filter((p) => {
-      if (p.id === ID_CONTADO_ANUAL) return true; // siempre visible
-      const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
-      return (anioIngreso < anioTrabajo) || (anioIngreso === anioTrabajo && primerMes >= mesIngreso);
-    });
-  };
-
-  const periodosDisponibles = filtrarPeriodosPorIngreso();
 
   // Carga inicial + cuando cambia el año elegido
   useEffect(() => {
@@ -156,6 +145,32 @@ const ModalPagos = ({ socio, onClose }) => {
   }, [socio, anioTrabajo]);
 
   // ---- Helpers de selección ----
+  const filtrarPeriodosPorIngreso = () => {
+    if (!fechaIngreso) return periodos;
+
+    const fecha = new Date(fechaIngreso);
+    const mesIngreso = fecha.getMonth() + 1;
+    const anioIngreso = fecha.getFullYear();
+
+    return periodos.filter((p) => {
+      if (p.id === ID_CONTADO_ANUAL) return true; // (visibilidad se controla más abajo)
+      const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
+      return (anioIngreso < anioTrabajo) || (anioIngreso === anioTrabajo && primerMes >= mesIngreso);
+    });
+  };
+
+  // Base: según ingreso
+  const periodosBase = filtrarPeriodosPorIngreso();
+
+  // Visibilidad de ANUAL según ventana actual (computadora)
+  const ventanaFlag = ventanaAnualActiva();
+  const periodosDisponibles = useMemo(() => {
+    return periodosBase.filter(p => {
+      if (p.id === ID_CONTADO_ANUAL) return ventanaFlag; // solo visible en ventana
+      return true;
+    });
+  }, [periodosBase, ventanaFlag]);
+
   const seleccionIncluyeAnual = seleccionados.includes(ID_CONTADO_ANUAL);
   const idsBimestralesDisponibles = periodosDisponibles
     .filter(p => p.id !== ID_CONTADO_ANUAL && !periodosPagados.includes(p.id))
@@ -167,24 +182,46 @@ const ModalPagos = ({ socio, onClose }) => {
     setTodosSeleccionados(todos);
   }, [seleccionados, idsBimestralesDisponibles]);
 
-  const togglePeriodo = (id) => {
-    setSeleccionados((prev) => {
-      const ya = prev.includes(id);
+  const togglePeriodo = async (id) => {
+    if (id === ID_CONTADO_ANUAL) {
+      if (!ventanaFlag) return;
+      await refrescarMontosActuales();
+      setSeleccionados((prev) => {
+        const ya = prev.includes(ID_CONTADO_ANUAL);
+        return ya ? [] : [ID_CONTADO_ANUAL];
+      });
+      return;
+    }
 
-      if (id === ID_CONTADO_ANUAL) {
-        return ya ? prev.filter(pid => pid !== ID_CONTADO_ANUAL) : [ID_CONTADO_ANUAL];
+    setSeleccionados((prev) => {
+      const base = prev.filter(pid => pid !== ID_CONTADO_ANUAL);
+      const ya = base.includes(id);
+      let next = ya ? base.filter(pid => pid !== id) : [...base, id];
+
+      if (ventanaFlag) {
+        const faltan = idsBimestralesDisponibles.filter(x => !next.includes(x));
+        const hayAnualVisible = periodosDisponibles.some(p => p.id === ID_CONTADO_ANUAL);
+        if (faltan.length === 0 && hayAnualVisible) {
+          refrescarMontosActuales();
+          return [ID_CONTADO_ANUAL];
+        }
       }
 
-      const base = prev.filter(pid => pid !== ID_CONTADO_ANUAL);
-      if (ya) return base.filter(pid => pid !== id);
-      return [...base, id];
+      return next;
     });
   };
 
-  const toggleSeleccionarTodos = () => {
+  const toggleSeleccionarTodos = async () => {
+    const hayAnualVisible = periodosDisponibles.some(p => p.id === ID_CONTADO_ANUAL);
+
     if (todosSeleccionados) {
       setSeleccionados((prev) => prev.filter(id => !idsBimestralesDisponibles.includes(id)));
     } else {
+      if (ventanaFlag && hayAnualVisible) {
+        await refrescarMontosActuales();
+        setSeleccionados([ID_CONTADO_ANUAL]);
+        return;
+      }
       setSeleccionados((prev) => {
         const sinAnual = prev.filter(id => id !== ID_CONTADO_ANUAL);
         const union = new Set([...sinAnual, ...idsBimestralesDisponibles]);
@@ -193,24 +230,25 @@ const ModalPagos = ({ socio, onClose }) => {
     }
   };
 
-  // ======= PRECIO / TOTAL (usa montos de DB + REGLA DE MARZO) =======
+  // ======= PRECIO / TOTAL =======
   const seleccionSinAnual = useMemo(
     () => seleccionados.filter(id => id !== ID_CONTADO_ANUAL),
     [seleccionados]
   );
 
-  const aplicaDescuentoAnual = !condonar && (seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO);
+  const aplicaAnualPorSeleccion =
+    ventanaFlag && (seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO);
 
-  // ✔️ Regla: antes del 1/3 usa precio anual de DB; desde 1/3 cobra mensual × 6
-  const total = condonar
-    ? 0
-    : (aplicaDescuentoAnual
-        ? (descuentoAnualHabilitado() ? (montoAnual || 0) : (montoMensual || 0) * MESES_ANIO)
-        : (seleccionados.length * (montoMensual || 0)));
+  const total = useMemo(() => {
+    if (condonar) return 0;
+    if (aplicaAnualPorSeleccion) return Number(montoAnual) || 0;
+    const cantBimestres = seleccionSinAnual.length;
+    return cantBimestres * (Number(montoMensual) || 0);
+  }, [condonar, aplicaAnualPorSeleccion, montoAnual, montoMensual, seleccionSinAnual.length]);
 
   // Texto de períodos para el comprobante
   const periodoTextoFinal = useMemo(() => {
-    if (aplicaDescuentoAnual || seleccionIncluyeAnual) return `CONTADO ANUAL ${anioTrabajo}`;
+    if (aplicaAnualPorSeleccion) return `CONTADO ANUAL ${anioTrabajo}`;
 
     if (seleccionSinAnual.length === 0) return '';
     const partes = seleccionSinAnual
@@ -220,13 +258,17 @@ const ModalPagos = ({ socio, onClose }) => {
         return p.nombre.replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
       });
     return `${partes.join(' / ')} ${anioTrabajo}`;
-  }, [aplicaDescuentoAnual, seleccionIncluyeAnual, seleccionSinAnual, periodos, anioTrabajo]);
+  }, [aplicaAnualPorSeleccion, seleccionSinAnual, periodos, anioTrabajo]);
 
   // ======= CONFIRMAR / ÉXITO =======
   const confirmar = async () => {
     if (seleccionados.length === 0) {
       mostrarToast('advertencia', 'Seleccioná al menos un período');
       return;
+    }
+
+    if (aplicaAnualPorSeleccion) {
+      await refrescarMontosActuales();
     }
 
     setCargando(true);
@@ -266,14 +308,27 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= COMPROBANTE / IMPRESIÓN =======
   const handleImprimirComprobante = async () => {
-    const esAnualSeleccion = seleccionIncluyeAnual || seleccionSinAnual.length === MESES_ANIO;
+    const esAnualSeleccion = aplicaAnualPorSeleccion;
+    if (esAnualSeleccion) {
+      await refrescarMontosActuales();
+    }
+
     const periodoCodigo = esAnualSeleccion ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
+
+    const importe =
+      condonar
+        ? 0
+        : (esAnualSeleccion
+            ? (Number(montoAnual) || 0)
+            : (Number(montoMensual) || 0) * seleccionSinAnual.length);
 
     const socioParaImprimir = {
       ...socio,
       id_periodo: periodoCodigo,
-      periodo_texto: periodoTextoFinal,
-      importe_total: total,
+      periodo_texto: esAnualSeleccion
+        ? `CONTADO ANUAL ${anioTrabajo}`
+        : (periodoTextoFinal || ''),
+      importe_total: importe,
       anio: anioTrabajo,
     };
 
@@ -345,7 +400,7 @@ const ModalPagos = ({ socio, onClose }) => {
                   Cerrar
                 </button>
                 <button className="btn btn-primary" onClick={handleImprimirComprobante}>
-                  Comprobante
+                  Imprimir
                 </button>
               </div>
             </div>
@@ -491,12 +546,14 @@ const ModalPagos = ({ socio, onClose }) => {
                                 type="checkbox"
                                 id={`periodo-${periodo.id}`}
                                 checked={checked}
-                                onChange={() => togglePeriodo(periodo.id)}
+                                // Evitar doble toggle desde checkbox
+                                onClick={(e) => { e.stopPropagation(); togglePeriodo(periodo.id); }}
+                                onChange={() => {}}
                                 disabled={disabled}
                               />
                               <span className="checkmark"></span>
                             </div>
-                            <label htmlFor={`periodo-${periodo.id}`} className="periodo-label">
+                            <div className="periodo-label">
                               {periodo.nombre}
                               {yaMarcado && (
                                 <span className={`periodo-status ${estadoExacto === 'condonado' ? 'status-condonado' : 'status-pagado'}`}>
@@ -506,7 +563,7 @@ const ModalPagos = ({ socio, onClose }) => {
                                   {etiquetaEstado}
                                 </span>
                               )}
-                            </label>
+                            </div>
                           </div>
                         );
                       })}
@@ -545,6 +602,7 @@ const ModalPagos = ({ socio, onClose }) => {
                   condonar ? 'Condonar' : 'Pagar'
                 )}
               </button>
+              {/* Botón Imprimir removido de la vista normal */}
             </div>
           </div>
         </div>

@@ -199,7 +199,7 @@ const Principal = () => {
                     <FontAwesomeIcon icon={faTags} className="princ-opcion-icono" />
                   </div>
                   <span className="princ-opcion-texto">Categorías</span>
-                  <span className="princ-opcion-desc">Internos / Externos y montos</span>
+                  <span className="princ-opcion-desc">Montos de categorías</span>
                 </div>
               </button>
 

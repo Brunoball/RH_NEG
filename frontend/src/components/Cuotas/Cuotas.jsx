@@ -66,7 +66,6 @@ const ID_CONTADO_ANUAL_FALLBACK = 7;
  * Helpers de año/periodo
  * ========================= */
 const currentYear = new Date().getFullYear();
-const nextYear = currentYear + 1;
 
 // Intenta extraer un año (YYYY) del nombre del periodo (p.ej. "Enero 2025")
 const extractYearFromPeriodoName = (nombre = '') => {
@@ -853,8 +852,16 @@ const Cuotas = () => {
     setMostrarModalSeleccionPeriodos(true);
   };
 
-  // ⬇️ NUEVO: recibe { anio, seleccionados } desde ModalMesCuotas
-  const handleImprimirSeleccionados = async ({ anio, seleccionados }) => {
+  // ⬇️ ACTUALIZADO: acepta payload enriquecido del ModalMesCuotas
+  const handleImprimirSeleccionados = async (payload) => {
+    const {
+      anio,
+      seleccionados,
+      esAnual,         // opcional, calculado por el modal
+      periodoTexto,    // opcional, calculado por el modal
+      importe_total,   // opcional, para caso por-socio
+    } = payload || {};
+
     const ventanaImpresion = window.open('', '_blank');
     if (!ventanaImpresion) {
       alert('Por favor deshabilita el bloqueador de ventanas emergentes para esta página');
@@ -873,24 +880,38 @@ const Cuotas = () => {
         }
       } else {
         const anual = getAnualPeriodo();
-        const listaOrdenada = [...seleccionados].sort((a, b) => Number(a) - Number(b));
+        const listaOrdenada = [...(seleccionados || [])].sort((a, b) => Number(a) - Number(b));
         const idsStr = listaOrdenada.map(String);
-        const textoPeriodo = construirPeriodoTexto(listaOrdenada, anio);
+
+        // Si el modal nos pasó el texto, lo usamos; si no, lo construimos
+        const textoPeriodo =
+          typeof periodoTexto === 'string' && periodoTexto.trim().length > 0
+            ? periodoTexto
+            : construirPeriodoTexto(listaOrdenada, anio);
+
         const periodoCodigo = (anual && idsStr.includes(String(anual.id)))
           ? String(anual.id)
           : primerIdSeleccionado(listaOrdenada);
+
         const anioNum = Number(anio) || Number(anioSeleccionado) || new Date().getFullYear();
 
         if (cuotaParaImprimir) {
+          // Caso impresión de UNA fila: si el modal ya calculó importe_total, lo usamos
+          const importe =
+            typeof importe_total === 'number'
+              ? importe_total
+              : calcularImportePorSeleccion(listaOrdenada, cuotaParaImprimir);
+
           const socioConPeriodos = {
             ...cuotaParaImprimir,
             id_periodo: periodoCodigo,
             periodo_texto: textoPeriodo,
-            importe_total: calcularImportePorSeleccion(listaOrdenada, cuotaParaImprimir),
+            importe_total: importe,
             anio: anioNum,
           };
           await imprimirRecibosUnicos([socioConPeriodos], periodoCodigo, ventanaImpresion);
         } else {
+          // Impresión masiva: se calcula por socio (el modal no envía importe por cada uno)
           const listaEnriquecida = cuotasFiltradas.map((c) => ({
             ...c,
             id_periodo: periodoCodigo,
@@ -1481,6 +1502,19 @@ const Cuotas = () => {
           anios={anios}
           anioSeleccionado={anioSeleccionado}
           onAnioChange={setAnioSeleccionado}
+          /* 👇👇 INTEGRACIÓN NUEVA: montos por-socio para cálculo dentro del modal */
+          montoMensual={
+            cuotaParaImprimir
+              ? Number(cuotaParaImprimir?.monto_mensual) || 0
+              : undefined
+          }
+          montoAnual={
+            cuotaParaImprimir
+              ? (Number(cuotaParaImprimir?.monto_anual) ||
+                 ((Number(cuotaParaImprimir?.monto_mensual) || 0) * 12))
+              : undefined
+          }
+          condonar={false}
         />
       )}
 

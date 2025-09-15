@@ -68,7 +68,9 @@ function ConfirmDeleteModal({ open, categoria, onConfirm, onCancel, loading }) {
         </h3>
 
         <p className="catdel-modal-text">
-          ¿Seguro que querés eliminar <strong>{categoria?.nombre}</strong>? Esta acción no se puede deshacer.
+          Vas a eliminar <strong>{categoria?.nombre}</strong>. <br />
+          <strong>ATENCIÓN:</strong> todos los socios que tengan esta categoría quedarán <strong>sin categoría</strong>.
+          Esta acción <u>no se puede deshacer</u>.
         </p>
 
         <div className="catdel-modal-buttons">
@@ -141,21 +143,41 @@ const Categorias = () => {
   const confirmarEliminar = async () => {
     const cat = delState.cat;
     if (!cat) return setDelState({ open: false, cat: null, loading: false });
+
     try {
       setDelState((s) => ({ ...s, loading: true }));
+
       const r = await fetch(api('categorias_eliminar'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // Enviamos idCategoria; el backend también acepta id_cat_monto
         body: JSON.stringify({ idCategoria: cat.idCategoria }),
       });
-      const resp = await r.json();
-      if (!resp?.ok) throw new Error(resp?.mensaje || 'Error al eliminar');
-      showToast('exito', 'Categoría eliminada.');
+
+      // Leemos SIEMPRE como texto y luego intentamos parsear
+      const text = await r.text();
+      let resp = null;
+      try { resp = JSON.parse(text); } catch (_) { /* no es JSON válido */ }
+
+      if (!r.ok) {
+        // Error HTTP real (500, 404, etc.)
+        throw new Error(`HTTP ${r.status}: ${text.slice(0, 400)}`);
+      }
+
+      if (!resp || resp.ok !== true) {
+        // 200 pero body inválido o ok=false
+        const msg = (resp && (resp.mensaje || resp.error)) ||
+                    (text?.trim() ? `Respuesta inválida: ${text.slice(0, 400)}` : 'Respuesta inválida del servidor');
+        throw new Error(msg);
+      }
+
+      const afectados = Number(resp.socios_afectados ?? 0);
+      showToast('exito', `Categoría eliminada. Socios sin categoría: ${afectados}.`);
       setDelState({ open: false, cat: null, loading: false });
       await cargar();
     } catch (e) {
       console.error(e);
-      showToast('error', 'No se pudo eliminar la categoría.');
+      showToast('error', e.message || 'No se pudo eliminar la categoría.');
       setDelState((s) => ({ ...s, loading: false }));
     }
   };
@@ -274,27 +296,28 @@ const Categorias = () => {
             ))
           )}
         </div>
-                  <section className="cat_toolbar">
-            <button
-              className="cat_btn cat_btn_primary cat_btn_back"
-              onClick={() => navigate('/panel')}
-              title="Volver"
-              aria-label="Volver"
-            >
-              <FontAwesomeIcon icon={faArrowLeft} />
-              <span className="cat_btn_text">Volver</span>
-            </button>
 
-            <div className="cat_toolbar_spacer" />
+        <section className="cat_toolbar">
+          <button
+            className="cat_btn cat_btn_primary cat_btn_back"
+            onClick={() => navigate('/panel')}
+            title="Volver"
+            aria-label="Volver"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} />
+            <span className="cat_btn_text">Volver</span>
+          </button>
 
-            <button
-              className="cat_btn cat_btn_outline"
-              onClick={() => navigate('/categorias/nueva')}
-            >
-              <FontAwesomeIcon icon={faPlus} />
-              <span className="cat_btn_text">Nueva</span>
-            </button>
-          </section>
+          <div className="cat_toolbar_spacer" />
+
+          <button
+            className="cat_btn cat_btn_outline"
+            onClick={() => navigate('/categorias/nueva')}
+          >
+            <FontAwesomeIcon icon={faPlus} />
+            <span className="cat_btn_text">Nueva</span>
+          </button>
+        </section>
       </div>
 
       {/* Modal Historial */}

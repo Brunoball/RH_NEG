@@ -2,29 +2,110 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faCalendarAlt, faPrint } from "@fortawesome/free-solid-svg-icons";
+import BASE_URL from "../../../config/config"; // <- para refrescar montos al vuelo (opcional)
 import "./ModalMesCuotas.css";
+
+/**
+ * NUEVO:
+ * - La tarjeta "ANUAL" solo se muestra en la ventana 15-dic → fin-feb (oculta desde 1-mar hasta 14-dic).
+ * - Cuando se presiona ANUAL (o se convierte a anual por seleccionar todos dentro de la ventana),
+ *   se intenta REFRESCAR el precio anual desde DB EN ESE MOMENTO y se usa ese valor exacto.
+ * - Antes de "Imprimir" se vuelve a refrescar (si es anual) por si cambió mientras estaba abierto.
+ * - Si no hay forma de refrescar (porque no se pasan IDs o el endpoint no responde),
+ *   se usa el montoAnual recibido por props como fallback.
+ *
+ * API de props:
+ * - periodos, seleccionados, onSeleccionadosChange, onCancelar, onImprimir, anios, anioSeleccionado, onAnioChange
+ * - montoMensual, montoAnual, condonar
+ * - (OPCIONALES para refresco): id_socio, id_cat_monto
+ */
+
+const MESES_ANIO = 6; // cantidad de bimestres que representan el anual
+
+const ventanaAnualActiva = () => {
+  const hoy = new Date();
+  const y = hoy.getFullYear();
+  const startActual = new Date(y, 11, 15);   // 15-dic-y
+  const endSiguiente = new Date(y + 1, 2, 1); // 1-mar-(y+1)
+  if (hoy >= startActual && hoy < endSiguiente) return true;
+
+  const startPrev = new Date(y - 1, 11, 15); // 15-dic-(y-1)
+  const endActual = new Date(y, 2, 1);       // 1-mar-y
+  if (hoy >= startPrev && hoy < endActual) return true;
+
+  return false;
+};
 
 const ModalMesCuotas = ({
   periodos = [],
   seleccionados = [],
   onSeleccionadosChange,
   onCancelar,
-  onImprimir,                // recibe { anio, seleccionados }
+  onImprimir,                // recibe { anio, seleccionados, esAnual, periodoTexto, importe_total }
   anios = [],
   anioSeleccionado = "",
   onAnioChange = () => {},
+  // ===== NUEVOS/EXISTENTES PROPS =====
+  montoMensual = 0,
+  montoAnual = 0,
+  condonar = false,
+  // Para refrescar montos al vuelo (opcionales):
+  id_socio,
+  id_cat_monto,
 }) => {
   const normalize = (s = "") =>
     String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 
-  const isAnual = (p) => normalize(p?.nombre).includes("ANUAL");
+  const isAnualName = (p) => normalize(p?.nombre).includes("ANUAL");
+  const ventanaActiva = ventanaAnualActiva();
 
+  // ====== estado local de montos (se puede refrescar) ======
+  const [mMensual, setMMensual] = useState(Number(montoMensual) || 0);
+  const [mAnual, setMAnual] = useState(Number(montoAnual) || 0);
+
+  useEffect(() => {
+    // Si cambian props de montos, actualizamos base local
+    setMMensual(Number(montoMensual) || 0);
+    setMAnual(Number(montoAnual) || 0);
+  }, [montoMensual, montoAnual]);
+
+  const refrescarMontosActuales = async () => {
+    // Solo intenta si tenemos algún identificador
+    if (!id_socio && !id_cat_monto) return;
+
+    try {
+      const qs = new URLSearchParams();
+      if (id_cat_monto) qs.set('id_cat_monto', String(id_cat_monto));
+      if (id_socio)     qs.set('id_socio',     String(id_socio));
+
+      const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
+      const data = await res.json();
+      if (data?.exito) {
+        setMMensual(Number(data.mensual) || 0);
+        setMAnual(Number(data.anual) || 0);
+      }
+      // Nota: si no exito, mantenemos valores actuales (fallback a props ya seteadas)
+    } catch {
+      // Silencioso: si falla, seguimos con los valores actuales
+    }
+  };
+
+  // -------- Helpers de fecha para descuento anual (idéntico criterio a ModalPagos) --------
   const idsSeleccionadosComoString = useMemo(
     () => seleccionados.map(String),
     [seleccionados]
   );
 
-  const anualPeriodo = useMemo(() => periodos.find(isAnual) || null, [periodos]);
+  // Ocultamos la tarjeta ANUAL fuera de ventana
+  const periodosConVisibilidad = useMemo(() => {
+    if (ventanaActiva) return periodos;
+    return periodos.filter((p) => !isAnualName(p));
+  }, [periodos, ventanaActiva]);
+
+  const anualPeriodo = useMemo(
+    () => periodosConVisibilidad.find(isAnualName) || null,
+    [periodosConVisibilidad]
+  );
 
   const algunAnualSeleccionado = useMemo(() => {
     if (!anualPeriodo) return false;
@@ -44,16 +125,16 @@ const ModalMesCuotas = ({
 
   // === Filtro por año seleccionado (opcional, según nombres con año) ===
   const periodosFiltradosPorAnio = useMemo(() => {
-    if (!anioEfectivo) return periodos;
-    return periodos.filter((p) => {
+    if (!anioEfectivo) return periodosConVisibilidad;
+    return periodosConVisibilidad.filter((p) => {
       const nombrePeriodo = p.nombre || "";
       const matchAnio = nombrePeriodo.match(/(20\d{2})/);
       return matchAnio ? String(matchAnio[1]) === String(anioEfectivo) : true;
     });
-  }, [periodos, anioEfectivo]);
+  }, [periodosConVisibilidad, anioEfectivo]);
 
   const periodosNoAnual = useMemo(
-    () => periodosFiltradosPorAnio.filter((p) => !isAnual(p)),
+    () => periodosFiltradosPorAnio.filter((p) => !isAnualName(p)),
     [periodosFiltradosPorAnio]
   );
 
@@ -83,32 +164,45 @@ const ModalMesCuotas = ({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onCancelar]);
 
-  const toggleId = (id) => {
+  const toggleId = async (id) => {
     const strId = String(id);
-    const p = periodos.find((x) => String(x.id) === strId);
-    const esAnual = p ? normalize(p?.nombre).includes("ANUAL") : false;
+    const p = periodosFiltradosPorAnio.find((x) => String(x.id) === strId);
+    const esAnual = p ? isAnualName(p) : false;
     const yaEsta = idsSeleccionadosComoString.includes(strId);
 
     if (esAnual) {
-      onSeleccionadosChange(yaEsta ? [] : [id]);
+      // Solo toggle si la ventana está activa (si no, ni siquiera se muestra)
+      if (!ventanaActiva) return;
+      if (!yaEsta) {
+        // refrescar justo antes de seleccionar anual
+        await refrescarMontosActuales();
+        onSeleccionadosChange([id]);
+      } else {
+        onSeleccionadosChange([]);
+      }
       return;
     }
-    if (algunAnualSeleccionado) {
-      onSeleccionadosChange([id]);
-      return;
-    }
+
+    // Si estaba seleccionado ANUAL, y tocan un bimestre, salir del anual
+    const base = seleccionados.filter((x) => {
+      const pp = periodosFiltradosPorAnio.find((q) => String(q.id) === String(x));
+      return !(pp && isAnualName(pp));
+    });
 
     let next = yaEsta
-      ? seleccionados.filter((x) => String(x) !== strId)
-      : [...seleccionados, id];
+      ? base.filter((pid) => String(pid) !== strId)
+      : [...base, id];
 
-    if (anualPeriodo) {
+    // Convertir a ANUAL automáticamente solo si la ventana está activa y existe ANUAL visible
+    if (ventanaActiva && anualPeriodo) {
       const nextStr = next.map(String);
       const completa =
         idsNoAnual.length > 0 &&
         nextStr.length === idsNoAnual.length &&
         idsNoAnual.every((n) => nextStr.includes(n));
       if (completa) {
+        // refresco rápido antes de convertir a anual
+        await refrescarMontosActuales();
         onSeleccionadosChange([anualPeriodo.id]);
         return;
       }
@@ -117,12 +211,13 @@ const ModalMesCuotas = ({
     onSeleccionadosChange(next);
   };
 
-  const seleccionarTodos = () => {
+  const seleccionarTodos = async () => {
     if (soloAnualSeleccionado || allNoAnualSelected) {
       onSeleccionadosChange([]);
       return;
     }
-    if (anualPeriodo) {
+    if (ventanaActiva && anualPeriodo) {
+      await refrescarMontosActuales();
       onSeleccionadosChange([anualPeriodo.id]);
     } else {
       onSeleccionadosChange(periodosNoAnual.map((p) => p.id));
@@ -160,6 +255,67 @@ const ModalMesCuotas = ({
   const handleYearPick = (y) => {
     onAnioChange(String(y));
     setShowYearPicker(false);
+  };
+
+  // =========================
+  // CÁLCULO DE TOTAL + TEXTO
+  // =========================
+
+  // “Es anual” solo si: (a) seleccionan la tarjeta anual, o (b) seleccionan todos los bimestres
+  // y la ventana anual está activa. Fuera de ventana, NUNCA es anual.
+  const esAnualSeleccion = useMemo(() => {
+    if (!ventanaActiva) return false;
+    if (algunAnualSeleccionado) return true;
+    return idsNoAnual.length > 0 && selectedNoAnualCount === idsNoAnual.length;
+  }, [ventanaActiva, algunAnualSeleccionado, idsNoAnual.length, selectedNoAnualCount]);
+
+  // Conteo de bimestres seleccionados (no cuenta "anual")
+  const cantidadBimestresSeleccionados = useMemo(() => {
+    if (esAnualSeleccion) return MESES_ANIO; // coherencia visual
+    return periodosNoAnual.reduce(
+      (acc, p) => acc + (idsSeleccionadosComoString.includes(String(p.id)) ? 1 : 0),
+      0
+    );
+  }, [esAnualSeleccion, periodosNoAnual, idsSeleccionadosComoString]);
+
+  // Texto de períodos
+  const periodoTexto = useMemo(() => {
+    if (esAnualSeleccion) return `CONTADO ANUAL ${anioEfectivo}`;
+
+    const pares = periodosNoAnual
+      .filter((p) => idsSeleccionadosComoString.includes(String(p.id)))
+      .map((p) => (p?.nombre || "").replace(/^\s*per[ií]odo?s?\s*:?\s*/i, "").trim());
+
+    const cuerpo = pares.join(" ");
+    return `${cuerpo} ${anioEfectivo}`.trim();
+  }, [esAnualSeleccion, periodosNoAnual, idsSeleccionadosComoString, anioEfectivo]);
+
+  // TOTAL con misma regla definitiva:
+  // - Si es anual: usar SIEMPRE el precio anual exacto de DB (si logramos refrescar). No usar mensual×6.
+  // - Si no es anual: mensual × cantidad de bimestres.
+  const totalCalculado = useMemo(() => {
+    if (condonar) return 0;
+    if (esAnualSeleccion) return Number(mAnual) || 0;
+    return (Number(mMensual) || 0) * cantidadBimestresSeleccionados;
+  }, [condonar, esAnualSeleccion, mAnual, mMensual, cantidadBimestresSeleccionados]);
+
+  const handleImprimir = async () => {
+    // Si es anual, refrescar montos justo antes de imprimir
+    if (esAnualSeleccion) {
+      await refrescarMontosActuales();
+    }
+
+    onImprimir?.({
+      anio: Number(anioEfectivo),
+      seleccionados: [...seleccionados],
+      esAnual: esAnualSeleccion,
+      periodoTexto,
+      importe_total: condonar
+        ? 0
+        : (esAnualSeleccion
+            ? (Number(mAnual) || 0)
+            : (Number(mMensual) || 0) * cantidadBimestresSeleccionados),
+    });
   };
 
   return (
@@ -230,11 +386,11 @@ const ModalMesCuotas = ({
                   className="modmes_btn modmes_btn-small modmes_btn-terciario"
                   onClick={seleccionarTodos}
                   disabled={periodosNoAnual.length === 0 && !anualPeriodo}
-                  title="Seleccionar todos (equivalente a Contado Anual)"
+                  title={ventanaActiva ? "Seleccionar todos (equivale a Contado Anual)" : "Seleccionar todos los bimestres"}
                 >
                   {soloAnualSeleccionado || allNoAnualSelected
-                    ? `Deseleccionar (CONTADO ANUAL)`
-                    : `Seleccionar todos (${totalSeleccionados})`}
+                    ? (ventanaActiva ? `Deseleccionar (CONTADO ANUAL)` : `Deseleccionar todos`)
+                    : (ventanaActiva ? `Seleccionar todos (CONTADO ANUAL)` : `Seleccionar todos (${totalSeleccionados})`)}
                 </button>
               </div>
             </div>
@@ -272,9 +428,7 @@ const ModalMesCuotas = ({
         <div className="modmes_footer modmes_footer-sides">
           <div className="modmes_footer-left">
             <div className="modmes_selection-info">
-              {soloAnualSeleccionado
-                ? "CONTADO ANUAL"
-                : (allNoAnualSelected ? "CONTADO ANUAL" : `${totalSeleccionados} seleccionados`)}
+              {esAnualSeleccion ? "CONTADO ANUAL" : `${totalSeleccionados} seleccionados`}
             </div>
           </div>
           <div className="modmes_footer-right">
@@ -287,17 +441,13 @@ const ModalMesCuotas = ({
               <span className="btn-label">Cancelar</span>
             </button>
 
-            {/* Pasa SIEMPRE { anio, seleccionados } */}
+            {/* Pasa SIEMPRE { anio, seleccionados, esAnual, periodoTexto, importe_total } */}
             <button
               type="button"
               className="modmes_btn modmes_btn-primary modmes_action-btn"
-              onClick={() =>
-                onImprimir?.({
-                  anio: Number(anioEfectivo),
-                  seleccionados: [...seleccionados],
-                })
-              }
+              onClick={handleImprimir}
               disabled={totalSeleccionados === 0}
+              title={esAnualSeleccion ? `Total: ${new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(totalCalculado)}` : undefined}
             >
               <FontAwesomeIcon icon={faPrint} />
               <span className="btn-label">Imprimir</span>
