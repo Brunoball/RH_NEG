@@ -88,18 +88,7 @@ export default function ModalFamilia({ open, onClose, familia, onSave }) {
             onChange={handleObs}
           />
 
-          {/* Switch moderno para Activo */}
-          <label className="modalfa-switch">
-            <input
-              type="checkbox"
-              checked={activo}
-              onChange={(e) => setActivo(e.target.checked)}
-            />
-            <span className="modalfa-switch-track">
-              <span className="modalfa-switch-thumb" />
-            </span>
-            <span className="modalfa-switch-label">Activo</span>
-          </label>
+
         </div>
 
         <div className="modalfa-foot">

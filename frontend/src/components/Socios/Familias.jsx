@@ -293,10 +293,11 @@ export default function Familias() {
             {q ? <FaTimes /> : <FaSearch />}
           </button>
         </div>
-
-        <button className="ntg-back" onClick={navigateBack}>
+       <div className='centrar-intput'>
+                <button className="ntg-back" onClick={navigateBack}>
           <FaArrowLeft /> Volver
         </button>
+       </div>
       </header>
 
       {/* CONTENT CARD */}

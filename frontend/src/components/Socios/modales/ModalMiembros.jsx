@@ -19,8 +19,52 @@ const getInitial = (str) => {
   return s ? s.charAt(0).toUpperCase() : '?';
 };
 
+/* ---------- Modal de confirmación (estética famdel) ---------- */
+function ConfirmRemoveMemberModal({ open, miembro, isWorking, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div
+      className="famdel-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="miembro-del-title"
+      onClick={onCancel}
+    >
+      <div
+        className="famdel-modal-container famdel-modal--danger"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="famdel-modal__icon" aria-hidden="true">
+          <FaTrash />
+        </div>
+
+        <h3 id="miembro-del-title" className="famdel-modal-title famdel-modal-title--danger">
+          Quitar miembro
+        </h3>
+
+        <p className="famdel-modal-text">
+          ¿Seguro que querés quitar a <strong>“{miembro?.nombre || '—'}”</strong> de la familia?
+        </p>
+
+        <div className="famdel-modal-buttons">
+          <button className="famdel-btn famdel-btn--ghost" onClick={onCancel} disabled={isWorking}>
+            Cancelar
+          </button>
+          <button
+            className="famdel-btn famdel-btn--solid-danger"
+            onClick={onConfirm}
+            disabled={isWorking}
+          >
+            {isWorking ? 'Quitando…' : 'Quitar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Tarjetas memoizadas ---------- */
-const MiembroCard = memo(function MiembroCard({ m, onRemove, cascadeIndex = -1, playCascade = false }) {
+const MiembroCard = memo(function MiembroCard({ m, onRemoveClick, cascadeIndex = -1, playCascade = false }) {
   const active = Number(m.activo) === 1;
   const cascadeClass = playCascade && cascadeIndex > -1 && cascadeIndex < 10 ? 'modalmi-cascade' : '';
   const cascadeStyle = cascadeClass ? { '--mi-cascade-i': cascadeIndex } : undefined;
@@ -44,7 +88,7 @@ const MiembroCard = memo(function MiembroCard({ m, onRemove, cascadeIndex = -1, 
         </div>
       </div>
 
-      <button className="modalmi-remove" title="Quitar" onClick={() => onRemove(m.id_socio)}>
+      <button className="modalmi-remove" title="Quitar" onClick={() => onRemoveClick(m)}>
         <FaTrash />
       </button>
     </div>
@@ -73,7 +117,7 @@ const CandidatoCard = memo(function CandidatoCard({ c, checked, onToggle, cascad
   );
 });
 
-/* ---------- Modal ---------- */
+/* ---------- Modal principal ---------- */
 export default function ModalMiembros({ open, onClose, familia, notify, onDeltaCounts }) {
   const [miembros, setMiembros] = useState([]);
   const [candidatosAll, setCandidatosAll] = useState([]);
@@ -98,6 +142,11 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
 
   // refs para el buscador
   const searchInputRef = useRef(null);
+
+  // Estado del modal de eliminación de miembro
+  const [delOpen, setDelOpen] = useState(false);
+  const [delTarget, setDelTarget] = useState(null);
+  const [delWorking, setDelWorking] = useState(false);
 
   useEffect(() => {
     if (!open || !familia) return;
@@ -234,10 +283,23 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
     }
   }, [sel, candidatosAll, familia, notify, onDeltaCounts]);
 
-  const quitarMiembro = useCallback(async (id_socio) => {
-    if (!window.confirm('¿Quitar este miembro de la familia?')) return;
-    const m = miembros.find(x => x.id_socio === id_socio);
-    const eraActivo = Number(m?.activo) === 1;
+  /* --- flujo de quitar con modal estético --- */
+  const abrirModalQuitar = useCallback((miembro) => {
+    setDelTarget(miembro);
+    setDelOpen(true);
+  }, []);
+
+  const cerrarModalQuitar = useCallback(() => {
+    if (delWorking) return;
+    setDelOpen(false);
+    setDelTarget(null);
+  }, [delWorking]);
+
+  const confirmarQuitar = useCallback(async () => {
+    if (!delTarget) return;
+    setDelWorking(true);
+    const id_socio = delTarget.id_socio;
+    const eraActivo = Number(delTarget?.activo) === 1;
 
     try {
       const r = await fetch(`${BASE_URL}/api.php?action=familia_quitar_miembro`, {
@@ -248,21 +310,24 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
       const j = await r.json();
       if (!j?.exito) { notify?.(j?.mensaje || 'No se pudo quitar', 'error'); return; }
 
+      // Actualizar listas
       setMiembros(prev => prev.filter(x => x.id_socio !== id_socio));
-      if (m && eraActivo) {
-        setCandidatosAll(prev =>
-          prev.some(x => x.id_socio === m.id_socio)
-            ? prev
-            : [{ id_socio: m.id_socio, nombre: m.nombre, dni: m.dni, domicilio: m.domicilio, numero: m.numero, activo: m.activo }, ...prev]
-        );
-      }
+      setCandidatosAll(prev =>
+        prev.some(x => x.id_socio === delTarget.id_socio)
+          ? prev
+          : [{ id_socio: delTarget.id_socio, nombre: delTarget.nombre, dni: delTarget.dni, domicilio: delTarget.domicilio, numero: delTarget.numero, activo: delTarget.activo }, ...prev]
+      );
 
       onDeltaCounts?.({ id_familia: familia.id_familia, deltaActivos: eraActivo ? -1 : 0, deltaTotales: -1 });
       notify?.('Miembro quitado');
+      setDelOpen(false);
+      setDelTarget(null);
     } catch {
       notify?.('Error al quitar miembro', 'error');
+    } finally {
+      setDelWorking(false);
     }
-  }, [miembros, notify, onDeltaCounts, familia]);
+  }, [delTarget, familia, notify, onDeltaCounts]);
 
   // --- acciones del buscador (lupa/clear) ---
   const handleSearchIcon = useCallback(() => {
@@ -324,7 +389,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
                   <MiembroCard
                     key={m.id_socio}
                     m={m}
-                    onRemove={quitarMiembro}
+                    onRemoveClick={abrirModalQuitar}
                     cascadeIndex={idx}
                     playCascade={playCascade}
                   />
@@ -408,6 +473,15 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
           <button className="modalmi-btn modalmi-ghost" onClick={onClose}>Cerrar</button>
         </div>
       </div>
+
+      {/* Modal de quitar miembro con estética famdel */}
+      <ConfirmRemoveMemberModal
+        open={delOpen}
+        miembro={delTarget}
+        isWorking={delWorking}
+        onConfirm={confirmarQuitar}
+        onCancel={cerrarModalQuitar}
+      />
     </div>
   );
 }
