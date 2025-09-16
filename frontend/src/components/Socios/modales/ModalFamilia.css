@@ -1,12 +1,156 @@
-/* src/components/Familias/ModalFamilia.css */
-.mf_overlay { position:fixed; inset:0; background:rgba(2,6,23,.55); display:flex; align-items:center; justify-content:center; z-index:1000; }
-.mf_modal { width:min(640px, 92vw); background:white; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.25); overflow:hidden; }
-.mf_head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e2e8f0; }
-.mf_close { border:none; background:transparent; cursor:pointer; }
-.mf_body { display:flex; flex-direction:column; gap:10px; padding:16px; }
-.mf_body input, .mf_body textarea { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; outline:none; }
-.mf_check { display:flex; align-items:center; gap:8px; color:#0f172a; }
-.mf_foot { display:flex; justify-content:flex-end; gap:10px; padding:12px 16px; border-top:1px solid #e2e8f0; }
-.mf_btn { border-radius:10px; padding:10px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
-.mf_btn.ghost { border:1px solid #e2e8f0; background:white; }
-.mf_btn.solid { border:none; background:#10b981; color:white; }
+/* ===== Modal Familias (prefijo modalfa-) =====
+   Usa tokens --soc-* si existen en la app principal. */
+
+/* El color de acento del modal (inputs focus, switch, header) se toma de:
+   - Modo editar: --soc-secondary (morado, igual que header principal)
+   - Modo nuevo:  --soc-primary  (azul)
+   Puedes forzar con inline style: --modalfa-accent: <color>; */
+.modalfa-modal{ --modalfa-accent: var(--soc-secondary, #7C3AED); }
+.modalfa-mode-new{ --modalfa-accent: var(--soc-primary, #2563EB); }
+
+/* Overlay con blur/vidrio */
+.modalfa-overlay{
+  position:fixed; inset:0;
+  background: linear-gradient(0deg, rgba(2,6,23,.45), rgba(2,6,23,.45));
+  backdrop-filter: blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000;
+  padding: 16px;
+}
+
+/* Card */
+.modalfa-modal{
+  width:min(640px, 92vw);
+  background:#fff;
+  border:1px solid var(--soc-gray-200, #E2E8F0);
+  border-radius: var(--soc-border-radius-lg, 16px);
+  box-shadow: var(--soc-shadow-xl, 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04));
+  overflow:hidden;
+  animation: modalfa_pop .18s ease-out;
+}
+@keyframes modalfa_pop{
+  from{ transform: translateY(8px) scale(.98); opacity: 0; }
+  to  { transform: translateY(0)   scale(1);    opacity: 1; }
+}
+
+/* Header con acento del sistema */
+.modalfa-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px;
+  border-bottom:1px solid var(--soc-gray-200, #E2E8F0);
+  background: var(--soc-primary-dark);
+  color:#fff;
+}
+.modalfa-title{
+  margin:0; font-size:1.05rem; font-weight:800; letter-spacing:.2px; display:flex; align-items:center; gap:10px;
+}
+.modalfa-titleicon{
+  width:32px; height:32px; border-radius:10px;
+  display:grid; place-items:center;
+  background: color-mix(in srgb, #fff 18%, var(--soc-primary-dark));
+  color: #fff;
+}
+
+/* Botón cerrar */
+.modalfa-close{
+  border:1px solid color-mix(in srgb, #fff 40%, var(--modalfa-accent));
+  background:#fff; color: var(--soc-dark, #0F172A);
+  width:34px; height:34px; display:grid; place-items:center;
+  border-radius: var(--soc-border-radius-sm, 8px);
+  cursor:pointer; transition: var(--soc-transition, all .3s cubic-bezier(.4,0,.2,1));
+}
+.modalfa-close:hover{ background: var(--soc-gray-100, #F1F5F9); box-shadow: var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05)); }
+
+/* Body */
+.modalfa-body{ display:flex; flex-direction:column; gap:10px; padding:16px; }
+.modalfa-label{ font-weight:700; color: var(--soc-dark, #0F172A); font-size:.92rem; }
+.modalfa-uppercase{ text-transform: uppercase; }
+
+.modalfa-input, .modalfa-textarea{
+  border:1px solid var(--soc-gray-200, #E2E8F0);
+  border-radius: var(--soc-border-radius, 12px);
+  padding:10px 12px; outline:none; font-size:.95rem;
+  background:#fff; color: var(--soc-dark, #0F172A);
+  transition: var(--soc-transition, all .3s cubic-bezier(.4,0,.2,1));
+}
+.modalfa-textarea{ resize: vertical; min-height: 90px; }
+.modalfa-input::placeholder, .modalfa-textarea::placeholder{ color: var(--soc-gray-600, #475569); }
+
+.modalfa-input:focus, .modalfa-textarea:focus{
+  border-color: color-mix(in srgb, var(--modalfa-accent) 45%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalfa-accent) 22%, white);
+}
+
+/* Switch (reemplaza checkbox) */
+.modalfa-switch{
+  display:inline-flex; align-items:center; gap:10px; user-select:none; cursor:pointer;
+  margin-top: 6px; color: var(--soc-dark, #0F172A);
+}
+.modalfa-switch input{ position:absolute; opacity:0; pointer-events:none; }
+.modalfa-switch-track{
+  width: 44px; height: 26px; border-radius: 999px;
+  background: var(--soc-gray-200, #E2E8F0);
+  position: relative; transition: var(--soc-transition, all .3s cubic-bezier(.4,0,.2,1));
+  box-shadow: inset 0 0 0 1px var(--soc-gray-200, #E2E8F0);
+}
+.modalfa-switch-thumb{
+  position:absolute; top:3px; left:3px;
+  width:20px; height:20px; border-radius:999px;
+  background:#fff; box-shadow: var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05));
+  transition: var(--soc-transition, all .3s cubic-bezier(.4,0,.2,1));
+}
+.modalfa-switch input:checked + .modalfa-switch-track{
+  background: color-mix(in srgb, var(--soc-primary-dark) 75%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--soc-primary-dark) 60%, white);
+}
+.modalfa-switch input:checked + .modalfa-switch-track .modalfa-switch-thumb{
+  transform: translateX(18px);
+}
+.modalfa-switch input:focus-visible + .modalfa-switch-track{
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalfa-accent) 22%, white);
+}
+.modalfa-switch-label{ font-weight:700; }
+
+/* Footer y botones */
+.modalfa-foot{
+  display:flex; justify-content:flex-end; gap:10px;
+  padding:12px 16px; border-top:1px solid var(--soc-gray-200, #E2E8F0);
+  background: #fff;
+}
+.modalfa-btn{
+  border-radius: var(--soc-border-radius, 12px);
+  padding:10px 14px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:8px;
+  font-weight:700; transition: var(--soc-transition, all .3s cubic-bezier(.4,0,.2,1));
+}
+.modalfa-btn.modalfa-ghost{
+  border:1px solid var(--soc-gray-200, #E2E8F0); background:#fff; color: var(--soc-dark, #0F172A);
+}
+.modalfa-btn.modalfa-ghost:hover{ background: var(--soc-gray-100, #F1F5F9); box-shadow: var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05)); }
+
+.modalfa-btn.modalfa-solid{
+  border: none; color:#fff;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--soc-primary-dark) 88%, #fff),
+    color-mix(in srgb, var(--soc-primary-dark) 100%, #000)
+  );
+  box-shadow: var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05));
+}
+.modalfa-btn.modalfa-solid:hover{
+  transform: translateY(-1px);
+  box-shadow: var(--soc-shadow-md, 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.06));
+}
+.modalfa-btn.modalfa-solid:active{
+  transform: translateY(0);
+  box-shadow: var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05));
+}
+.modalfa-btn.modalfa-solid:focus-visible{
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalfa-accent) 28%, white);
+}
+
+/* Responsive */
+@media (max-width: 440px){
+  .modalfa-modal{ width: 100%; }
+}

@@ -1307,7 +1307,7 @@ const Socios = () => {
             </button>
 
             {/* 🔹 Nuevo: botón Familias */}
-            <button className="soc-boton" onClick={() => navigate('/familias')}>
+            <button className="soc-boton soc-boton-Familia" onClick={() => navigate('/familias')}>
               <FaUsers className="soc-boton-icono" /> Familias
             </button>
           </div>

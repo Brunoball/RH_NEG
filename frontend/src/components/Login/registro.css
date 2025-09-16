@@ -50,7 +50,7 @@
 /* Contenedor principal */
 .reg_contenedor {
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   padding: 30px 20px;
   background: var(--princ-glass);
   border-radius: var(--princ-border-radius-xl);
@@ -140,7 +140,6 @@
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  max-width: 400px;
   margin: 0 auto;
 }
 
@@ -241,7 +240,7 @@
   color: white;
   padding: 14px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 550;
   border-radius: 50px;
   border: none;
   cursor: pointer;
