@@ -5,7 +5,7 @@ import './ModalInfoSocio.css';
 const ModalInfoSocio = ({ socio, onClose }) => {
   const [listas, setListas] = useState({
     categorias: [],
-    categorias_monto: [],   // ⬅️ NUEVO
+    categorias_monto: [],
     cobradores: [],
     estados: []
   });
@@ -22,7 +22,7 @@ const ModalInfoSocio = ({ socio, onClose }) => {
         if (data.exito && data.listas) {
           setListas({
             categorias: data.listas.categorias || [],
-            categorias_monto: data.listas.categorias_monto || [], // ⬅️ NUEVO
+            categorias_monto: data.listas.categorias_monto || [],
             cobradores: data.listas.cobradores || [],
             estados: data.listas.estados || []
           });
@@ -104,36 +104,50 @@ const ModalInfoSocio = ({ socio, onClose }) => {
               <div className="info-grid">
                 <div className="info-card">
                   <h3 className="info-card-title">Datos Personales</h3>
+
                   <div className="info-item">
                     <span className="info-label">DNI:</span>
                     <span className="info-value">{socio.dni || '-'}</span>
                   </div>
+
                   <div className="info-item">
                     <span className="info-label">Nacimiento:</span>
                     <span className="info-value">{formatoFecha(socio.nacimiento)}</span>
+                  </div>
+
+                  <div className="info-item">
+                    <span className="info-label">Familia:</span>
+                    {/* viene del backend como `familia` (nombre_familia) */}
+                    <span className="info-value">
+                      {socio.familia && socio.familia.trim() !== '' ? socio.familia : '-'}
+                    </span>
                   </div>
                 </div>
 
                 <div className="info-card">
                   <h3 className="info-card-title">Membresía</h3>
+
                   <div className="info-item">
                     <span className="info-label">Tipo de sangre:</span>
                     <span className="info-value">
                       {obtenerDescripcion(listas.categorias, socio.id_categoria)}
                     </span>
                   </div>
+
                   <div className="info-item">
                     <span className="info-label">Categoría (Cuota):</span>
                     <span className="info-value">
                       {formatCatMonto(listas.categorias_monto, socio.id_cat_monto)}
                     </span>
                   </div>
+
                   <div className="info-item">
                     <span className="info-label">Estado:</span>
                     <span className="info-value">
                       {obtenerDescripcion(listas.estados, socio.id_estado)}
                     </span>
                   </div>
+
                   <div className="info-item">
                     <span className="info-label">Ingreso:</span>
                     <span className="info-value">{formatoFecha(socio.ingreso)}</span>
@@ -142,16 +156,19 @@ const ModalInfoSocio = ({ socio, onClose }) => {
 
                 <div className="info-card info-card-full">
                   <h3 className="info-card-title">Cobranza</h3>
+
                   <div className="info-item">
                     <span className="info-label">Cobrador:</span>
                     <span className="info-value">
                       {obtenerDescripcion(listas.cobradores, socio.id_cobrador, 'nombre')}
                     </span>
                   </div>
+
                   <div className="info-item">
                     <span className="info-label">Domicilio Cobro:</span>
                     <span className="info-value">{socio.domicilio_cobro || '-'}</span>
                   </div>
+
                   <div className="info-item comentario">
                     <span className="info-label">Comentario:</span>
                     <span className="info-value">
