@@ -79,8 +79,10 @@ try {
     }
 
     // ===== Resto de campos (opcionales) =====
-    $id_cobrador     = is_numeric($data['id_cobrador'] ?? null) ? (int)$data['id_cobrador'] : null;
-    $id_categoria    = is_numeric($data['id_categoria'] ?? null) ? (int)$data['id_categoria'] : null;
+    $id_cobrador     = is_numeric($data['id_cobrador'] ?? null)  ? (int)$data['id_cobrador']  : null;
+    $id_categoria    = is_numeric($data['id_categoria'] ?? null) ? (int)$data['id_categoria'] : null; // “Tipo de sangre”
+    $id_cat_monto    = is_numeric($data['id_cat_monto'] ?? null) ? (int)$data['id_cat_monto'] : null; // ← **NUEVO: categoría (cuota)**
+
     $domicilio       = aMayus($data['domicilio'] ?? '');
     $numero          = trim($data['numero'] ?? '');
     $telefono_movil  = trim($data['telefono_movil'] ?? '');
@@ -118,6 +120,21 @@ try {
     if (!empty($nacimiento) && !preg_match("/^\d{4}-\d{2}-\d{2}$/", $nacimiento)) {
         responderError(['nacimiento' => '❌ Fecha inválida (YYYY-MM-DD).']);
     }
+    if ($id_cat_monto === null) {
+        // Si querés que sea opcional, eliminá este bloque.
+        responderError(['id_cat_monto' => '⚠️ Debés seleccionar la categoría (cuota).']);
+    }
+
+    // (Opcional) Verificar existencia en categoria_monto cuando hay FK
+    /*
+    if ($id_cat_monto !== null) {
+        $ck = $pdo->prepare("SELECT 1 FROM categoria_monto WHERE id_cat_monto = ?");
+        $ck->execute([$id_cat_monto]);
+        if (!$ck->fetchColumn()) {
+            responderError(['id_cat_monto' => '❌ La categoría de cuota seleccionada no existe.']);
+        }
+    }
+    */
 
     // Normalización de vacíos a NULL
     foreach (['domicilio','numero','telefono_movil','telefono_fijo','comentario','nacimiento','dni'] as $campo) {
@@ -125,14 +142,14 @@ try {
     }
     if ($domicilio_cobro === '') $domicilio_cobro = null;
 
-    // Insert
+    // Insert (agregamos id_cat_monto)
     $sql = "
         INSERT INTO socios (
-            nombre, id_cobrador, id_categoria, domicilio, numero,
+            nombre, id_cobrador, id_categoria, id_cat_monto, domicilio, numero,
             telefono_movil, telefono_fijo, comentario, nacimiento,
             id_estado, domicilio_cobro, dni, ingreso, activo
         ) VALUES (
-            :nombre, :id_cobrador, :id_categoria, :domicilio, :numero,
+            :nombre, :id_cobrador, :id_categoria, :id_cat_monto, :domicilio, :numero,
             :telefono_movil, :telefono_fijo, :comentario, :nacimiento,
             :id_estado, :domicilio_cobro, :dni, :ingreso, :activo
         )
@@ -142,6 +159,7 @@ try {
         ':nombre'          => $nombre,
         ':id_cobrador'     => $id_cobrador,
         ':id_categoria'    => $id_categoria,
+        ':id_cat_monto'    => $id_cat_monto,     // ← **AQUÍ SE GUARDA**
         ':domicilio'       => $domicilio,
         ':numero'          => $numero,
         ':telefono_movil'  => $telefono_movil,
@@ -162,7 +180,6 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
-    // Jamás devolvemos error bajo la clave 'nombre'
     echo json_encode([
         'exito' => false,
         'mensaje' => '❌ Error inesperado: ' . $e->getMessage()

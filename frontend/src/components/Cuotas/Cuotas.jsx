@@ -1488,6 +1488,11 @@ const Cuotas = () => {
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (
         <ModalMesCuotas
+          /* ⬇️⬇️ PASAR EL SOCIO ACÁ */
+          socioInfo={cuotaParaImprimir || null}
+          id_socio={cuotaParaImprimir?.id_socio || cuotaParaImprimir?.id || cuotaParaImprimir?.idsocio}
+          id_cat_monto={cuotaParaImprimir?.id_cat_monto}
+
           periodos={periodosFiltrados}
           seleccionados={periodosAImprimir}
           onSeleccionadosChange={(nuevosSeleccionados) => {
@@ -1502,7 +1507,8 @@ const Cuotas = () => {
           anios={anios}
           anioSeleccionado={anioSeleccionado}
           onAnioChange={setAnioSeleccionado}
-          /* 👇👇 INTEGRACIÓN NUEVA: montos por-socio para cálculo dentro del modal */
+
+          /* Montos por socio (ya lo tenías) */
           montoMensual={
             cuotaParaImprimir
               ? Number(cuotaParaImprimir?.monto_mensual) || 0
@@ -1511,12 +1517,13 @@ const Cuotas = () => {
           montoAnual={
             cuotaParaImprimir
               ? (Number(cuotaParaImprimir?.monto_anual) ||
-                 ((Number(cuotaParaImprimir?.monto_mensual) || 0) * 12))
+                ((Number(cuotaParaImprimir?.monto_mensual) || 0) * 12))
               : undefined
           }
           condonar={false}
         />
       )}
+
 
       {toastVisible && (
         <Toast tipo={toastTipo} mensaje={toastMensaje} duracion={3000} onClose={() => setToastVisible(false)} />

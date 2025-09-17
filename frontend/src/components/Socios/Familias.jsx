@@ -11,6 +11,10 @@ import './Familias.css';
 import ModalFamilia from './modales/ModalFamilia';
 import ModalMiembros from './modales/ModalMiembros';
 
+// ⬇️ NUEVO: librerías para Excel
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+
 /* ========= Modal de eliminación (usa checklist de ModalMiembros) ========= */
 function ConfirmDeleteFamiliaModal({ open, familia, isDeleting, onConfirm, onCancel, notify }) {
   const [forzar, setForzar] = useState(false);
@@ -119,6 +123,9 @@ export default function Familias() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ⬇️ NUEVO: estado exportación
+  const [isExporting, setIsExporting] = useState(false);
 
   // Ref buscador
   const searchRef = useRef(null);
@@ -268,6 +275,103 @@ export default function Familias() {
     else navigate('/panel');
   }, [navigate]);
 
+  /* ===================== Exportar a Excel ===================== */
+  const fetchMiembrosDeFamilia = async (id_familia) => {
+    // Intenta GET con query string; si tu endpoint usa POST, cambiá esto por POST.
+    const r = await fetch(`${BASE_URL}/api.php?action=familia_miembros&id_familia=${encodeURIComponent(id_familia)}&ts=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    // Se espera que devuelva { exito: true, miembros: [{ nombre, apellido, dni }, ...] }
+    if (!j?.exito) return [];
+    return Array.isArray(j.miembros) ? j.miembros : [];
+  };
+
+  const exportarExcel = async () => {
+    if (isExporting) return;
+    try {
+      setIsExporting(true);
+
+      const familiasAExportar = filtradas; // respeta búsqueda/filtro actual
+      if (!familiasAExportar.length) {
+        showToast('No hay familias para exportar.', 'error');
+        return;
+      }
+
+      // Armar filas: Familia | Miembro | DNI
+      const rows = [];
+      // Consultas en paralelo pero limitadas para no saturar el server
+      const batchSize = 6;
+      for (let i = 0; i < familiasAExportar.length; i += batchSize) {
+        const slice = familiasAExportar.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          slice.map(f => fetchMiembrosDeFamilia(f.id_familia))
+        );
+        results.forEach((res, idx) => {
+          const fam = slice[idx];
+          const miembros = res.status === 'fulfilled' ? res.value : [];
+          if (miembros.length === 0) {
+            // Si querés omitir familias sin miembros, comentá este push.
+            rows.push({
+              Familia: toUpperSafe(fam.nombre_familia),
+              Miembro: '—',
+              DNI: ''
+            });
+          } else {
+            miembros.forEach(m => {
+              const nombre = [m?.apellido, m?.nombre].filter(Boolean).join(', ');
+              const dniStr = m?.dni == null ? '' : String(m.dni); // preserva ceros a la izquierda
+              rows.push({
+                Familia: toUpperSafe(fam.nombre_familia),
+                Miembro: nombre ? nombre.toUpperCase() : '—',
+                DNI: dniStr
+              });
+            });
+          }
+        });
+      }
+
+      if (!rows.length) {
+        showToast('No se encontraron miembros para exportar.', 'error');
+        return;
+      }
+
+      // Orden opcional por Familia y luego Miembro
+      rows.sort((a, b) =>
+        a.Familia.localeCompare(b.Familia) || a.Miembro.localeCompare(b.Miembro)
+      );
+
+      const ws = XLSX.utils.json_to_sheet(rows, { header: ['Familia', 'Miembro', 'DNI'] });
+
+      // Anchos de columnas automáticos
+      const colWidths = ['Familia', 'Miembro', 'DNI'].map((k) => {
+        const maxLen = rows.reduce((acc, r) => Math.max(acc, String(r[k] ?? '').length), k.length);
+        return { wch: Math.min(Math.max(maxLen + 2, 12), 60) };
+      });
+      ws['!cols'] = colWidths;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Familias');
+
+      const wbout = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      // Nombre de archivo con guiones
+      const fecha = new Date();
+      const yyyy = fecha.getFullYear();
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dd = String(fecha.getDate()).padStart(2, '0');
+      saveAs(blob, `Grupos_Familiares_${yyyy}-${mm}-${dd}.xlsx`);
+
+      showToast('Excel generado correctamente.', 'exito');
+    } catch (e) {
+      console.error(e);
+      showToast('Error al exportar a Excel.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   return (
     <div className="ntg-page">
       {/* TOP BAR (Título | Buscador | Volver) */}
@@ -293,11 +397,11 @@ export default function Familias() {
             {q ? <FaTimes /> : <FaSearch />}
           </button>
         </div>
-       <div className='centrar-intput'>
-                <button className="ntg-back" onClick={navigateBack}>
-          <FaArrowLeft /> Volver
-        </button>
-       </div>
+        <div className='centrar-intput'>
+          <button className="ntg-back" onClick={navigateBack}>
+            <FaArrowLeft /> Volver
+          </button>
+        </div>
       </header>
 
       {/* CONTENT CARD */}
@@ -327,9 +431,11 @@ export default function Familias() {
 
               <button
                 className="btn btn-export"
-                onClick={() => showToast('Exportar a Excel (pendiente)')}
+                onClick={exportarExcel}
+                disabled={isExporting || loading}
+                title="Exporta las familias visibles con sus miembros"
               >
-                <FaFileExport /> Exportar (Excel)
+                <FaFileExport /> {isExporting ? 'Exportando…' : 'Exportar Excel'}
               </button>
             </div>
           </div>

@@ -5,11 +5,15 @@ import BASE_URL from '../../../config/config';
 import Toast from '../../Global/Toast';
 import './ModalPagos.css';
 import { imprimirRecibosUnicos } from '../../../utils/Recibosunicos';
+import { generarReciboPDFUnico } from '../../../utils/ReciboPDF';
 
 // ======= CONSTANTES LÓGICAS (no montos) =======
 const MESES_ANIO = 6;     // cantidad de bimestres que equivale a "anual"
 const ID_CONTADO_ANUAL = 7;
 const MIN_YEAR = 2025;    // primer año visible en el selector
+
+// URL de la CABECERA para el PDF
+const HEADER_IMG_URL = `${BASE_URL}/assets/cabecera_rh.png`;
 
 const obtenerPrimerMesDesdeNombre = (nombre) => {
   const match = nombre.match(/\d+/);
@@ -28,12 +32,12 @@ const construirListaAnios = (nowYear) => {
 const ventanaAnualActiva = () => {
   const hoy = new Date();
   const y = hoy.getFullYear();
-  const startActual = new Date(y, 11, 15);   // 15-dic-y
-  const endSiguiente = new Date(y + 1, 2, 1); // 1-mar-(y+1)
+  const startActual = new Date(y, 11, 15);
+  const endSiguiente = new Date(y + 1, 2, 1);
   if (hoy >= startActual && hoy < endSiguiente) return true;
 
-  const startPrev = new Date(y - 1, 11, 15); // 15-dic-(y-1)
-  const endActual = new Date(y, 2, 1);       // 1-mar-y
+  const startPrev = new Date(y - 1, 11, 15);
+  const endActual = new Date(y, 2, 1);
   if (hoy >= startPrev && hoy < endActual) return true;
 
   return false;
@@ -63,6 +67,9 @@ const ModalPagos = ({ socio, onClose }) => {
   const [anioTrabajo, setAnioTrabajo] = useState(Math.max(nowYear, MIN_YEAR));
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearOptions = useMemo(() => construirListaAnios(nowYear), [nowYear]);
+
+  // Nuevo: modo de salida en la vista de éxito
+  const [modoSalida, setModoSalida] = useState('imprimir'); // 'imprimir' | 'pdf'
 
   const mostrarToast = (tipo, mensaje, duracion = 3000) => {
     setToast({ tipo, mensaje, duracion });
@@ -260,6 +267,27 @@ const ModalPagos = ({ socio, onClose }) => {
     return `${partes.join(' / ')} ${anioTrabajo}`;
   }, [aplicaAnualPorSeleccion, seleccionSinAnual, periodos, anioTrabajo]);
 
+  // ===== Helpers comunes para comprobante =====
+  const buildSocioParaComprobante = (esAnualSeleccion) => {
+    const periodoCodigo = esAnualSeleccion ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
+    const importe =
+      condonar
+        ? 0
+        : (esAnualSeleccion
+            ? (Number(montoAnual) || 0)
+            : (Number(montoMensual) || 0) * seleccionSinAnual.length);
+
+    return {
+      ...socio,
+      id_periodo: periodoCodigo,
+      periodo_texto: esAnualSeleccion
+        ? `CONTADO ANUAL ${anioTrabajo}`
+        : (periodoTextoFinal || ''),
+      importe_total: importe,
+      anio: anioTrabajo,
+    };
+  };
+
   // ======= CONFIRMAR / ÉXITO =======
   const confirmar = async () => {
     if (seleccionados.length === 0) {
@@ -306,35 +334,34 @@ const ModalPagos = ({ socio, onClose }) => {
     }
   };
 
-  // ======= COMPROBANTE / IMPRESIÓN =======
+  // ======= COMPROBANTE / IMPRESIÓN o PDF =======
   const handleImprimirComprobante = async () => {
     const esAnualSeleccion = aplicaAnualPorSeleccion;
-    if (esAnualSeleccion) {
-      await refrescarMontosActuales();
-    }
+    if (esAnualSeleccion) await refrescarMontosActuales();
 
-    const periodoCodigo = esAnualSeleccion ? ID_CONTADO_ANUAL : (seleccionSinAnual[0] || 0);
-
-    const importe =
-      condonar
-        ? 0
-        : (esAnualSeleccion
-            ? (Number(montoAnual) || 0)
-            : (Number(montoMensual) || 0) * seleccionSinAnual.length);
-
-    const socioParaImprimir = {
-      ...socio,
-      id_periodo: periodoCodigo,
-      periodo_texto: esAnualSeleccion
-        ? `CONTADO ANUAL ${anioTrabajo}`
-        : (periodoTextoFinal || ''),
-      importe_total: importe,
-      anio: anioTrabajo,
-    };
+    const socioParaImprimir = buildSocioParaComprobante(esAnualSeleccion);
+    const periodoCodigo = socioParaImprimir.id_periodo;
 
     const win = window.open('', '_blank');
     if (!win) return alert('Habilitá ventanas emergentes para imprimir el comprobante.');
     await imprimirRecibosUnicos([socioParaImprimir], periodoCodigo, win);
+  };
+
+  const handleGenerarPDFComprobante = async () => {
+    const esAnualSeleccion = aplicaAnualPorSeleccion;
+    if (esAnualSeleccion) await refrescarMontosActuales();
+
+    const socioParaImprimir = buildSocioParaComprobante(esAnualSeleccion);
+    const periodoCodigo = socioParaImprimir.id_periodo;
+
+    await generarReciboPDFUnico({
+      listaSocios: [socioParaImprimir],
+      periodoActual: periodoCodigo,
+      anioSeleccionado: anioTrabajo,
+      headerImageUrl: HEADER_IMG_URL,
+      nombreArchivo: `Comprobante_${socio.id_socio}_${anioTrabajo}.pdf`,
+      baseUrl: BASE_URL
+    });
   };
 
   const formatearFecha = (fechaStr) => {
@@ -353,7 +380,7 @@ const ModalPagos = ({ socio, onClose }) => {
   // ======= VISTA DE ÉXITO =======
   if (pagoExitoso) {
     const tituloExito = condonar ? '¡Condonación registrada con éxito!' : '¡Pago realizado con éxito!';
-    const subExito = 'Podés generar el comprobante ahora mismo.';
+    const subExito = 'Elegí cómo querés obtener el comprobante.';
 
     return (
       <>
@@ -386,6 +413,33 @@ const ModalPagos = ({ socio, onClose }) => {
               <div className="success-card">
                 <h3 className="success-title">{tituloExito}</h3>
                 <p className="success-sub">{subExito}</p>
+
+                {/* Selector de modo de salida (pills) */}
+                <div className="output-mode">
+                  <label className={`mode-option ${modoSalida === 'imprimir' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="modoSalida"
+                      value="imprimir"
+                      checked={modoSalida === 'imprimir'}
+                      onChange={() => setModoSalida('imprimir')}
+                    />
+                    <span className="mode-bullet" />
+                    <span>Imprimir</span>
+                  </label>
+
+                  <label className={`mode-option ${modoSalida === 'pdf' ? 'active' : ''}`}>
+                    <input
+                      type="radio"
+                      name="modoSalida"
+                      value="pdf"
+                      checked={modoSalida === 'pdf'}
+                      onChange={() => setModoSalida('pdf')}
+                    />
+                    <span className="mode-bullet" />
+                    <span>PDF</span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -399,9 +453,16 @@ const ModalPagos = ({ socio, onClose }) => {
                 <button className="btn btn-secondary" onClick={() => onClose(true)}>
                   Cerrar
                 </button>
-                <button className="btn btn-primary" onClick={handleImprimirComprobante}>
-                  Imprimir
-                </button>
+
+                {modoSalida === 'imprimir' ? (
+                  <button className="btn btn-primary" onClick={handleImprimirComprobante}>
+                    Imprimir
+                  </button>
+                ) : (
+                  <button className="btn btn-primary" onClick={handleGenerarPDFComprobante}>
+                    Descargar PDF
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -546,7 +607,6 @@ const ModalPagos = ({ socio, onClose }) => {
                                 type="checkbox"
                                 id={`periodo-${periodo.id}`}
                                 checked={checked}
-                                // Evitar doble toggle desde checkbox
                                 onClick={(e) => { e.stopPropagation(); togglePeriodo(periodo.id); }}
                                 onChange={() => {}}
                                 disabled={disabled}
@@ -602,7 +662,6 @@ const ModalPagos = ({ socio, onClose }) => {
                   condonar ? 'Condonar' : 'Pagar'
                 )}
               </button>
-              {/* Botón Imprimir removido de la vista normal */}
             </div>
           </div>
         </div>
