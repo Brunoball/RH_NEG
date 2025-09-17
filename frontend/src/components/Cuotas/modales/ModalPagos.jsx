@@ -650,7 +650,7 @@ const ModalPagos = ({ socio, onClose }) => {
                 Cancelar
               </button>
               <button
-                className={`btn ${condonar ? 'btn-warning' : 'btn-primary'}`}
+                className={`btn ${condonar ? 'btn-warnings' : 'btn-primary'}`}
                 onClick={confirmar}
                 disabled={seleccionados.length === 0 || cargando}
               >
