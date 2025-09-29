@@ -1,5 +1,6 @@
 /* ================================
-   Dashboard Contable · Estilo Registro
+   Dashboard Contable · Estilo Registro (Opción B)
+   Header fijo y SOLO el body scrollea
    ================================ */
 
 /* ---- Tokens base: tomamos los del Registro y damos alias locales ---- */
@@ -305,7 +306,7 @@ html, body {
   backdrop-filter: blur(12px) saturate(180%);
   padding:0; display:flex; flex-direction:column;
   height:100%;
-  overflow:hidden;
+  overflow:hidden; /* OK con Opción B, el header ya no depende de sticky */
 }
 
 /* Toolbar superior dentro del main */
@@ -348,62 +349,93 @@ html, body {
 }
 
 /* =======================
-   GRID TABLE (tabla)
+   GRID TABLE (Opción B)
    ======================= */
 
+/* El wrapper NO scrollea; lo hace el body interno */
 .contable-tablewrap{
   position:relative;
   flex:1;
-  overflow:auto;
+  overflow: hidden;            /* clave en Opción B */
   border-radius:0 0 var(--princ-border-radius-xl) var(--princ-border-radius-xl);
   display:flex;
+  flex-direction: column;
   background: transparent;
 }
 
-/* Contenedor de la “tabla” */
+/* Estructura flex vertical para header + body */
 .gridtable{
-  display:flex; flex-direction:column;
-  font-size:.95rem;
+  display:flex;
+  flex-direction:column;
   width:100%;
   min-height:100%;
   background: transparent;
 }
 
-/* 5 columnas: Socio | Categoría | Cobrador | Fecha | Periodo */
-.gridtable-header,
-.gridtable-row{
-  display:grid;
-  grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
-  gap:0;
-  align-items:stretch;
-}
-
-/* Encabezado sticky — SIEMPRE visible */
+/* Encabezado fijo arriba del body scrolleable */
 .gridtable-header{
-  position:sticky; top:0; z-index:3;
+  position: relative;          /* NO sticky */
+  z-index: 3;
   background: var(--princ-gray-100);
   color: var(--princ-gray-700);
   border-bottom: 1px solid var(--princ-gray-300);
   font-weight:800;
   letter-spacing:.2px;
   flex: 0 0 auto;
+  display:grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
 }
 .gridtable-header .gridtable-cell{ padding:12px 14px; }
 
-/* Filas reales */
-.gridtable-row{
+/* Cuerpo que scrollea */
+.gridtable-body{
+  flex: 1 1 auto;
+  overflow: auto;              /* clave: sólo el body scrollea */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Filas reales (mismo grid que header) */
+.gridtable-body .gridtable-row{
+  display:grid;
+  grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
   border-bottom:1px solid var(--princ-gray-100);
   transition: background .15s ease, transform .15s ease, box-shadow .15s ease, opacity .2s ease;
   flex: 0 0 auto;
   background: rgba(255,255,255,0.85);
 }
-.gridtable-row:hover{ background:#fff; transform: translateY(-1px); box-shadow: var(--princ-shadow-sm); }
+.gridtable-body .gridtable-row:hover{ background:#fff; transform: translateY(-1px); box-shadow: var(--princ-shadow-sm); }
 
 .gridtable-cell{
   padding:12px 14px;
   color:var(--princ-dark);
   min-width:0;
   overflow-wrap:anywhere;
+}
+
+/* ====== LEGACY FALLBACK: navegadores sin CSS Grid ====== */
+@supports not (display: grid) {
+  .gridtable { display: table; width: 100%; border-collapse: collapse; }
+  .gridtable-header { display: table-header-group; background: #f1f5f9; color: #334155; font-weight: 800; }
+  .gridtable-body { display: table-row-group; }
+  .gridtable-body .gridtable-row { display: table-row; background: rgba(255,255,255,0.95); }
+  .gridtable-cell {
+    display: table-cell;
+    padding: 12px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+    color: #0f172a;
+  }
+  .gridtable-header .gridtable-cell { border-bottom: 1px solid #cbd5e1; }
+  .gridtable-empty{ display: block; text-align: center; padding: 20px; }
+  .gridtable-empty-inner{
+    display: inline-block;
+    padding:22px 14px;
+    color:#475569;
+    background: rgba(255,255,255,0.85);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
 }
 
 /* ===== Skeleton loading ===== */
@@ -474,11 +506,11 @@ html, body {
 
 /* ===== Scrollbars (webkit) ===== */
 .contable-sidebar::-webkit-scrollbar,
-.contable-tablewrap::-webkit-scrollbar{
+.gridtable-body::-webkit-scrollbar{
   width:10px; height:10px;
 }
 .contable-sidebar::-webkit-scrollbar-thumb,
-.contable-tablewrap::-webkit-scrollbar-thumb{
+.gridtable-body::-webkit-scrollbar-thumb{
   background: rgba(0,0,0,.18);
   border-radius:8px;
   border:2px solid transparent;
@@ -512,7 +544,10 @@ html, body {
   .searchbox{ min-width:0; width:100%; }
 
   /* Gridtable -> cards (se mantiene HEADER visible) */
-  .gridtable-row,
+  .gridtable-header{
+    display: none; /* En mobile usamos cards con labels */
+  }
+  .gridtable-body .gridtable-row,
   .skeleton-row{
     grid-template-columns: 1fr;
     border: 2px solid var(--princ-gray-200);
@@ -548,8 +583,34 @@ html, body {
 /* =========================
    MOBILE ONLY (<= 480px)
    ========================= */
-@media (max-width: 480px){
+@supports (selector(:has(*))) {
+  @media (max-width: 480px){
+    /* Agrupar filtros en 2 columnas si hay soporte */
+    .contable-sidebar .side-views .side-block:has(> label.side-field){
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 10px;
+      row-gap: 12px;
+    }
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-block-title{
+      grid-column: 1 / -1;
+    }
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > *{
+      grid-column: 1 / -1;
+    }
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(1),
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(2),
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(3),
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(4){
+      grid-column: span 1;
+    }
+    .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-actions{
+      grid-column: 1 / -1;
+    }
+  }
+}
 
+@media (max-width: 480px){
   .contable-grid{
     padding: 0;
     gap: 0;
@@ -595,29 +656,6 @@ html, body {
     border-radius: 999px;
   }
 
-  /* Agrupar filtros en 2 columnas */
-  .contable-sidebar .side-views .side-block:has(> label.side-field){
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 10px;
-    row-gap: 12px;
-  }
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-block-title{
-    grid-column: 1 / -1;
-  }
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > *{
-    grid-column: 1 / -1;
-  }
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(1),
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(2),
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(3),
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > label.side-field:nth-of-type(4){
-    grid-column: span 1;
-  }
-  .contable-sidebar .side-views .side-block:has(> label.side-field) > .side-actions{
-    grid-column: 1 / -1;
-  }
-
   .table-toolbar{
     padding: 10px 12px;
     gap: 8px;
@@ -645,7 +683,7 @@ html, body {
   }
 
   /* Tabla tipo cards más compacta */
-  .gridtable-row{
+  .gridtable-body .gridtable-row{
     margin: 8px 8px;
     border-radius: var(--princ-border-radius);
     border: 2px solid var(--princ-gray-700);

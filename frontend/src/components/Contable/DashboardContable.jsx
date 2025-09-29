@@ -275,7 +275,7 @@ export default function DashboardContable() {
     return res.json();
   }, []);
 
-  /* ======= Derivados rápidos (¡MOVIDO ARRIBA!) ======= */
+  /* ======= Derivados rápidos ======= */
   const [derived, setDerived] = useState({ registros: [], total: 0, cobradoresUnicos: 0 });
 
   const recomputeFast = useCallback((periodLabel, monthSel, cobrador) => {
@@ -791,24 +791,31 @@ export default function DashboardContable() {
             </div>
           </div>
 
-          {/* GRID TABLE */}
+          {/* GRID TABLE — Opción B: header fijo y solo el body scrollea */}
           <div className={`contable-tablewrap ${(isLoadingTable || isPending) ? "is-loading" : ""}`}>
-            <div className="gridtable" role="table" aria-rowcount={registrosFiltradosPorBusqueda.length || 0}>
-              {/* Encabezado */}
-              <div className="gridtable-header" role="row">
-                <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
-                <div className="gridtable-cell" role="columnheader">Categoría</div>
-                <div className="gridtable-cell" role="columnheader">Cobrador</div>
-                <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
-                <div className="gridtable-cell" role="columnheader">Periodo pago</div>
-              </div>
 
+            {/* Encabezado fijo (fuera del área que scrollea) */}
+            <div className="gridtable-header" role="row" style={{ position: "relative", zIndex: 3 }}>
+              <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
+              <div className="gridtable-cell" role="columnheader">Categoría</div>
+              <div className="gridtable-cell" role="columnheader">Cobrador</div>
+              <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
+              <div className="gridtable-cell" role="columnheader">Periodo pago</div>
+            </div>
+
+            {/* Solo el cuerpo scrollea */}
+            <div
+              className="gridtable-body"
+              role="rowgroup"
+              aria-rowcount={registrosFiltradosPorBusqueda.length || 0}
+              style={{ flex: "1 1 auto", overflow: "auto", display: "flex", flexDirection: "column" }}
+            >
               {(isLoadingTable || isPending) ? (
                 renderSkeletonRows()
               ) : (
                 <>
                   {(!needsYearData) ? (
-                    <div className="gridtable-empty" role="row">
+                    <div className="gridtable-empty" role="row" style={{ flex: "1 1 auto", display: "grid", placeItems: "center" }}>
                       <div className="gridtable-empty-inner" role="cell">
                         <div className="empty-icon"><FontAwesomeIcon icon={faFilter} /></div>
                         {!anioSeleccionado
@@ -817,7 +824,7 @@ export default function DashboardContable() {
                       </div>
                     </div>
                   ) : registrosFiltradosPorBusqueda.length === 0 ? (
-                    <div className="gridtable-empty" role="row">
+                    <div className="gridtable-empty" role="row" style={{ flex: "1 1 auto", display: "grid", placeItems: "center" }}>
                       <div className="gridtable-empty-inner" role="cell">
                         <div className="empty-icon"><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
                         No hay registros para ese filtro/búsqueda.
