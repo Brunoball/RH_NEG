@@ -19,9 +19,11 @@ import {
   faMagnifyingGlass,
   faFilter,
   faArrowLeft,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
 import ContableChartsModal from "./modalcontable/ContableChartsModal";
+import Toast from "../Global/Toast"; // (tipo, mensaje, duracion, onClose)
 
 /* ===== Constantes ===== */
 const MESES_NOMBRES = Object.freeze([
@@ -83,7 +85,7 @@ const extractMonthsFromPeriodLabel = (label) => {
 const ok  = (obj) => obj && (obj.success === true || obj.exito === true);
 const arr = (obj) => Array.isArray(obj?.data) ? obj.data : (Array.isArray(obj?.datos) ? obj.datos : []);
 
-/* ====== Fila memoizada (evita re-renders de miles de filas) ====== */
+/* ====== Fila memoizada ====== */
 const GridRow = memo(function GridRow({ r, i, nfPesos }) {
   const montoFmt = Number.isFinite(r._precioNum) ? nfPesos.format(r._precioNum) : "0";
   return (
@@ -107,9 +109,8 @@ const GridRow = memo(function GridRow({ r, i, nfPesos }) {
   );
 });
 
-/* ====== Normalizador e indexador por AÑO (se ejecuta una sola vez por año) ====== */
+/* ====== Normalizador por AÑO (para cuando traemos pagos del año) ====== */
 function buildYearIndexes(rawContable, rawListas) {
-  // Periodos y cobradores (limpios)
   let periodosSrv = [];
   let cobradoresSrv = [];
   if (rawListas && ok(rawListas) && rawListas.listas) {
@@ -139,7 +140,6 @@ function buildYearIndexes(rawContable, rawListas) {
   }
   const periodosOpts = periodosSrv.map((label) => ({ value: label, months: extractMonthsFromPeriodLabel(label) }));
 
-  // Enriquecer pagos una sola vez, y pre-ordenar
   const datosMeses = arr(rawContable);
   const pagosAll = [];
   for (let i = 0; i < datosMeses.length; i++) {
@@ -152,24 +152,21 @@ function buildYearIndexes(rawContable, rawListas) {
         const _precioNum  = parseFloat(p?.Precio) || 0;
         const _nombre     = getNombreSocio(p);
         const _categoria  = getCategoriaTxt(p);
-        const _ts         = p?.fechaPago ? (new Date(p.fechaPago).getTime() || 0) : 0; // rápido en filtros
+        const _ts         = p?.fechaPago ? (new Date(p.fechaPago).getTime() || 0) : 0;
         pagosAll.push({ ...p, _cb, _month, _precioNum, _nombreCompleto: _nombre, _categoriaTxt: _categoria, _ts });
       }
     }
   }
 
-  // Orden global descendente por fecha
   const byTsDesc = (a, b) => b._ts - a._ts;
   const pagosAllSorted = pagosAll.sort(byTsDesc);
 
-  // Índices por mes (ya ordenados)
   const pagosByMonth = Array.from({ length: 13 }, () => []);
   for (let k = 0; k < pagosAllSorted.length; k++) {
     const p = pagosAllSorted[k];
     if (p._month >= 1 && p._month <= 12) pagosByMonth[p._month].push(p);
   }
 
-  // Map por período → arreglo ya combinado y ordenado
   const periodMergedMap = new Map();
   for (const opt of periodosOpts) {
     const months = (opt?.months && opt.months.length) ? opt.months : extractMonthsFromPeriodLabel(opt?.value);
@@ -177,14 +174,12 @@ function buildYearIndexes(rawContable, rawListas) {
     if (months.length === 1) {
       periodMergedMap.set(opt.value, pagosByMonth[months[0]] || []);
     } else {
-      // Merge manteniendo orden por fecha descendente sin resortear (k-way merge)
       const arrays = months
         .filter((m) => m >= 1 && m <= 12 && pagosByMonth[m]?.length)
         .map((m) => pagosByMonth[m]);
       if (!arrays.length) { periodMergedMap.set(opt.value, []); continue; }
       if (arrays.length === 1) { periodMergedMap.set(opt.value, arrays[0]); continue; }
 
-      // k-way merge por _ts desc
       const idxs = arrays.map(() => 0);
       const merged = [];
       while (true) {
@@ -203,7 +198,6 @@ function buildYearIndexes(rawContable, rawListas) {
     }
   }
 
-  // Totales
   let totalSocios = Number(rawContable?.total_socios ?? 0) || 0;
   const condonados = Array.isArray(rawContable?.condonados) ? rawContable.condonados : [];
 
@@ -238,31 +232,41 @@ export default function DashboardContable() {
   const [searchText, setSearchText] = useState("");
   const searchDeferred = useDeferredValue(searchText);
 
+  // ===== Toasts =====
+  const [showNoDataToast, setShowNoDataToast] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
   // ===== Datos base =====
   const [aniosDisponibles, setAniosDisponibles] = useState([]);
   const [periodosOpts, setPeriodosOpts] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [totalSocios, setTotalSocios] = useState(0);
   const [condonados, setCondonados] = useState([]);
-  const [datosMeses, setDatosMeses] = useState([]);     // para modal (mantenemos compatibilidad)
+  const [datosMeses, setDatosMeses] = useState([]);     // para modal
   const [datosEmpresas, setDatosEmpresas] = useState([]); // reservado
-  const [isLoadingTable, setIsLoadingTable] = useState(false);
+
   const [error, setError] = useState(null);
   const [mostrarModalGraficos, setMostrarModalGraficos] = useState(false);
   const [sidebarView, setSidebarView] = useState("filtros");
   const [isPending, startTransition] = useTransition();
+
+  // ===== Cargas / estados de spinner =====
+  const [loadingYears, setLoadingYears] = useState(true);
+  const [loadingPagos, setLoadingPagos] = useState(false);
+
+  // ===== Tabla =====
+  const [isLoadingTable, setIsLoadingTable] = useState(false);
+
+  // RAFs
   const computeRAF1 = useRef(0);
   const computeRAF2 = useRef(0);
 
-  // Índices cacheados por año (evita recalcular si el usuario cambia entre años y vuelve)
+  // Cache por año (pagos procesados)
   const yearCacheRef = useRef(Object.create(null));
-
-  // Arrays indexados actuales (según año seleccionado)
   const curPagosAllSortedRef = useRef([]);
   const curPagosByMonthRef = useRef([]);
   const curPeriodMergedMapRef = useRef(new Map());
 
-  // Utils
   const nfPesos = useMemo(() => new Intl.NumberFormat("es-AR"), []);
   const fetchJSON = useCallback(async (url, signal) => {
     const sep = url.includes("?") ? "&" : "?";
@@ -271,63 +275,122 @@ export default function DashboardContable() {
     return res.json();
   }, []);
 
-  // ========= Carga inicial (listas + contable "por defecto") =========
+  /* ======= Derivados rápidos (¡MOVIDO ARRIBA!) ======= */
+  const [derived, setDerived] = useState({ registros: [], total: 0, cobradoresUnicos: 0 });
+
+  const recomputeFast = useCallback((periodLabel, monthSel, cobrador) => {
+    const all = curPagosAllSortedRef.current || [];
+    const byMonth = curPagosByMonthRef.current || [];
+    const byPeriod = curPeriodMergedMapRef.current || new Map();
+
+    const monthNum = monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
+    let base;
+
+    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
+      base = all;
+    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
+      base = byMonth[monthNum] || [];
+    } else {
+      base = byPeriod.get(periodLabel) || [];
+      if (monthNum) base = base.filter((p) => p._month === monthNum);
+    }
+
+    if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
+
+    let total = 0;
+    const setCb = new Set();
+    for (let i = 0; i < base.length; i++) {
+      total += base[i]._precioNum;
+      if (base[i]._cb) setCb.add(base[i]._cb);
+    }
+    return { registros: base, total, cobradoresUnicos: setCb.size };
+  }, []);
+
+  // ========= Carga INICIAL — SOLO años + listas (liviano) =========
   useEffect(() => {
     const ctrl = new AbortController();
     (async () => {
       try {
         setError(null);
+        setLoadingYears(true);
 
-        // Hacemos fetch en paralelo
-        const [rawListas, rawContable] = await Promise.all([
-          fetchJSON(`${BASE_URL}/api.php?action=listas`, ctrl.signal).catch(() => null),
-          fetchJSON(`${BASE_URL}/api.php?action=contable`, ctrl.signal),
-        ]);
+        // 1) Listas (períodos/cobradores) — liviano
+        const rawListas = await fetchJSON(`${BASE_URL}/api.php?action=listas`, ctrl.signal).catch(() => null);
 
-        if (!ok(rawContable)) throw new Error("Respuesta inválida del servidor contable");
+        // 2) Años disponibles — SUPER liviano (meta=years)
+        const meta = await fetchJSON(`${BASE_URL}/api.php?action=contable&meta=years`, ctrl.signal);
 
-        // Construimos índices y cacheamos por año
-        const built = buildYearIndexes(rawContable, rawListas);
-        const anioKey = String(built.anioInicial || "");
-        yearCacheRef.current[anioKey] = {
-          built,
-          datosMeses: arr(rawContable), // para modal
-        };
+        if (!ok(meta)) throw new Error("Respuesta inválida (years)");
+        const years = Array.isArray(meta?.anios) ? meta.anios : [];
+        const totalSoc = Number(meta?.total_socios ?? 0) || 0;
 
-        // Popular estado solo una vez (evita parpadeo)
-        setPeriodosOpts(built.periodosOpts);
-        setCobradores(built.cobradores);
-        setAniosDisponibles(built.aniosDisponibles);
-        setAnioSeleccionado(built.anioInicial || "");
-        setTotalSocios(built.totalSocios);
-        setCondonados(built.condonados);
-        setDatosMeses(yearCacheRef.current[anioKey].datosMeses);
+        setAniosDisponibles(years);
+        setTotalSocios(totalSoc);
 
-        // Poner índices actuales
-        curPagosAllSortedRef.current = built.pagosAllSorted;
-        curPagosByMonthRef.current = built.pagosByMonth;
-        curPeriodMergedMapRef.current = built.periodMergedMap;
+        // Dejo preseleccionado el último año, pero NO traigo pagos aún.
+        const lastYear = years.length ? Math.max(...years) : "";
+        setAnioSeleccionado(lastYear || "");
+
+        // Extraigo periodos/cobradores desde listas (si hay) para poder armar combos ya
+        let periodosSrv = [];
+        let cobradoresSrv = [];
+        if (rawListas && rawListas?.listas) {
+          if (Array.isArray(rawListas.listas.periodos)) {
+            periodosSrv = rawListas.listas.periodos
+              .filter((p) => {
+                const id = typeof p === "object" && p ? String(p.id ?? "") : "";
+                const nombre = typeof p === "string" ? p : (p?.nombre || "");
+                if (id === "7") return false;
+                if (String(nombre || "").toUpperCase().includes("ANUAL")) return false;
+                return true;
+              })
+              .map((p) => (typeof p === "string" ? p : (p?.nombre || "")))
+              .map((s) => s.toString().trim())
+              .filter(Boolean);
+          }
+          if (Array.isArray(rawListas.listas.cobradores)) {
+            cobradoresSrv = rawListas.listas.cobradores
+              .map((c) => c?.nombre)
+              .filter(Boolean)
+              .map(String)
+              .sort((a, b) => a.localeCompare(b, "es"));
+          }
+        }
+        if (periodosSrv.length === 0) {
+          periodosSrv = Array.from({ length: 12 }, (_, i) => `PERÍODO ${i + 1}`);
+        }
+        setPeriodosOpts(periodosSrv.map((label) => ({ value: label, months: extractMonthsFromPeriodLabel(label) })));
+        setCobradores(cobradoresSrv);
+
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("Error en carga inicial:", err);
-          setError("Error al cargar datos. Verifique la conexión o intente más tarde.");
+          console.error("Error en carga inicial (years):", err);
+          setError("Error al cargar los años disponibles.");
         }
+      } finally {
+        setLoadingYears(false);
       }
     })();
     return () => ctrl.abort();
   }, [fetchJSON]);
 
-  // ========= Cuando cambia el año =========
+  // ========= Cargar pagos del AÑO (lazy) cuando el usuario selecciona Período o Mes =========
+  const needsYearData = useMemo(() => {
+    const monthChosen = mesSeleccionado !== "Todos los meses";
+    const periodChosen = periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo";
+    return Boolean(anioSeleccionado && (monthChosen || periodChosen));
+  }, [anioSeleccionado, periodoSeleccionado, mesSeleccionado]);
+
   useEffect(() => {
-    if (!anioSeleccionado) return;
+    if (!needsYearData) return; // no cargar pagos hasta que el usuario elija periodo o mes
     const ctrl = new AbortController();
+
     (async () => {
       try {
         const key = String(anioSeleccionado);
-        // Si ya lo tengo, uso cache instantáneo (cero flicker)
+        // Si ya tenemos cache del año, usarlo
         if (yearCacheRef.current[key]) {
           const { built, datosMeses } = yearCacheRef.current[key];
-          setAniosDisponibles((prev) => (prev?.length ? prev : built.aniosDisponibles));
           setTotalSocios(built.totalSocios);
           setCondonados(built.condonados);
           setDatosMeses(datosMeses);
@@ -336,24 +399,25 @@ export default function DashboardContable() {
           curPagosByMonthRef.current = built.pagosByMonth;
           curPeriodMergedMapRef.current = built.periodMergedMap;
 
-          // levantamos skeleton apenas y soltamos rápido
+          // 🔧 FIX: recalcular inmediatamente en la PRIMERA veZ
           setIsLoadingTable(true);
-          requestAnimationFrame(() => requestAnimationFrame(() => setIsLoadingTable(false)));
+          const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+          setDerived(d);
+          requestAnimationFrame(() => setIsLoadingTable(false));
           return;
         }
 
-        // No está cacheado → fetch + build
+        // Caso contrario, traer pagos del año seleccionado
+        setLoadingPagos(true);
+        setIsLoadingTable(true);
         const raw = await fetchJSON(`${BASE_URL}/api.php?action=contable&anio=${encodeURIComponent(anioSeleccionado)}`, ctrl.signal);
         if (!ok(raw)) throw new Error("Formato inválido en datos contables del año");
 
-        const rawListas = await fetchJSON(`${BASE_URL}/api.php?action=listas`, ctrl.signal).catch(() => null);
-        const built = buildYearIndexes(raw, rawListas);
+        // No hace falta volver a pedir listas; ya las tenemos para combos.
+        const built = buildYearIndexes(raw, { exito:true, listas:{ periodos: periodosOpts.map(o=>o.value), cobradores: cobradores.map(n=>({nombre:n})) } });
 
-        // Cachear y aplicar
         yearCacheRef.current[key] = { built, datosMeses: arr(raw) };
 
-        // Solo seteamos si cambia (evita renders)
-        setAniosDisponibles((prev) => JSON.stringify(prev) !== JSON.stringify(built.aniosDisponibles) ? built.aniosDisponibles : prev);
         setTotalSocios(built.totalSocios);
         setCondonados(built.condonados);
         setDatosMeses(yearCacheRef.current[key].datosMeses);
@@ -362,17 +426,36 @@ export default function DashboardContable() {
         curPagosByMonthRef.current = built.pagosByMonth;
         curPeriodMergedMapRef.current = built.periodMergedMap;
 
-        setIsLoadingTable(true);
-        requestAnimationFrame(() => requestAnimationFrame(() => setIsLoadingTable(false)));
+        // 🔧 FIX: recalcular al finalizar el fetch inicial
+        const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+        setDerived(d);
+
       } catch (err) {
         if (err.name !== "AbortError") {
-          console.error("Error al cargar año:", err);
+          console.error("Error al cargar pagos del año:", err);
           setError("No se pudieron obtener los pagos del año seleccionado.");
+          // ante error, limpiar visibles
+          setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
         }
+      } finally {
+        setLoadingPagos(false);
+        setTimeout(() => setIsLoadingTable(false), 100);
       }
     })();
+
     return () => ctrl.abort();
-  }, [anioSeleccionado, fetchJSON]);
+  }, [
+    needsYearData,
+    anioSeleccionado,
+    fetchJSON,
+    periodosOpts,
+    cobradores,
+    // 🔧 Importante: dependencias de los filtros para que el primer cálculo use los actuales
+    periodoSeleccionado,
+    mesSeleccionado,
+    cobradorSeleccionado,
+    recomputeFast
+  ]);
 
   /* ===== Meses disponibles por período ===== */
   const mesesDisponibles = useMemo(() => {
@@ -392,39 +475,8 @@ export default function DashboardContable() {
     }
   }, [mesesDisponibles, mesSeleccionado]);
 
-  // ======= Derivados rápidos (sin resortear) =======
-  const [derived, setDerived] = useState({ registros: [], total: 0, cobradoresUnicos: 0 });
-
-  const recomputeFast = useCallback((periodLabel, monthSel, cobrador) => {
-    const all = curPagosAllSortedRef.current;
-    const byMonth = curPagosByMonthRef.current;
-    const byPeriod = curPeriodMergedMapRef.current;
-
-    const monthNum = monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
-    let base;
-
-    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
-      base = all; // ya está ordenado por _ts desc
-    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
-      base = byMonth[monthNum] || [];
-    } else {
-      base = byPeriod.get(periodLabel) || [];
-      if (monthNum) base = base.filter((p) => p._month === monthNum); // raro pero compatible con tu UI
-    }
-
-    if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
-
-    let total = 0;
-    const setCb = new Set();
-    for (let i = 0; i < base.length; i++) {
-      total += base[i]._precioNum;
-      if (base[i]._cb) setCb.add(base[i]._cb);
-    }
-    return { registros: base, total, cobradoresUnicos: setCb.size };
-  }, []);
-
+  // Vuelve a calcular cuando cambian filtros (y ya hay datos)
   useEffect(() => {
-    // si aun no hay datos indexados, cortar skeletons
     if (!curPagosAllSortedRef.current || curPagosAllSortedRef.current.length === 0) {
       setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
       setIsLoadingTable(false);
@@ -450,13 +502,32 @@ export default function DashboardContable() {
 
   // ===== Handlers =====
   const volver = useCallback(() => navigate(-1), [navigate]);
-  const handlePeriodoChange  = useCallback((e) => setPeriodoSeleccionado(e.target.value), []);
-  const handleMesChange      = useCallback((e) => setMesSeleccionado(e.target.value), []);
+
+  const handlePeriodoChange  = useCallback((e) => {
+    setPeriodoSeleccionado(e.target.value);
+  }, []);
+
+  const handleMesChange      = useCallback((e) => {
+    setMesSeleccionado(e.target.value);
+  }, []);
+
   const handleCobradorChange = useCallback((e) => setCobradorSeleccionado(e.target.value), []);
-  const handleYearChange     = useCallback((e) => setAnioSeleccionado(e.target.value), []);
+  const handleYearChange     = useCallback((e) => {
+    setAnioSeleccionado(e.target.value);
+    // al cambiar de año, reseteo filtros y NO cargo pagos hasta que elija periodo/mes
+    setPeriodoSeleccionado("Selecciona un periodo");
+    setMesSeleccionado("Todos los meses");
+    setCobradorSeleccionado("todos");
+    // limpio tabla visible
+    curPagosAllSortedRef.current = [];
+    curPagosByMonthRef.current = [];
+    curPeriodMergedMapRef.current = new Map();
+    setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
+  }, []);
+
   const handleSearch         = useCallback((e) => setSearchText(e.target.value), []);
 
-  // Buscador (sobre visibles) — incluye CATEGORÍA — con valor diferido
+  // Buscador (sobre visibles)
   const registrosFiltradosPorBusqueda = useMemo(() => {
     const q = (searchDeferred || "").trim().toLowerCase();
     if (!q) return derived.registros;
@@ -480,9 +551,10 @@ export default function DashboardContable() {
   const exportarExcel = useCallback(() => {
     const rows = registrosFiltradosPorBusqueda || [];
     if (!rows.length) {
-      alert("No hay registros para exportar con los filtros actuales.");
+      setShowNoDataToast(true);
       return;
     }
+
     const data = rows.map((r) => ({
       "SOCIO": r._nombreCompleto,
       "CATEGORIA": r._categoriaTxt || "",
@@ -504,6 +576,8 @@ export default function DashboardContable() {
     if (mesSeleccionado && mesSeleccionado !== "Todos los meses") parts.push(mesUC(parseInt(mesSeleccionado, 10)));
     const fname = `resumen_pagos_${parts.join("_") || "filtros"}.xlsx`;
     XLSX.writeFile(wb, fname);
+
+    setShowSuccessToast(true);
   }, [registrosFiltradosPorBusqueda, anioSeleccionado, periodoSeleccionado, mesSeleccionado]);
 
   const calcularTotalRegistros = useCallback(
@@ -511,7 +585,6 @@ export default function DashboardContable() {
     [registrosFiltradosPorBusqueda.length]
   );
 
-  // ===== Skeleton helpers =====
   const renderSkeletonRows = () =>
     Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
       <div className="gridtable-row skeleton-row" role="row" key={`sk-${idx}`} aria-hidden="true">
@@ -581,9 +654,11 @@ export default function DashboardContable() {
 
                 {/* Año */}
                 <label className="side-field">
-                  <span>Año</span>
-                  <select value={anioSeleccionado || ""} onChange={handleYearChange}>
-                    {aniosDisponibles.length === 0 ? (
+                  <span>Año {loadingYears && <FontAwesomeIcon icon={faSpinner} spin title="Cargando..." style={{marginLeft:6}}/>}</span>
+                  <select value={anioSeleccionado || ""} onChange={handleYearChange} disabled={loadingYears || aniosDisponibles.length===0}>
+                    {loadingYears ? (
+                      <option>Cargando…</option>
+                    ) : aniosDisponibles.length === 0 ? (
                       <option value="">Sin pagos</option>
                     ) : (
                       aniosDisponibles.map((y) => <option key={y} value={y}>{y}</option>)
@@ -593,11 +668,12 @@ export default function DashboardContable() {
 
                 {/* Período */}
                 <label className="side-field">
-                  <span>Período</span>
+                  <span>Período {loadingPagos && needsYearData && <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{marginLeft:6}}/>}</span>
                   <select
                     value={periodoSeleccionado}
                     onChange={handlePeriodoChange}
-                    disabled={!anioSeleccionado}
+                    disabled={!anioSeleccionado || loadingYears}
+                    title={!anioSeleccionado ? "Seleccione un año" : undefined}
                   >
                     <option value="Selecciona un periodo">Selecciona un periodo</option>
                     {periodosOpts.map((opt) => (
@@ -608,11 +684,12 @@ export default function DashboardContable() {
 
                 {/* Mes dependiente */}
                 <label className="side-field">
-                  <span>Mes</span>
+                  <span>Mes {loadingPagos && needsYearData && <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{marginLeft:6}}/>}</span>
                   <select
                     value={mesSeleccionado}
                     onChange={handleMesChange}
-                    disabled={!anioSeleccionado}
+                    disabled={!anioSeleccionado || loadingYears}
+                    title={!anioSeleccionado ? "Seleccione un año" : undefined}
                   >
                     <option>Todos los meses</option>
                     {mesesDisponibles.map((m) => <option key={m} value={m}>{mesUC(m)}</option>)}
@@ -625,7 +702,7 @@ export default function DashboardContable() {
                   <select
                     value={cobradorSeleccionado}
                     onChange={handleCobradorChange}
-                    disabled={!anioSeleccionado}
+                    disabled={!anioSeleccionado || loadingYears}
                   >
                     <option value="todos">Todos</option>
                     {cobradores.map((cb, idx) => <option key={idx} value={cb}>{cb}</option>)}
@@ -638,7 +715,7 @@ export default function DashboardContable() {
                     className="btn-dark grafics"
                     type="button"
                     onClick={() => setMostrarModalGraficos(true)}
-                    disabled={!anioSeleccionado}
+                    disabled={!anioSeleccionado || loadingYears}
                     title="Ver gráficos"
                   >
                     <FontAwesomeIcon icon={faChartPie} /> Gráficos
@@ -648,7 +725,7 @@ export default function DashboardContable() {
                     className="btn-dark excel"
                     type="button"
                     onClick={exportarExcel}
-                    disabled={!anioSeleccionado}
+                    disabled={!anioSeleccionado || loadingYears}
                     title="Exportar registros visibles"
                   >
                     <FontAwesomeIcon icon={faFileExcel} /> Excel
@@ -709,7 +786,7 @@ export default function DashboardContable() {
                 placeholder="Buscar por socio, categoría, cobrador, período, fecha o monto…"
                 value={searchText}
                 onChange={handleSearch}
-                disabled={!anioSeleccionado}
+                disabled={!anioSeleccionado || loadingYears}
               />
             </div>
           </div>
@@ -726,16 +803,17 @@ export default function DashboardContable() {
                 <div className="gridtable-cell" role="columnheader">Periodo pago</div>
               </div>
 
-              {/* Skeletons mientras carga */}
               {(isLoadingTable || isPending) ? (
                 renderSkeletonRows()
               ) : (
                 <>
-                  {periodoSeleccionado === "Selecciona un periodo" && mesSeleccionado === "Todos los meses" ? (
+                  {(!needsYearData) ? (
                     <div className="gridtable-empty" role="row">
                       <div className="gridtable-empty-inner" role="cell">
                         <div className="empty-icon"><FontAwesomeIcon icon={faFilter} /></div>
-                        {!anioSeleccionado ? "Seleccione un año para ver los pagos" : "Seleccione un período o un mes para ver los registros"}
+                        {!anioSeleccionado
+                          ? "Seleccione un año para ver los pagos"
+                          : "Seleccione un período o un mes para cargar y ver los registros"}
                       </div>
                     </div>
                   ) : registrosFiltradosPorBusqueda.length === 0 ? (
@@ -769,6 +847,25 @@ export default function DashboardContable() {
         anioSeleccionado={anioSeleccionado}
         condonados={condonados}
       />
+
+      {/* TOASTS */}
+      {showNoDataToast && (
+        <Toast
+          tipo="advertencia"
+          mensaje="No hay registros para exportar con los filtros actuales."
+          duracion={2500}
+          onClose={() => setShowNoDataToast(false)}
+        />
+      )}
+
+      {showSuccessToast && (
+        <Toast
+          tipo="exito"
+          mensaje="Excel exportado con éxito."
+          duracion={2200}
+          onClose={() => setShowSuccessToast(false)}
+        />
+      )}
     </div>
   );
 }

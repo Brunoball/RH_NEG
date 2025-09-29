@@ -820,9 +820,9 @@ const Cuotas = () => {
         : primerIdSeleccionado(ids);
       const anioNum = Number(anioSeleccionado) || new Date().getFullYear();
 
-      // ⬇️ NUEVO: importe por socio (usa campos del backend)
+      // Importe por socio (usa campos del backend)
       const listaEnriquecida = cuotasFiltradas.map((c) => ({
-        ...c,
+        ...c, // ⬅️ ahora incluye id_categoria y nombre_categoria desde el backend
         id_periodo: periodoIdImpresion,
         periodo_texto: periodoTexto,
         importe_total: calcularImportePorSeleccion(ids, c),
@@ -852,14 +852,14 @@ const Cuotas = () => {
     setMostrarModalSeleccionPeriodos(true);
   };
 
-  // ⬇️ ACTUALIZADO: acepta payload enriquecido del ModalMesCuotas
+  // ⬇️ ACTUALIZADO: acepta socioEnriquecido enviado por el modal (¡clave para la categoría correcta!)
   const handleImprimirSeleccionados = async (payload) => {
     const {
       anio,
       seleccionados,
-      esAnual,         // opcional, calculado por el modal
-      periodoTexto,    // opcional, calculado por el modal
-      importe_total,   // opcional, para caso por-socio
+      periodoTexto,     // texto ya calculado por el modal
+      importe_total,    // para caso por-socio
+      socioEnriquecido, // ⭐ info del socio desde socio_comprobante
     } = payload || {};
 
     const ventanaImpresion = window.open('', '_blank');
@@ -870,7 +870,6 @@ const Cuotas = () => {
 
     setLoadingPrint(true);
     try {
-      // Modo contable (se mantiene igual)
       if (imprimirContable) {
         if (cuotaParaImprimir) {
           await imprimirRecibos([cuotaParaImprimir], null, ventanaImpresion, true);
@@ -883,7 +882,6 @@ const Cuotas = () => {
         const listaOrdenada = [...(seleccionados || [])].sort((a, b) => Number(a) - Number(b));
         const idsStr = listaOrdenada.map(String);
 
-        // Si el modal nos pasó el texto, lo usamos; si no, lo construimos
         const textoPeriodo =
           typeof periodoTexto === 'string' && periodoTexto.trim().length > 0
             ? periodoTexto
@@ -896,14 +894,18 @@ const Cuotas = () => {
         const anioNum = Number(anio) || Number(anioSeleccionado) || new Date().getFullYear();
 
         if (cuotaParaImprimir) {
-          // Caso impresión de UNA fila: si el modal ya calculó importe_total, lo usamos
+          // ⚠️ Para UNA fila: usar la versión enriquecida (trae nombre_categoria / id_categoria correctos)
+          const baseSocio = socioEnriquecido && socioEnriquecido.id_socio
+            ? socioEnriquecido
+            : cuotaParaImprimir;
+
           const importe =
             typeof importe_total === 'number'
               ? importe_total
-              : calcularImportePorSeleccion(listaOrdenada, cuotaParaImprimir);
+              : calcularImportePorSeleccion(listaOrdenada, baseSocio);
 
           const socioConPeriodos = {
-            ...cuotaParaImprimir,
+            ...baseSocio,
             id_periodo: periodoCodigo,
             periodo_texto: textoPeriodo,
             importe_total: importe,
@@ -911,7 +913,7 @@ const Cuotas = () => {
           };
           await imprimirRecibosUnicos([socioConPeriodos], periodoCodigo, ventanaImpresion);
         } else {
-          // Impresión masiva: se calcula por socio (el modal no envía importe por cada uno)
+          // Impresión masiva: ahora cada item ya trae id_categoria y nombre_categoria desde el backend
           const listaEnriquecida = cuotasFiltradas.map((c) => ({
             ...c,
             id_periodo: periodoCodigo,
@@ -999,6 +1001,7 @@ const Cuotas = () => {
       'Estado socio': c.estado || '',
       'Medio de pago': c.medio_pago || '',
       'Estado de pago': c.estado_pago || '',
+      'Categoría': c.nombre_categoria || '', // ⬅️ ahora disponible
       'Período (visible)': periodoTexto || '',
       Año: anioSeleccionado || '',
     }));
@@ -1028,6 +1031,7 @@ const Cuotas = () => {
 
   return (
     <div className="cuo_app-container">
+      {/* —— panel de filtros —— */}
       <div className={`cuo_filtros-panel ${!filtrosExpandidos ? 'cuo_filtros-colapsado' : ''}`}>
         <div className="cuo_filtros-header">
           <h3 className="cuo_filtros-titulo">
@@ -1047,7 +1051,7 @@ const Cuotas = () => {
 
         {filtrosExpandidos && (
           <>
-            {/* Filtro de Año (solo años con pagos) */}
+            {/* Año */}
             <div className="cuo_filtro-grupo">
               <label className="cuo_filtro-label">
                 <FaCalendarAlt className="cuo_filtro-icono" />
@@ -1065,6 +1069,7 @@ const Cuotas = () => {
               </select>
             </div>
 
+            {/* Período */}
             <div className="cuo_filtro-grupo">
               <label className="cuo_filtro-label">
                 <FaCalendarAlt className="cuo_filtro-icono" />
@@ -1085,6 +1090,7 @@ const Cuotas = () => {
               </select>
             </div>
 
+            {/* Tabs estado pago */}
             <div className="cuo_tabs-container">
               <label className="cuo_filtro-label">
                 <FaFilter className="cuo_filtro-icono" />
@@ -1135,6 +1141,7 @@ const Cuotas = () => {
               </div>
             </div>
 
+            {/* Estado socio */}
             <div className="cuo_filtro-grupo">
               <label className="cuo_filtro-label">
                 <FaFilter className="cuo_filtro-icono" />
@@ -1155,6 +1162,7 @@ const Cuotas = () => {
               </select>
             </div>
 
+            {/* Medio de pago */}
             <div className="cuo_filtro-grupo">
               <label className="cuo_filtro-label">
                 <FaFilter className="cuo_filtro-icono" />
@@ -1188,11 +1196,12 @@ const Cuotas = () => {
       </div>
 
       {!filtrosExpandidos && (
-        <button className="cuo_boton-flotante-abrir cuo_flotante-fuera" onClick={toggleFiltros} title="Mostrar filtros">
+        <button className="cuo_boton-flotante-abrir cuo_flotante-fuera" onClick={() => setFiltrosExpandidos((s) => !s)} title="Mostrar filtros">
           <FiChevronRight size={20} />
         </button>
       )}
 
+      {/* —— main —— */}
       <div className="cuo_main-content">
         <div className="cuo_content-header">
           <div className="cuo_header-top">
@@ -1230,9 +1239,7 @@ const Cuotas = () => {
                 {busqueda ? (
                   <button
                     className="cuo_buscador-clear"
-                    onClick={() => {
-                      setBusqueda('');
-                    }}
+                    onClick={() => setBusqueda('')}
                     title="Limpiar búsqueda"
                   >
                     <FaTimes />
@@ -1258,9 +1265,7 @@ const Cuotas = () => {
                 {busquedaId ? (
                   <button
                     className="cuo_buscador-clear"
-                    onClick={() => {
-                      setBusquedaId('');
-                    }}
+                    onClick={() => setBusquedaId('')}
                     title="Limpiar ID"
                   >
                     <FaTimes />
@@ -1488,7 +1493,7 @@ const Cuotas = () => {
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (
         <ModalMesCuotas
-          /* ⬇️⬇️ PASAR EL SOCIO ACÁ */
+          /* Socio de la fila */
           socioInfo={cuotaParaImprimir || null}
           id_socio={cuotaParaImprimir?.id_socio || cuotaParaImprimir?.id || cuotaParaImprimir?.idsocio}
           id_cat_monto={cuotaParaImprimir?.id_cat_monto}
@@ -1508,7 +1513,7 @@ const Cuotas = () => {
           anioSeleccionado={anioSeleccionado}
           onAnioChange={setAnioSeleccionado}
 
-          /* Montos por socio (ya lo tenías) */
+          /* Montos por socio */
           montoMensual={
             cuotaParaImprimir
               ? Number(cuotaParaImprimir?.monto_mensual) || 0
@@ -1523,7 +1528,6 @@ const Cuotas = () => {
           condonar={false}
         />
       )}
-
 
       {toastVisible && (
         <Toast tipo={toastTipo} mensaje={toastMensaje} duracion={3000} onClose={() => setToastVisible(false)} />

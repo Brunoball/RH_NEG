@@ -6,7 +6,6 @@ import './ModalFamilia.css';
 export default function ModalFamilia({ open, onClose, familia, onSave }) {
   const [nombre, setNombre] = useState('');
   const [obs, setObs] = useState('');
-  const [activo, setActivo] = useState(true);
 
   const isEdit = !!familia;
 
@@ -14,7 +13,6 @@ export default function ModalFamilia({ open, onClose, familia, onSave }) {
     if (!open) return;
     setNombre((familia?.nombre_familia || '').toString().toUpperCase());
     setObs((familia?.observaciones || '').toString().toUpperCase());
-    setActivo((familia?.activo ?? 1) === 1);
   }, [open, familia]);
 
   const handleGuardar = useCallback(() => {
@@ -22,9 +20,9 @@ export default function ModalFamilia({ open, onClose, familia, onSave }) {
       id_familia: familia?.id_familia ?? null,
       nombre_familia: nombre.trim(),
       observaciones: obs.trim(),
-      activo: activo ? 1 : 0,
+      // Se eliminó "activo" del payload
     });
-  }, [onSave, familia, nombre, obs, activo]);
+  }, [onSave, familia, nombre, obs]);
 
   // Esc = cerrar, Ctrl/Cmd+Enter = guardar
   useEffect(() => {
@@ -87,12 +85,11 @@ export default function ModalFamilia({ open, onClose, familia, onSave }) {
             value={obs}
             onChange={handleObs}
           />
-
-
         </div>
 
         <div className="modalfa-foot">
           <button onClick={onClose} className="modalfa-btn modalfa-ghost">Cancelar</button>
+          {/* Botón SIEMPRE AZUL */}
           <button onClick={handleGuardar} className="modalfa-btn modalfa-solid">
             <FaSave /> Guardar
           </button>

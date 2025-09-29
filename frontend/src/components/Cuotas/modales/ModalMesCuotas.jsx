@@ -1,4 +1,3 @@
-// src/components/Cuotas/modales/ModalMesCuotas.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faCalendarAlt, faPrint, faFilePdf } from "@fortawesome/free-solid-svg-icons";
@@ -6,17 +5,17 @@ import BASE_URL from "../../../config/config";
 import { generarReciboPDFUnico } from "../../../utils/ReciboPDF";
 import "./ModalMesCuotas.css";
 
-const MESES_ANIO = 6; // cantidad de bimestres que representan el anual
+const MESES_ANIO = 6;
 
 const ventanaAnualActiva = () => {
   const hoy = new Date();
   const y = hoy.getFullYear();
-  const startActual = new Date(y, 11, 15);   // 15-dic-y
-  const endSiguiente = new Date(y + 1, 2, 1); // 1-mar-(y+1)
+  const startActual = new Date(y, 11, 15);
+  const endSiguiente = new Date(y + 1, 2, 1);
   if (hoy >= startActual && hoy < endSiguiente) return true;
 
-  const startPrev = new Date(y - 1, 11, 15); // 15-dic-(y-1)
-  const endActual = new Date(y, 2, 1);       // 1-mar-y
+  const startPrev = new Date(y - 1, 11, 15);
+  const endActual = new Date(y, 2, 1);
   if (hoy >= startPrev && hoy < endActual) return true;
 
   return false;
@@ -27,43 +26,71 @@ const ModalMesCuotas = ({
   seleccionados = [],
   onSeleccionadosChange,
   onCancelar,
-  onImprimir,                // recibe { anio, seleccionados, esAnual, periodoTexto, importe_total }
+  onImprimir,
   anios = [],
   anioSeleccionado = "",
   onAnioChange = () => {},
-  // ===== NUEVOS/EXISTENTES PROPS =====
   montoMensual = 0,
   montoAnual = 0,
   condonar = false,
-  // Para refrescar montos al vuelo (opcionales):
   id_socio,
   id_cat_monto,
-  socioInfo = {}, // Información del socio para el comprobante
+  socioInfo = {},
 }) => {
   const normalize = (s = "") =>
     String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
-
   const isAnualName = (p) => normalize(p?.nombre).includes("ANUAL");
   const ventanaActiva = ventanaAnualActiva();
 
-  // ====== estado local de montos (se puede refrescar) ======
   const [mMensual, setMMensual] = useState(Number(montoMensual) || 0);
   const [mAnual, setMAnual] = useState(Number(montoAnual) || 0);
-  
-  // Nuevo: modo de salida (imprimir o PDF)
-  const [modoSalida, setModoSalida] = useState('imprimir');
+  const [modoSalida, setModoSalida] = useState("imprimir");
+
+  // Socio enriquecido desde backend (trae nombre_categoria / id_categoria correctos)
+  const [socioDet, setSocioDet] = useState(null);
+  const [cargandoSocio, setCargandoSocio] = useState(false);
 
   useEffect(() => {
     setMMensual(Number(montoMensual) || 0);
     setMAnual(Number(montoAnual) || 0);
   }, [montoMensual, montoAnual]);
 
+  // Trae socio_comprobante para tener categoría correcta
+  useEffect(() => {
+    const fetchSocio = async () => {
+      if (!id_socio) { setSocioDet(null); return; }
+      setCargandoSocio(true);
+      try {
+        const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${encodeURIComponent(id_socio)}`);
+        const data = await res.json();
+        if (data?.exito && data.socio) {
+          const s = data.socio;
+          setSocioDet({
+            ...s,
+            id_socio: s.id_socio ?? id_socio,
+            nombre_categoria: s.nombre_categoria || "",
+            id_categoria: s.id_categoria ?? null,
+          });
+          if (Number(s.monto_mensual)) setMMensual(Number(s.monto_mensual));
+          if (Number(s.monto_anual))   setMAnual(Number(s.monto_anual));
+        } else {
+          setSocioDet(null);
+        }
+      } catch {
+        setSocioDet(null);
+      } finally {
+        setCargandoSocio(false);
+      }
+    };
+    fetchSocio();
+  }, [id_socio]);
+
   const refrescarMontosActuales = async () => {
     if (!id_socio && !id_cat_monto) return;
     try {
       const qs = new URLSearchParams();
-      if (id_cat_monto) qs.set('id_cat_monto', String(id_cat_monto));
-      if (id_socio)     qs.set('id_socio',     String(id_socio));
+      if (id_cat_monto) qs.set("id_cat_monto", String(id_cat_monto));
+      if (id_socio)     qs.set("id_socio",     String(id_socio));
       const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
       const data = await res.json();
       if (data?.exito) {
@@ -73,7 +100,6 @@ const ModalMesCuotas = ({
     } catch {/* silent */}
   };
 
-  // -------- Helpers --------
   const idsSeleccionadosComoString = useMemo(
     () => seleccionados.map(String),
     [seleccionados]
@@ -94,8 +120,7 @@ const ModalMesCuotas = ({
     return idsSeleccionadosComoString.includes(String(anualPeriodo.id));
   }, [anualPeriodo, idsSeleccionadosComoString]);
 
-  const soloAnualSeleccionado =
-    algunAnualSeleccionado && seleccionados.length === 1;
+  const soloAnualSeleccionado = algunAnualSeleccionado && seleccionados.length === 1;
 
   const anioEfectivo = useMemo(() => {
     const prefer = String(anioSeleccionado || "").trim();
@@ -212,7 +237,7 @@ const ModalMesCuotas = ({
 
   const totalSeleccionados = seleccionados.length;
 
-  // === Year picker ===
+  // Year picker
   const [showYearPicker, setShowYearPicker] = useState(false);
   const yearRef = useRef(null);
 
@@ -264,11 +289,17 @@ const ModalMesCuotas = ({
     return (Number(mMensual) || 0) * cantidadBimestresSeleccionados;
   }, [condonar, esAnualSeleccion, mAnual, mMensual, cantidadBimestresSeleccionados]);
 
+  // Socio base (preferimos el enriquecido del backend)
+  const socioBase = useMemo(() => {
+    if (socioDet) return socioDet;
+    return socioInfo || {};
+  }, [socioDet, socioInfo]);
+
   const buildSocioParaComprobante = () => {
     const periodoCodigo = esAnualSeleccion 
       ? (anualPeriodo?.id || 7) 
       : (seleccionados[0] || 0);
-    
+
     const importe = condonar
       ? 0
       : (esAnualSeleccion
@@ -276,7 +307,7 @@ const ModalMesCuotas = ({
           : (Number(mMensual) || 0) * cantidadBimestresSeleccionados);
 
     return {
-      ...socioInfo,
+      ...socioBase,
       id_periodo: periodoCodigo,
       periodo_texto: periodoTexto,
       importe_total: importe,
@@ -294,7 +325,7 @@ const ModalMesCuotas = ({
       periodoActual: periodoCodigo,
       anioSeleccionado: anioEfectivo,
       headerImageUrl: `${BASE_URL}/assets/cabecera_rh.png`,
-      nombreArchivo: `Comprobante_${socioInfo.id_socio}_${anioEfectivo}.pdf`,
+      nombreArchivo: `Comprobante_${socioBase.id_socio || id_socio}_${anioEfectivo}.pdf`,
       baseUrl: BASE_URL
     });
   };
@@ -312,11 +343,12 @@ const ModalMesCuotas = ({
         : (esAnualSeleccion
             ? (Number(mAnual) || 0)
             : (Number(mMensual) || 0) * cantidadBimestresSeleccionados),
+      socioEnriquecido: { ...socioBase },
     });
   };
 
   const handleAccionPrincipal = async () => {
-    if (modoSalida === 'imprimir') {
+    if (modoSalida === "imprimir") {
       await handleImprimir();
     } else {
       await handleGenerarPDFComprobante();
@@ -352,25 +384,25 @@ const ModalMesCuotas = ({
               {/* Centro: Imprimir / PDF */}
               <div className="modmes_section-center">
                 <div className="modmes_output-mode">
-                  <label className={`modmes_mode-option ${modoSalida === 'imprimir' ? 'active' : ''}`}>
+                  <label className={`modmes_mode-option ${modoSalida === "imprimir" ? "active" : ""}`}>
                     <input
                       type="radio"
                       name="modoSalida"
                       value="imprimir"
-                      checked={modoSalida === 'imprimir'}
-                      onChange={() => setModoSalida('imprimir')}
+                      checked={modoSalida === "imprimir"}
+                      onChange={() => setModoSalida("imprimir")}
                     />
                     <span className="modmes_mode-bullet" />
                     <span>Imprimir</span>
                   </label>
 
-                  <label className={`modmes_mode-option ${modoSalida === 'pdf' ? 'active' : ''}`}>
+                  <label className={`modmes_mode-option ${modoSalida === "pdf" ? "active" : ""}`}>
                     <input
                       type="radio"
                       name="modoSalida"
                       value="pdf"
-                      checked={modoSalida === 'pdf'}
-                      onChange={() => setModoSalida('pdf')}
+                      checked={modoSalida === "pdf"}
+                      onChange={() => setModoSalida("pdf")}
                     />
                     <span className="modmes_mode-bullet" />
                     <span>PDF</span>
@@ -414,17 +446,15 @@ const ModalMesCuotas = ({
                   )}
                 </div>
 
-                {/* Botón Seleccionar Todos */}
+                {/* Botón Seleccionar Todos — texto corto */}
                 <button
                   type="button"
-                  className="modmes_btn modmes_btn-small modmes_btn-terciario"
+                  className="modmes_btn modmes_btn-small modmes_btn-terciario modmes_btn-tight"
                   onClick={seleccionarTodos}
                   disabled={periodosNoAnual.length === 0 && !anualPeriodo}
                   title={ventanaActiva ? "Seleccionar todos (equivale a Contado Anual)" : "Seleccionar todos los bimestres"}
                 >
-                  {soloAnualSeleccionado || allNoAnualSelected
-                    ? (ventanaActiva ? `Deseleccionar (CONTADO ANUAL)` : `Deseleccionar todos`)
-                    : (ventanaActiva ? `Seleccionar todos (CONTADO ANUAL)` : `Seleccionar todos (${totalSeleccionados})`)}
+                  {soloAnualSeleccionado || allNoAnualSelected ? (ventanaActiva ? "Quitar" : "Quitar") : "Todos"}
                 </button>
               </div>
             </div>
@@ -455,6 +485,12 @@ const ModalMesCuotas = ({
                 })}
               </div>
             </div>
+
+            {cargandoSocio && (
+              <div style={{padding:'6px 10px', fontSize:12, opacity:.8}}>
+                Cargando datos del socio…
+              </div>
+            )}
           </div>
         </div>
 
@@ -481,7 +517,7 @@ const ModalMesCuotas = ({
               onClick={handleAccionPrincipal}
               disabled={totalSeleccionados === 0}
             >
-              {modoSalida === 'imprimir' ? (
+              {modoSalida === "imprimir" ? (
                 <>
                   <FontAwesomeIcon icon={faPrint} />
                   <span className="btn-label">Imprimir</span>

@@ -1,23 +1,28 @@
-/* ===== Modal Miembros minimal (prefijo modalmi-) ===== */
+/* src/components/Familias/modales/ModalMiembros.css */
+
+/* ===== Modal Miembros minimal (prefijo modalmi-) =====
+   Fallbacks sólidos para compatibilidad (Windows 7): SIN color-mix.
+*/
 :root{
-  /* Toda la acentuación a primary-dark */
-  --modalmi-accent: var(--soc-primary-dark, #1D4ED8);
-  --modalmi-accent-2: var(--soc-primary-dark, #1D4ED8);
+  /* Azul estable para todo el modal */
+  --modalmi-accent: #2563EB;   /* azul base */
+  --modalmi-accent-2: #2563EB; /* azul para controles/botones */
+  --modalmi-accent-hover: #1E40AF;
+  --modalmi-focus-ring: rgba(37,99,235,.22);
 
   --modalmi-bg-soft: #f7f8fe;
   --modalmi-ok: #10B981;
   --modalmi-off: #EF4444;
   --modalmi-gray-50: #F8FAFC;
-  --modalmi-gray-100: var(--soc-gray-100, #F1F5F9);
-  --modalmi-gray-200: var(--soc-gray-200, #E2E8F0);
-  --modalmi-gray-400: var(--soc-gray-400, #94A3B8);
-  --modalmi-dark: var(--soc-dark, #0F172A);
+  --modalmi-gray-100: #F1F5F9;
+  --modalmi-gray-200: #E2E8F0;
+  --modalmi-gray-400: #94A3B8;
+  --modalmi-dark: #0F172A;
   --modalmi-radius: 12px;
   --modalmi-radius-lg: 18px;
-  --modalmi-shadow: var(--soc-shadow-md, 0 4px 6px rgba(0,0,0,.07));
+  --modalmi-shadow: 0 4px 6px rgba(0,0,0,.07);
   --modalmi-trans: all .25s cubic-bezier(.4,0,.2,1);
 
-  /* Tipografía */
   --modalmi-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --modalmi-fsz-name: .97rem;
   --modalmi-fsz-meta: .86rem;
@@ -29,7 +34,11 @@
   background:linear-gradient(0deg, rgba(15,23,42,.55), rgba(15,23,42,.55));
   backdrop-filter:blur(6px);
   display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px;
+
+  /* Animación aparición */
+  animation: modalmi-overlay-in .18s ease-out;
 }
+@keyframes modalmi-overlay-in { from{opacity:0} to{opacity:1} }
 
 .modalmi-modal{
   width:min(1100px, 96vw);
@@ -38,13 +47,16 @@
   overflow:hidden;
   box-shadow:0 20px 60px rgba(0,0,0,.25);
   display:flex; flex-direction:column; justify-content: space-between;
-
-  /* Evitar salto de tamaño: altura estable y scroll interno en grillas */
   height: min(720px, 92vh);
   font-family: var(--modalmi-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Animación aparición */
+  transform-origin:center;
+  animation: modalmi-modal-in .22s ease-out;
 }
+@keyframes modalmi-modal-in { from{opacity:0; transform:translateY(6px) scale(.985)} to{opacity:1; transform:none} }
 
 /* Header / Footer */
 .modalmi-head{
@@ -56,7 +68,7 @@
 
 .modalmi-close{
   height: 27px;
-  border:1px solid color-mix(in srgb, #fff 40%, var(--modalmi-accent));
+  border:1px solid #D1D5DB; /* Fallback sólido */
   background:#fff; color:var(--modalmi-dark);
   border-radius:10px; padding:6px 8px; cursor:pointer; transition:var(--modalmi-trans);
 }
@@ -70,7 +82,6 @@
 /* Body */
 .modalmi-body{
   display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px; height: 100%;
-  /* Evita crecimiento del contenedor: el scroll será interno a las grillas */
   overflow: hidden;
 }
 .modalmi-col{ display:flex; flex-direction:column; gap:12px; min-height:0; }
@@ -82,7 +93,7 @@
   display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
 }
 
-/* ===== Buscador mejorado ===== */
+/* ===== Buscador (sin color-mix) ===== */
 .modalmi-search{
   position: relative;
   display:flex; align-items:center;
@@ -92,20 +103,16 @@
 }
 .modalmi-search input{
   border:none; outline:none; flex:1;
-  padding:10px 40px 10px 12px;  /* espacio para el botón ícono */
-  font-size:.95rem;
-  background: transparent;
+  padding:10px 40px 10px 12px;
+  font-size:.95rem; background: transparent;
 }
 .modalmi-search:focus-within{
-  border-color: color-mix(in srgb, var(--modalmi-accent-2) 45%, #fff);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalmi-accent-2) 18%, #fff);
+  border-color: rgba(37,99,235,.55);
+  box-shadow: 0 0 0 3px var(--modalmi-focus-ring);
 }
-.modalmi-search--compact{
-  min-width:260px;
-  flex: 0 1 340px;
-}
+.modalmi-search--compact{ min-width:260px; flex: 0 1 340px; }
 
-/* Botón de icono (lupa ↔ cruz) dentro del input */
+/* Botón de icono (lupa ↔ cruz) */
 .modalmi-search-ico{
   position:absolute; right:6px; top:50%; transform: translateY(-50%);
   width:28px; height:28px; display:grid; place-items:center;
@@ -114,20 +121,15 @@
   cursor: pointer; transition: var(--modalmi-trans);
 }
 .modalmi-search-ico:hover{ color: var(--modalmi-accent-2); background: var(--modalmi-gray-50); }
-.modalmi-search-ico:focus-visible{ outline:0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalmi-accent-2) 22%, #fff); }
-.modalmi-search.is-filled .modalmi-search-ico{
-  color: var(--modalmi-accent-2);
-}
+.modalmi-search-ico:focus-visible{ outline:0; box-shadow: 0 0 0 3px var(--modalmi-focus-ring); }
+.modalmi-search.is-filled .modalmi-search-ico{ color: var(--modalmi-accent-2); }
 
 /* Grid con altura fija y columnas responsivas */
 .modalmi-grid[data-fixed]{
   border:1px solid var(--modalmi-gray-200);
   border-radius:16px; background:var(--modalmi-bg-soft);
   padding:12px;
-
-  /* Scroll interno */
   overflow:auto;
-
   display:grid; gap:10px;
 }
 .modalmi-sentinel{ grid-column:1/-1; padding:8px; text-align:center; color:#64748B; font-size:.9rem; }
@@ -141,32 +143,28 @@
   transition:var(--modalmi-trans);
 }
 .modalmi-card:hover{
-  border-color: color-mix(in srgb, var(--modalmi-accent-2) 25%, #fff);
+  border-color: rgba(37,99,235,.25); /* Fallback sin color-mix */
   box-shadow: var(--modalmi-shadow);
 }
 
-/* Indicador de estado (barra lateral sutil) */
+/* Indicador de estado lateral */
 .modalmi-card::before{
   content:""; position:absolute; left:6px; top:8px; bottom:8px; width:3px; border-radius:2px; background:transparent;
 }
 .modalmi-card.is-active::before{ background:var(--modalmi-ok); }
 .modalmi-card.is-inactive::before{ background:var(--modalmi-off); }
 
-/* Avatar (columna Miembros) — inicial del nombre */
+/* Avatar (inicial) — sin color-mix */
 .modalmi-avatar{
   margin-left:10px;
   width:32px; height:32px; border-radius:999px; display:grid; place-items:center;
-  background: color-mix(in srgb, var(--modalmi-accent) 12%, #fff);
+  background: rgba(37,99,235,.12);
   color: var(--modalmi-accent);
-  border:1px solid color-mix(in srgb, var(--modalmi-accent) 24%, #fff);
-  font-size:14px;
-  font-weight:800;
-  text-transform: uppercase;
-  letter-spacing: .2px;
-  line-height: 1;
+  border:1px solid rgba(37,99,235,.24);
+  font-size:14px; font-weight:800; text-transform: uppercase; letter-spacing: .2px; line-height: 1;
 }
 
-/* Checklist minimal (columna Candidatos) */
+/* Checklist minimal (candidatos) */
 .modalmi-checkslot{
   margin-left:10px;
   width:28px; height:28px; border-radius:8px; display:grid; place-items:center;
@@ -178,7 +176,7 @@
   border-color: var(--modalmi-accent-2);
   background: var(--modalmi-accent-2);
   color:#fff;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--modalmi-accent-2) 20%, #fff);
+  box-shadow: 0 0 0 3px var(--modalmi-focus-ring);
 }
 .modalmi-checkslot::before{ content:""; }
 .modalmi-selectable.is-checked .modalmi-checkslot::before{
@@ -190,7 +188,6 @@
 .modalmi-name-row{ display:flex; align-items:center; gap:8px; min-width:0; }
 .modalmi-status-dot{ display: none; }
 .modalmi-name-row, .modalmi-meta, .nameizs{ padding-left: 1rem; }
-
 .modalmi-name{
   font-weight:700; color:var(--modalmi-dark); line-height:1.2;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -212,34 +209,41 @@
 /* Mensajes vacíos */
 .modalmi-empty{ text-align:center; color:#475569; padding:16px; grid-column:1/-1; }
 
-/* Botones */
+/* ===== Botones Footer ===== */
 .modalmi-btn{
   border-radius:12px; padding:9px 12px; cursor:pointer; transition:var(--modalmi-trans);
   display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:.92rem;
 }
 .modalmi-btn.modalmi-ghost{ border:1px solid var(--modalmi-gray-200); background:#fff; }
 .modalmi-btn.modalmi-ghost:hover{ background:var(--modalmi-gray-100); }
+
+/* >>>> BOTÓN AZUL SÓLIDO (compatible Win7) <<<< */
 .modalmi-btn.modalmi-solid{
-  border:none; color:#fff;
-  background:linear-gradient(135deg, var(--modalmi-accent-2), color-mix(in srgb, var(--modalmi-accent-2) 85%, #000));
-  box-shadow:var(--soc-shadow-sm, 0 1px 3px rgba(0,0,0,.05));
+  border: 1px solid var(--modalmi-accent-2) !important;
+  background: var(--modalmi-accent-2) !important;
+  color:#fff !important;
+  text-shadow: 0 1px 0 rgba(0,0,0,.15);
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
 }
-.modalmi-btn.modalmi-solid:hover{ transform:translateY(-1px); box-shadow:var(--modalmi-shadow); }
+.modalmi-btn.modalmi-solid:hover{
+  background: var(--modalmi-accent-hover) !important;
+  border-color: var(--modalmi-accent-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--modalmi-shadow);
+}
 .modalmi-btn[disabled]{ opacity:.6; cursor:not-allowed; }
 .modalmi-small{ padding:7px 10px; font-size:.88rem; }
 
 /* Ajustes menores */
 .miembros-ctual{ padding: 6px 0; }
 
-/* ---------- Skeleton (miembros) ---------- */
+/* ---------- Skeleton ---------- */
 .modalmi-skel-card{
   display:grid; grid-template-columns:36px 1fr; gap:12px; align-items:center;
   background:#fff; border:1px solid var(--modalmi-gray-200);
   border-radius:var(--modalmi-radius); padding:10px 12px; overflow:hidden;
 }
-.modalmi-skel-avatar{
-  width:32px; height:32px; border-radius:999px; background:var(--modalmi-gray-100);
-}
+.modalmi-skel-avatar{ width:32px; height:32px; border-radius:999px; background:var(--modalmi-gray-100); }
 .modalmi-skel-lines{ display:flex; flex-direction:column; gap:8px; }
 .modalmi-skel-line{
   height:10px; border-radius:6px; background: var(--modalmi-gray-100);
@@ -247,28 +251,16 @@
 }
 .modalmi-skel-line.long{ width:85%; }
 .modalmi-skel-line.short{ width:60%; }
-
-@keyframes modalmi-shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
+@keyframes modalmi-shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
 .modalmi-skel-line::after{
-  content:"";
-  position:absolute; inset:0;
-  transform: translateX(-100%);
+  content:""; position:absolute; inset:0; transform: translateX(-100%);
   background: linear-gradient(90deg, transparent, rgba(0,0,0,.06), transparent);
   animation: modalmi-shimmer .9s linear infinite;
 }
 
-/* ---------- Cascada (primeros 10 elementos) ---------- */
-@keyframes modalmi-fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: none; }
-}
-.modalmi-cascade{
-  animation: modalmi-fadeUp .36s ease-out both;
-  animation-delay: calc(var(--mi-cascade-i) * 40ms);
-}
+/* ---------- Cascada ---------- */
+@keyframes modalmi-fadeUp { from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none} }
+.modalmi-cascade{ animation: modalmi-fadeUp .36s ease-out both; animation-delay: calc(var(--mi-cascade-i) * 40ms); }
 
 /* Responsive */
 @media (max-width:980px){
@@ -276,40 +268,7 @@
   .modalmi-search--compact{ flex:1 1 100%; min-width:0; }
 }
 
-/* ===== Aparición suave del modal ===== */
-
-/* Overlay: fade-in corto */
-@keyframes modalmi-overlay-in {
-  from { opacity: 0 }
-  to   { opacity: 1 }
-}
-
-/* Caja del modal: fade + leve pop (sin “salto”) */
-@keyframes modalmi-modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Aplica las animaciones al montar el modal */
-.modalmi-overlay {
-  animation: modalmi-overlay-in .18s ease-out;
-}
-
-.modalmi-modal {
-  transform-origin: center;
-  animation: modalmi-modal-in .22s ease-out;
-}
-
-/* Respeto a usuarios con “reduced motion” */
+/* Respeto a usuarios con reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .modalmi-overlay,
-  .modalmi-modal {
-    animation: none !important;
-  }
+  .modalmi-overlay, .modalmi-modal { animation: none !important; }
 }

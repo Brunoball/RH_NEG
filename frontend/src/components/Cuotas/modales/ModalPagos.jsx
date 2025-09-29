@@ -59,6 +59,7 @@ const ModalPagos = ({ socio, onClose }) => {
   // Montos desde DB (depende de la categoría del socio)
   const [montoMensual, setMontoMensual] = useState(0);
   const [montoAnual, setMontoAnual] = useState(0);
+  const [montosListos, setMontosListos] = useState(false); // NUEVO
 
   // condonar
   const [condonar, setCondonar] = useState(false);
@@ -85,15 +86,19 @@ const ModalPagos = ({ socio, onClose }) => {
 
   const refrescarMontosActuales = async () => {
     try {
+      setMontosListos(false);
       const res = await fetch(`${BASE_URL}/api.php?action=montos&${buildMontosQS()}`);
       const data = await res.json();
       if (data?.exito) {
         setMontoMensual(Number(data.mensual) || 0);
         setMontoAnual(Number(data.anual) || 0);
+        setMontosListos(true);
       } else {
+        setMontosListos(false);
         mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos actualizados.');
       }
     } catch {
+      setMontosListos(false);
       mostrarToast('error', 'Error al consultar montos actualizados.');
     }
   };
@@ -295,21 +300,41 @@ const ModalPagos = ({ socio, onClose }) => {
       return;
     }
 
+    // Si aplica anual, asegurar montos frescos
     if (aplicaAnualPorSeleccion) {
       await refrescarMontosActuales();
     }
 
+    // DEFENSAS: no permitir pagar con montos no listos o 0 (salvo condonación)
+    const montosValidos = aplicaAnualPorSeleccion
+      ? Number(montoAnual) > 0
+      : Number(montoMensual) > 0;
+
+    if (!condonar && (!montosListos || !montosValidos)) {
+      mostrarToast('advertencia', 'El monto aún no está listo. Esperá un segundo e intentá de nuevo.');
+      return;
+    }
+    if (!condonar && (!total || Number(total) <= 0)) {
+      mostrarToast('advertencia', 'El total calculado es inválido.');
+      return;
+    }
+
     setCargando(true);
     try {
+      const esAnual = aplicaAnualPorSeleccion;
+      const payload = {
+        id_socio: socio.id_socio,
+        periodos: seleccionados,
+        condonar,
+        anio: anioTrabajo,
+        monto: Number(total) || 0, // TOTAL visible en la UI
+        monto_por_periodo: esAnual ? 0 : (Number(montoMensual) || 0), // unitario (bimestres)
+      };
+
       const res = await fetch(`${BASE_URL}/api.php?action=registrar_pago`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_socio: socio.id_socio,
-          periodos: seleccionados,
-          condonar: condonar,
-          anio: anioTrabajo,
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -319,7 +344,7 @@ const ModalPagos = ({ socio, onClose }) => {
       } else {
         if (Array.isArray(data.ya_registrados) && data.ya_registrados.length > 0) {
           const detalles = data.ya_registrados
-            .map(it => `${it.periodo} (${String(it.estado).toUpperCase()})`)
+            .map(it => `${it.periodo ?? it} (${String(it.estado || 'ya existe').toUpperCase()})`)
             .join(', ');
           mostrarToast('advertencia', `Ya registrados: ${detalles}`);
         } else {
@@ -473,6 +498,13 @@ const ModalPagos = ({ socio, onClose }) => {
 
   // ======= VISTA NORMAL =======
   const cantidadSeleccionados = seleccionados.length;
+
+  // Deshabilitar pagar si no hay montos listos y no es condonación
+  const bloquearPorMontos =
+    !condonar && (
+      !montosListos ||
+      (aplicaAnualPorSeleccion ? Number(montoAnual) <= 0 : Number(montoMensual) <= 0)
+    );
 
   return (
     <>
@@ -652,7 +684,8 @@ const ModalPagos = ({ socio, onClose }) => {
               <button
                 className={`btn ${condonar ? 'btn-warnings' : 'btn-primary'}`}
                 onClick={confirmar}
-                disabled={seleccionados.length === 0 || cargando}
+                disabled={seleccionados.length === 0 || cargando || bloquearPorMontos}
+                title={bloquearPorMontos ? 'Cargando montos…' : undefined}
               >
                 {cargando ? (
                   <>

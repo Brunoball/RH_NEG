@@ -22,9 +22,10 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const [estadoPeriodo, setEstadoPeriodo] = useState(null); // 'pendiente' | 'pagado' | 'condonado' | 'bloqueado' | null
   const [verificandoEstado, setVerificandoEstado] = useState(false);
 
-  // MONTOS dinámicos (desde DB) — igual que ModalPagos
+  // MONTOS dinámicos (desde DB)
   const [montoMensual, setMontoMensual] = useState(0);
   const [montoAnual, setMontoAnual] = useState(0);
+  const [montosListos, setMontosListos] = useState(false); // ← NUEVO
 
   // TOAST
   const [toastVisible, setToastVisible] = useState(false);
@@ -43,6 +44,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   // === Cargar MONTOS al tener socioEncontrado (igual que ModalPagos) ===
   useEffect(() => {
     const cargarMontos = async () => {
+      setMontosListos(false);
       if (!socioEncontrado) {
         setMontoMensual(0);
         setMontoAnual(0);
@@ -59,14 +61,17 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         if (data?.exito) {
           setMontoMensual(Number(data.mensual) || 0);
           setMontoAnual(Number(data.anual) || 0);
+          setMontosListos(true);
         } else {
           setMontoMensual(0);
           setMontoAnual(0);
+          setMontosListos(false);
           mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos para la categoría del socio.');
         }
       } catch {
         setMontoMensual(0);
         setMontoAnual(0);
+        setMontosListos(false);
         mostrarToast('error', 'Error al consultar montos para la categoría del socio.');
       }
     };
@@ -214,96 +219,8 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
-  /** === Registrar pago / condonación === */
-  const callRegistrar = async ({ condonar = false }) => {
-    if (!socioEncontrado || !socioEncontrado.id_periodo) {
-      setMensaje('⛔ No se puede registrar. Datos incompletos.');
-      setError(true);
-      mostrarToast('error', 'Datos incompletos para registrar');
-      return;
-    }
-
-    if (estadoPeriodo === 'bloqueado') {
-      mostrarToast('advertencia', 'Acción bloqueada por reglas de negocio.');
-      return;
-    }
-
-    // Re-verificar usando el año correcto
-    const estadoActual = await verificarEstadoPeriodo(
-      socioEncontrado.id_socio,
-      socioEncontrado.id_periodo,
-      socioEncontrado.anio
-    );
-    if (estadoActual === 'pagado' || estadoActual === 'condonado') {
-      const etiqueta = estadoActual === 'pagado' ? 'Pagado' : 'Condonado';
-      mostrarToast('advertencia', `No se puede registrar: ${etiqueta}.`);
-      return;
-    }
-
-    condonar ? setLoadingCondonar(true) : setLoadingPago(true);
-    try {
-      const res = await fetch(`${BASE_URL}/api.php?action=registrar_pago`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_socio: socioEncontrado.id_socio,
-          periodos: [socioEncontrado.id_periodo], // incluye 7 (anual)
-          anio: socioEncontrado.anio,
-          ...(condonar ? { condonar: true } : {})
-        })
-      });
-
-      const data = await res.json();
-      if (data.exito) {
-        const okMsg = condonar ? 'Condonación registrada correctamente' : 'Pago registrado correctamente';
-        setMensaje(`✅ ${okMsg}`);
-        setError(false);
-        mostrarToast('exito', okMsg);
-        setEstadoPeriodo(condonar ? 'condonado' : 'pagado');
-        onPagoRealizado && onPagoRealizado();
-      } else {
-        const errMsg = data.mensaje || (condonar ? '⛔ Error al condonar' : '⛔ Error al registrar el pago');
-        setMensaje(errMsg);
-        setError(true);
-        mostrarToast('error', errMsg);
-      }
-    } catch {
-      const errMsg = condonar ? 'Error al conectar (condonar)' : 'Error al conectar (pago)';
-      setMensaje(`⛔ ${errMsg}`);
-      setError(true);
-      mostrarToast('error', errMsg);
-    } finally {
-      condonar ? setLoadingCondonar(false) : setLoadingPago(false);
-    }
-  };
-
-  // Antes pagaba directo; ahora se confirma
-  const registrarPago = () => callRegistrar({ condonar: false });
-
-  const abrirConfirmacionCondonar = () => setMostrarConfirmarCondonacion(true);
-  const cerrarConfirmacionCondonar = () => setMostrarConfirmarCondonacion(false);
-  const confirmarCondonacion = async () => {
-    await callRegistrar({ condonar: true });
-    setMostrarConfirmarCondonacion(false);
-  };
-
-  const abrirConfirmacionPago = () => setMostrarConfirmarPago(true);
-  const cerrarConfirmacionPago = () => setMostrarConfirmarPago(false);
-  const confirmarPago = async () => {
-    await registrarPago();
-    setMostrarConfirmarPago(false); // ✅ correcto
-  };
-
-  const mostrarPeriodoFormateado = (id) => {
-    const mapa = { 1: '1/2', 2: '3/4', 3: '5/6', 4: '7/8', 5: '9/10', 6: '11/12', 7: 'CONTADO ANUAL' };
-    return mapa[id] || `Período ${id}`;
-  };
-
   /** =========
    * PRECIO a mostrar (según socio/categoría) con lógica de anual con o sin descuento.
-   * - Enero/Febrero del AÑO del código → usa montoAnual (se asume con descuento). Fallback: mensual*6.
-   * - Desde Marzo → mensual*6 (sin descuento).
-   * - Períodos normales → mensual.
    * ========= */
   const { montoMostrar, anualConDescuento } = useMemo(() => {
     if (!socioEncontrado) return { montoMostrar: 0, anualConDescuento: false };
@@ -335,6 +252,120 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     return { montoMostrar: sinDesc, anualConDescuento: false };
   }, [socioEncontrado, montoMensual, montoAnual]);
 
+  /** === Registrar pago / condonación === */
+  const callRegistrar = async ({ condonar = false }) => {
+    if (!socioEncontrado || !socioEncontrado.id_periodo) {
+      setMensaje('⛔ No se puede registrar. Datos incompletos.');
+      setError(true);
+      mostrarToast('error', 'Datos incompletos para registrar');
+      return;
+    }
+
+    if (estadoPeriodo === 'bloqueado') {
+      mostrarToast('advertencia', 'Acción bloqueada por reglas de negocio.');
+      return;
+    }
+
+    // Re-verificar usando el año correcto
+    const estadoActual = await verificarEstadoPeriodo(
+      socioEncontrado.id_socio,
+      socioEncontrado.id_periodo,
+      socioEncontrado.anio
+    );
+    if (estadoActual === 'pagado' || estadoActual === 'condonado') {
+      const etiqueta = estadoActual === 'pagado' ? 'Pagado' : 'Condonado';
+      mostrarToast('advertencia', `No se puede registrar: ${etiqueta}.`);
+      return;
+    }
+
+    // === monto a enviar al backend (0 si es condonación)
+    const monto = condonar ? 0 : (Number(montoMostrar) || 0);
+    if (!condonar && (!monto || monto <= 0)) {
+      mostrarToast('advertencia', 'El monto aún no está listo. Esperá un segundo e intentá nuevamente.');
+      return;
+    }
+
+    condonar ? setLoadingCondonar(true) : setLoadingPago(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api.php?action=registrar_pago`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_socio: socioEncontrado.id_socio,
+          periodos: [socioEncontrado.id_periodo], // incluye 7 (anual)
+          anio: socioEncontrado.anio,
+          monto,                            // <<< ENVÍO DEL MONTO (validado)
+          ...(condonar ? { condonar: true } : {})
+        })
+      });
+
+      const data = await res.json();
+      if (data.exito) {
+        const okMsg = condonar ? 'Condonación registrada correctamente' : 'Pago registrado correctamente';
+        setMensaje(`✅ ${okMsg}`);
+        setError(false);
+        mostrarToast('exito', okMsg);
+        setEstadoPeriodo(condonar ? 'condonado' : 'pagado');
+        onPagoRealizado && onPagoRealizado();
+      } else {
+        const errMsg = data.mensaje || (condonar ? '⛔ Error al condonar' : '⛔ Error al registrar el pago');
+        setMensaje(errMsg);
+        setError(true);
+        mostrarToast('error', errMsg);
+      }
+    } catch {
+      const errMsg = condonar ? 'Error al conectar (condonar)' : 'Error al conectar (pago)';
+      setMensaje(`⛔ ${errMsg}`);
+      setError(true);
+      mostrarToast('error', errMsg);
+    } finally {
+      condonar ? setLoadingCondonar(false) : setLoadingPago(false);
+    }
+  };
+
+  // Antes pagaba directo; ahora se confirma con revalidación
+  const registrarPago = () => callRegistrar({ condonar: false });
+
+  const abrirConfirmacionCondonar = () => setMostrarConfirmarCondonacion(true);
+  const cerrarConfirmacionCondonar = () => setMostrarConfirmarCondonacion(false);
+  const confirmarCondonacion = async () => {
+    await callRegistrar({ condonar: true });
+    setMostrarConfirmarCondonacion(false);
+  };
+
+  const abrirConfirmacionPago = () => setMostrarConfirmarPago(true);
+  const cerrarConfirmacionPago = () => setMostrarConfirmarPago(false);
+
+  // Revalidación extra: no dejar continuar si montos no listos o monto 0
+  const confirmarPago = async () => {
+    if (!montosListos) {
+      mostrarToast('advertencia', 'Cargando montos… esperá un instante.');
+      return;
+    }
+    if (!montoMostrar || Number(montoMostrar) <= 0) {
+      try {
+        const qs = new URLSearchParams();
+        if (socioEncontrado?.id_cat_monto) qs.set('id_cat_monto', String(socioEncontrado.id_cat_monto));
+        if (socioEncontrado?.id_socio)     qs.set('id_socio',     String(socioEncontrado.id_socio));
+        const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
+        const data = await res.json();
+        if (data?.exito) {
+          setMontoMensual(Number(data.mensual) || 0);
+          setMontoAnual(Number(data.anual) || 0);
+        }
+      } catch {}
+      mostrarToast('advertencia', 'Recalculando montos… intentá de nuevo.');
+      return;
+    }
+    await registrarPago();
+    setMostrarConfirmarPago(false);
+  };
+
+  const mostrarPeriodoFormateado = (id) => {
+    const mapa = { 1: '1/2', 2: '3/4', 3: '5/6', 4: '7/8', 5: '9/10', 6: '11/12', 7: 'CONTADO ANUAL' };
+    return mapa[id] || `Período ${id}`;
+  };
+
   const estadoBadge = (estado) => {
     if (!estado) return null;
     const map = {
@@ -351,6 +382,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     verificandoEstado ||
     loadingPago ||
     loadingCondonar ||
+    !montosListos || // ← NUEVO: no habilita hasta que los montos estén listos
     estadoPeriodo === 'bloqueado' ||
     estadoPeriodo === 'pagado' ||
     estadoPeriodo === 'condonado';
@@ -540,7 +572,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
               <button
                 className="soc-boton-confirmar-pagar"
                 onClick={confirmarPago}
-                disabled={loadingPago || estadoPeriodo === 'pagado' || estadoPeriodo === 'condonado' || estadoPeriodo === 'bloqueado'}
+                disabled={loadingPago || estadoPeriodo === 'pagado' || estadoPeriodo === 'condonado' || estadoPeriodo === 'bloqueado' || !montosListos}
                 title="Registrar pago"
               >
                 {loadingPago ? (

@@ -1,88 +1,55 @@
-// src/utils/Recibosunicos.jsx
+// src/utils/RecibosUnicos.jsx
 import BASE_URL from '../config/config';
 
 /**
- * Genera comprobantes (mismo diseño que imprimirRecibos) pero pensado para usarse
- * desde el modal de pago (1 o pocos registros), con texto de período e importe
- * que llegan desde el propio modal.
- *
- * - Si el período es CONTADO ANUAL => muestra exactamente "CONTADO ANUAL /<año>".
- * - En otros casos => normaliza y ordena a "1/2 3/4 5/6" (espacio entre pares) y agrega "/<año>" al final,
- *   usando el año seleccionado (si se provee) o el que ya se detecta como antes.
- *
- * @param {Array<Object>} listaSocios
- * @param {string|number} periodoActual
- * @param {Window|null} ventana
- * @param {number|null} anioSeleccionado
+ * Genera comprobantes "cortos" (2 columnas) para 1..N socios.
  */
-export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ventana = null, anioSeleccionado = null) => {
-  // ---- helpers ----
+export const imprimirRecibosUnicos = async (
+  listaSocios,
+  periodoActual = '',
+  ventana = null,
+  anioSeleccionado = null
+) => {
   const getIdSocio = (obj) => {
     const raw = obj?.id_socio ?? obj?.idSocio ?? obj?.idsocio ?? obj?.id ?? null;
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   };
-  const formatARS = (monto) =>
-    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
-  const limpiarPrefijoPeriodo = (txt = '') =>
-    String(txt).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
-  const extraerAnio = (txt = '') => {
-    const m = String(txt).match(/(20\d{2})/);
-    return m ? parseInt(m[1], 10) : null;
+  const formatARS = (m) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(m);
+  const limpiarPrefijoPeriodo = (t = '') => String(t).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
+  const extraerAnio = (t = '') => { const m = String(t).match(/(20\d{2})/); return m ? parseInt(m[1], 10) : null; };
+  const contarPares = (t = '') => { const u = String(t).replace(/\s*[yY]\s*/g, '/'); let c=0; const r=/(\d+)\s*\/\s*(\d+)/g; while(r.exec(u)) c++; return c; };
+  const normalizarYOrdenarPeriodos = (t = '') => {
+    const limpio = limpiarPrefijoPeriodo(t);
+    const u = limpio.replace(/\s*[yY]\s*/g, '/');
+    const pares = []; const r=/(\d+)\s*\/\s*(\d+)/g; let m;
+    while ((m = r.exec(u)) !== null) { const a = parseInt(m[1],10), b = parseInt(m[2],10); if (Number.isFinite(a)&&Number.isFinite(b)) pares.push([a,b]); }
+    if (pares.length === 0) return u.split(/[,\s]+/g).filter(Boolean).join(' - ').trim();
+    pares.sort((A,B)=> (A[0]!==B[0] ? A[0]-B[0] : A[1]-B[1]));
+    return pares.map(([a,b])=>`${a}/${b}`).join(' - ');
   };
 
-  // Cuenta cuántos pares "n/m" hay en un texto de períodos (para detectar múltiples períodos)
-  const contarPares = (txt = '') => {
-    const unificado = String(txt).replace(/\s*[yY]\s*/g, '/');
-    let count = 0;
-    const re = /(\d+)\s*\/\s*(\d+)/g;
-    while (re.exec(unificado)) count++;
-    return count;
-  };
-
-  /**
-   * Normaliza listados de períodos a "1/2 3/4 5/6".
-   */
-  const normalizarYOrdenarPeriodos = (txt = '') => {
-    const limpio = limpiarPrefijoPeriodo(txt);
-    const unificado = limpio.replace(/\s*[yY]\s*/g, '/');
-    const pares = [];
-    const re = /(\d+)\s*\/\s*(\d+)/g;
-    let m;
-    while ((m = re.exec(unificado)) !== null) {
-      const a = parseInt(m[1], 10);
-      const b = parseInt(m[2], 10);
-      if (Number.isFinite(a) && Number.isFinite(b)) pares.push([a, b]);
-    }
-    if (pares.length === 0) return unificado.trim();
-    pares.sort((A, B) => (A[0] !== B[0] ? A[0] - B[0] : A[1] - B[1]));
-    return pares.map(([a, b]) => `${a}/${b}`).join(' ');
-  };
-
-  // --- enriquecer datos mínimos de cada socio (traer info para el comprobante) ---
+  // enriquecer con API
   const sociosCompletos = [];
-  for (let socio of (listaSocios || [])) {
+  for (const socio of (listaSocios || [])) {
     const idNorm = getIdSocio(socio);
-
     if (idNorm === null) {
       sociosCompletos.push({
         ...socio,
         id_socio: socio.id_socio ?? socio.idSocio ?? socio.idsocio ?? socio.id ?? '',
         nombre_cobrador: socio.medio_pago || '',
         id_periodo: socio.id_periodo || periodoActual || '',
-        // si pasamos anioSeleccionado, lo guardamos
         anio: anioSeleccionado ?? socio.anio ?? socio.anioTrabajo ?? null,
       });
       continue;
     }
-
     try {
       const res = await fetch(`${BASE_URL}/api.php?action=socio_comprobante&id=${idNorm}`);
       const data = await res.json();
-      if (data.exito) {
+      if (data?.exito) {
         sociosCompletos.push({
           ...data.socio,
-          ...socio, // los datos del modal pisan a los de la API
+          ...socio,
           id_socio: data.socio.id_socio ?? idNorm,
           nombre_cobrador: data.socio.nombre_cobrador || data.socio.medio_pago || socio.medio_pago || '',
           id_periodo: socio.id_periodo || data.socio.id_periodo || periodoActual || '',
@@ -108,29 +75,27 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
     }
   }
 
-  // --- catálogos (fallback de textos) ---
+  // catálogos
   let categorias = {}, estados = {}, periodos = {};
   try {
     const resListas = await fetch(`${BASE_URL}/api.php?action=listas`);
     const dataListas = await resListas.json();
-    if (dataListas.exito) {
-      categorias = Object.fromEntries(dataListas.listas.categorias.map(c => [c.id_categoria, c.descripcion]));
-      estados    = Object.fromEntries(dataListas.listas.estados.map(e => [e.id_estado, e.descripcion]));
-      periodos   = Object.fromEntries(dataListas.listas.periodos.map(p => [p.id, p.nombre]));
+    if (dataListas?.exito) {
+      categorias = Object.fromEntries((dataListas.listas.categorias || []).map((c) => [c.id_categoria, c.descripcion]));
+      estados    = Object.fromEntries((dataListas.listas.estados    || []).map((e) => [String(e.id_estado), e.descripcion]));
+      periodos   = Object.fromEntries((dataListas.listas.periodos   || []).map((p) => [String(p.id), p.nombre]));
     }
-  } catch { /* fallbacks */ }
+  } catch {}
 
-  // --- ventana de impresión ---
-  const win = ventana || window.open('', '', 'width=800,height=600');
-  if (!win) return;
+  const popup = ventana || window.open('', '', 'width=800,height=600');
+  if (!popup) return;
 
   const posicionesTop = [20, 68, 117, 166, 216, 264];
-
-  // --- construir el HTML ---
   let pagesHTML = '';
-  const codigosBarra = []; // solo para los recibos que realmente muestren código
+  const codigosBarra = [];
+  const totalPaginas = Math.ceil(sociosCompletos.length / 6);
 
-  for (let p = 0; p < Math.ceil(sociosCompletos.length / 6); p++) {
+  for (let p = 0; p < totalPaginas; p++) {
     const pageSocios = sociosCompletos.slice(p * 6, p * 6 + 6);
     let pageHTML = '<div class="page">';
 
@@ -139,54 +104,51 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
       const top = posicionesTop[i];
 
       const id = getIdSocio(s) ?? '';
-      const nombre = (s.apellido ? `${String(s.apellido).toUpperCase()} ` : '') +
-                     (s.nombre ? String(s.nombre).toUpperCase() : '');
+      const nombre = (s.apellido ? `${String(s.apellido).toUpperCase()} ` : '') + (s.nombre ? String(s.nombre).toUpperCase() : '');
       const domicilio = [s.domicilio, s.numero].filter(Boolean).join(' ').trim() || '';
       const tel = typeof s.telefono === 'string' ? s.telefono.trim() : (s.telefono || '');
       const cobro = typeof s.domicilio_cobro === 'string' ? s.domicilio_cobro.trim() : (s.domicilio_cobro || '');
-      const categoria = s.nombre_categoria || categorias[s.id_categoria] || '';
-      const estado = s.nombre_estado || estados[s.id_estado] || '';
 
-      // 1) Tomo el período que venga (o el de la llamada) sin forzar aún
+      // CORRECCIÓN: Mostrar la categoría correcta del socio
+      const grupo = s.nombre_categoria 
+        || categorias[s.id_categoria] 
+        || s.grupo_sanguineo 
+        || categorias[s.id_grupo] 
+        || '';
+
+      const estadoTxt = s.nombre_estado || s.estado || estados[String(s.id_estado)] || '';
+      const estado = String(estadoTxt).toUpperCase();
+
       const codigoPeriodoRaw = String(s.id_periodo || periodoActual || '0');
-
-      // 2) Necesito un texto base para decidir si es anual
       const textoBasePeriodo = s.periodo_texto || periodos[codigoPeriodoRaw] || `Período ${codigoPeriodoRaw}`;
 
-      // 3) Detecto "anual" por id==7 o por texto
       const esAnual =
         codigoPeriodoRaw === '7' ||
         (s.periodo_texto && String(s.periodo_texto).toUpperCase().includes('ANUAL')) ||
         String(textoBasePeriodo).toUpperCase().includes('ANUAL');
 
-      // 4) Si es anual, fuerzo id_periodo=7 para el código de barras; si no, uso el raw
       const codigoPeriodo = esAnual ? '7' : codigoPeriodoRaw;
 
-      // Año para el código y para mostrar al final del período
       const anioParaCodigo =
-        (anioSeleccionado ?? null) ||
-        s.anio || s.anioTrabajo || extraerAnio(textoBasePeriodo) || new Date().getFullYear();
+        anioSeleccionado ?? s.anio ?? s.anioTrabajo ?? extraerAnio(textoBasePeriodo) ?? new Date().getFullYear();
 
-      // Texto que se imprime en "Período:"
       const textoPeriodo = esAnual
         ? `CONTADO ANUAL /${anioParaCodigo}`
         : `${normalizarYOrdenarPeriodos(textoBasePeriodo)} /${anioParaCodigo}`;
 
-      // Si viene importe_total desde el modal (por descuento anual) se respeta ese valor
-      const importeStr = (typeof s.importe_total === 'number')
-        ? formatARS(s.importe_total)
-        : (typeof s.importe === 'number' ? formatARS(s.importe) : (s.importe || '$4000'));
+      const importeStr =
+        typeof s.importe_total === 'number'
+          ? formatARS(s.importe_total)
+          : typeof s.importe === 'number'
+          ? formatARS(s.importe)
+          : s.importe || '$4000';
 
-      // === Reglas para mostrar/ocultar código de barras ===
-      // Mostrar solo si es ANUAL o si hay UN (1) par n/m. Si hay más de uno => ocultar.
       const cantidadPares = contarPares(textoBasePeriodo);
       const showBarcode = esAnual || cantidadPares === 1;
 
-      // Código con 2 dígitos del año (aa) — usa el mismo año que mostramos en el período
       const anio2d = String(anioParaCodigo).slice(-2);
       const codigoBarra = `${codigoPeriodo}${anio2d}-${id}`;
 
-      // Solo agrego a la lista si realmente voy a renderizarlo
       let barcodeIndex = null;
       if (showBarcode) {
         barcodeIndex = codigosBarra.length;
@@ -212,7 +174,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
             <div class="row">
               <div class="cell periodo-grupo">
                 <div><strong>Período:</strong>&nbsp;${textoPeriodo}</div>
-                <div><strong>Grupo:</strong>&nbsp;${categoria}&nbsp;<strong>Estado:</strong>&nbsp;${estado}</div>
+                <div><strong>Grupo:</strong>&nbsp;${grupo}&nbsp;<strong>Estado:</strong>&nbsp;${estado}</div>
               </div>
               <div class="cell cell-barcode">
                 ${
@@ -229,16 +191,15 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
         </div>
       `;
 
-      pageHTML += bloque(true);   // copia izquierda (con código si corresponde)
-      pageHTML += bloque(false);  // copia derecha (firma)
+      pageHTML += bloque(true);
+      pageHTML += bloque(false);
     }
 
     pageHTML += '</div>';
     pagesHTML += pageHTML;
   }
 
-  const html =
-`<!doctype html>
+  const html = `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8"/>
@@ -250,15 +211,15 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
     .page { width: 210mm; height: 297mm; position: relative; page-break-after: always; }
     .recibo-area { width: 95mm; height: 30mm; box-sizing: border-box; position: absolute; padding: .5rem 0 0; font-size: .8rem; overflow: hidden; }
     .recibo { width: 100%; height: 100%; display: flex; justify-content: center; flex-direction: column; box-sizing: border-box; font-size: .8rem; }
-    .row { padding: 0 0.2rem; display: flex; width: 100%; justify-content:space-between;}
-    .cell { margin: 0; box-sizing: border-box; overflow: hidden; display: flex;  white-space: nowrap; text-overflow: ellipsis; }
+    .row { padding: 0 0.2rem; display: flex; width: 100%; justify-content:space-between; }
+    .cell { margin: 0; box-sizing: border-box; overflow: hidden; display: flex; white-space: nowrap; text-overflow: ellipsis; }
     .cell-full { flex: 0 0 100%; }
-    .cell-barcode {  padding: 0; height: 100%; min-height: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .cell-barcode { padding: 0; height: 100%; min-height: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .barcode-container { display: flex; align-items: center; justify-content: center; width: 100%; height: 70%; }
     .barcode { width: 100%; height: auto; max-height: 24px; }
     .barcode-text { font-size: 6pt; text-align: center; margin: 0; height: 30%; display: flex; align-items: center; justify-content: center; }
     .firma { font-size: 8pt; text-align: center; width: 100%; }
-    .importe { font-weight: bold; text-align: end; font-size: 8pt; width: 100%; margin-right:.5rem;}
+    .importe { font-weight: bold; text-align: end; font-size: 8pt; width: 100%; margin-right:.5rem; }
     .periodo-grupo { display: flex; flex-direction: column; justify-content: center; flex: 1; height: fit-content; }
     .periodo-grupo div { flex: 1; display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
@@ -267,18 +228,11 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
   ${pagesHTML}
   <script>
     (function(){
-      // Relleno real de códigos
       var codigos = ${JSON.stringify(codigosBarra)};
       for (var i = 0; i < codigos.length; i++) {
         try {
-          JsBarcode("#barcode-" + i, codigos[i], {
-            format: "CODE128",
-            lineColor: "#000",
-            width: 2.5,
-            height: 50,
-            displayValue: false
-          });
-        } catch (e) { /* ignorar si falta el nodo */ }
+          JsBarcode("#barcode-" + i, codigos[i], { format: "CODE128", lineColor: "#000", width: 2.5, height: 50, displayValue: false });
+        } catch (e) {}
       }
       window.print();
     })();
@@ -286,6 +240,7 @@ export const imprimirRecibosUnicos = async (listaSocios, periodoActual = '', ven
 </body>
 </html>`;
 
-  win.document.write(html);
-  win.document.close();
+  popup.document.open();
+  popup.document.write(html);
+  popup.document.close();
 };

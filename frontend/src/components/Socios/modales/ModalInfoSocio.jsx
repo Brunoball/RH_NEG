@@ -52,15 +52,14 @@ const ModalInfoSocio = ({ socio, onClose }) => {
     return item ? (item[campo] ?? '-') : '-';
   };
 
-  // Formatea la categoría de monto: "Nombre — $mensual / anual $anual"
+  // Formatea la categoría de monto: "Nombre ($mensual)"
   const formatCatMonto = (lista, idCatMonto) => {
     if (!Array.isArray(lista)) return '-';
     const item = lista.find(el => String(el?.id_cat_monto) === String(idCatMonto));
     if (!item) return '-';
     const nombre = item.nombre_categoria ?? '-';
     const mensual = item.monto_mensual ?? '-';
-    const anual = item.monto_anual ?? '-';
-    return `${nombre} — $${mensual} / anual $${anual}`;
+    return `${nombre} ($${mensual})`;
   };
 
   return (

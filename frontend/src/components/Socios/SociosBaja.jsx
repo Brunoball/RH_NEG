@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+// src/components/Socios/SociosBaja.jsx
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
 import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel } from 'react-icons/fa';
@@ -135,6 +136,13 @@ const SociosBaja = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile(768);
 
+  // === ROL DEL USUARIO (admin/vista) ===
+  const usuario = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+  }, []);
+  const rol = (usuario?.rol || 'vista').toLowerCase();
+  const isAdmin = rol === 'admin';
+
   // Zona horaria fija para evitar desfasajes
   const TZ = 'America/Argentina/Cordoba';
   const hoyISO = () =>
@@ -174,6 +182,8 @@ const SociosBaja = () => {
   };
 
   const darAltaSocio = async (id) => {
+    // Lógica intacta; botones se ocultan en vista, pero por seguridad evitamos si no es admin.
+    if (!isAdmin) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaAlta)) {
       setToast({ show: true, tipo: 'error', mensaje: 'Fecha de alta inválida (AAAA-MM-DD).' });
       return;
@@ -204,6 +214,7 @@ const SociosBaja = () => {
   };
 
   const eliminarSocio = async (id) => {
+    if (!isAdmin) return;
     try {
       const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio&ts=${Date.now()}`, {
         method: 'POST',
@@ -350,16 +361,20 @@ const SociosBaja = () => {
                       <MotivoCell motivo={s.motivo} onClick={() => mostrarMotivoCompleto(s.motivo)} />
                       <div className="soc-col-acciones-baja">
                         <div className="soc-iconos-acciones-baja">
-                          <FaUserCheck
-                            title="Dar de alta"
-                            className="soc-icono-baja"
-                            onClick={() => { setSocioSeleccionado(s); setFechaAlta(hoyISO()); setMostrarConfirmacion(true); }}
-                          />
-                          <FaTrash
-                            title="Eliminar permanentemente"
-                            className="soc-icono-baja"
-                            onClick={() => { setSocioSeleccionado(s); setMostrarConfirmacionEliminar(true); }}
-                          />
+                          {isAdmin && (
+                            <>
+                              <FaUserCheck
+                                title="Dar de alta"
+                                className="soc-icono-baja"
+                                onClick={() => { setSocioSeleccionado(s); setFechaAlta(hoyISO()); setMostrarConfirmacion(true); }}
+                              />
+                              <FaTrash
+                                title="Eliminar permanentemente"
+                                className="soc-icono-baja"
+                                onClick={() => { setSocioSeleccionado(s); setMostrarConfirmacionEliminar(true); }}
+                              />
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -383,22 +398,26 @@ const SociosBaja = () => {
                     <header className="soc-card-header">
                       <div className="soc-card-id">ID #{s.id_socio}</div>
                       <div className="soc-card-actions">
-                        <button
-                          type="button"
-                          className="soc-card-icon-btn success"
-                          title="Dar de alta"
-                          onClick={() => { setSocioSeleccionado(s); setFechaAlta(hoyISO()); setMostrarConfirmacion(true); }}
-                        >
-                          <FaUserCheck aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          className="soc-card-icon-btn danger"
-                          title="Eliminar permanentemente"
-                          onClick={() => { setSocioSeleccionado(s); setMostrarConfirmacionEliminar(true); }}
-                        >
-                          <FaTrash aria-hidden />
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              className="soc-card-icon-btn success"
+                              title="Dar de alta"
+                              onClick={() => { setSocioSeleccionado(s); setFechaAlta(hoyISO()); setMostrarConfirmacion(true); }}
+                            >
+                              <FaUserCheck aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              className="soc-card-icon-btn danger"
+                              title="Eliminar permanentemente"
+                              onClick={() => { setSocioSeleccionado(s); setMostrarConfirmacionEliminar(true); }}
+                            >
+                              <FaTrash aria-hidden />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </header>
 
@@ -424,7 +443,7 @@ const SociosBaja = () => {
         </>
       )}
 
-      {/* Modal Alta */}
+      {/* Modal Alta (estructura y clases intactas) */}
       {mostrarConfirmacion && socioSeleccionado && (
         <div className="soc-modal-overlay-baja">
           <div className="soc-modal-contenido-alta">
@@ -462,7 +481,7 @@ const SociosBaja = () => {
         </div>
       )}
 
-      {/* Modal Eliminar */}
+      {/* Modal Eliminar (estructura y clases intactas) */}
       {mostrarConfirmacionEliminar && socioSeleccionado && (
         <div className="soc-modal-overlay-baja">
           <div className="soc-modal-contenido-eliminar">

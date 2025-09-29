@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../../config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
+// 🔴 Evitar cache del lado del cliente/proxy/CDN
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -11,7 +15,6 @@ try {
         'cobradores'       => [],
         'estados'          => [],
         'periodos'         => [],
-        // NUEVO: categorías con montos (mensual y anual)
         'categorias_monto' => [],
     ];
 
@@ -51,9 +54,9 @@ try {
         ];
     }
 
-    /* ===== NUEVO: Categoria + montos (mensual y anual) ===== */
+    /* ===== Categoria + monto mensual solamente ===== */
     $stmt = $pdo->query("
-        SELECT id_cat_monto, nombre_categoria, monto_mensual, monto_anual
+        SELECT id_cat_monto, nombre_categoria, monto_mensual
         FROM categoria_monto
         ORDER BY nombre_categoria ASC
     ");
@@ -62,17 +65,18 @@ try {
             'id_cat_monto'     => (int)$row['id_cat_monto'],
             'nombre_categoria' => $row['nombre_categoria'],
             'monto_mensual'    => (int)$row['monto_mensual'],
-            'monto_anual'      => (int)$row['monto_anual'],
         ];
     }
 
     echo json_encode([
         'exito'  => true,
         'listas' => $listas,
-    ]);
-} catch (PDOException $e) {
+    ], JSON_UNESCAPED_UNICODE);
+
+} catch (Throwable $e) {
+    http_response_code(500);
     echo json_encode([
         'exito'   => false,
         'mensaje' => 'Error en la base de datos: ' . $e->getMessage(),
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 }

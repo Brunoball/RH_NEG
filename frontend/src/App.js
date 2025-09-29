@@ -1,7 +1,7 @@
 // src/App.js
 import React from 'react';
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,   // <---- cambio clave
   Routes,
   Route,
   Navigate,
@@ -73,6 +73,7 @@ function InactivityLogout() {
       if (document.visibilityState === 'visible') resetTimer();
     };
 
+    // El polyfill ya neutraliza { passive: true } en browsers viejos
     activityEvents.forEach((ev) => window.addEventListener(ev, onActivity, { passive: true }));
     document.addEventListener('visibilitychange', onVisibility);
 

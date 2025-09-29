@@ -120,13 +120,20 @@ const AgregarSocio = () => {
 
   const [errores, setErrores] = useState({});
   const [mostrarErrores, setMostrarErrores] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'exito' });
+
+  // 👉 Toast SIEMPRE 3s
+  const [toast, setToast] = useState({ show: false, message: '', type: 'exito', duration: 3000 });
+  const showToast = (message, type = 'exito', duration = 3000) =>
+    setToast({ show: true, message, type, duration: 3000 });
+
   const [loading, setLoading] = useState(false);
   const [activeField, setActiveField] = useState(null);
   const nacimientoRef = useRef(null);
 
   // ===== Baseline para detectar cambios reales (ignora autocompletados iniciales) =====
   const baselineRef = useRef(initialForm);
+  const baselineSetRef = useRef(false);        // ← asegura que solo fijamos baseline una vez
+  const userInteractedRef = useRef(false);     // ← marca si el usuario tocó algún campo
 
   // ===== Modal de confirmación de salida =====
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
@@ -150,7 +157,6 @@ const AgregarSocio = () => {
     el.focus({ preventScroll: true });
     if (typeof el.showPicker === 'function') { try { el.showPicker(); } catch {} } else { el.click(); }
   };
-  const showToast = (message, type = 'exito') => setToast({ show: true, message, type });
 
   /* Cargar listas */
   useEffect(() => {
@@ -162,17 +168,15 @@ const AgregarSocio = () => {
         if (json.exito) {
           const listasCargadas = { ...json.listas, loaded: true };
 
-          // Autoselect de categoría/monto si viene solo una
-          let nextForm = null;
+          // Autoselect de categoría/monto si viene solo una (esto es "default", NO cuenta como interacción)
           if (Array.isArray(listasCargadas.categorias_monto) && listasCargadas.categorias_monto.length === 1) {
             const unico = listasCargadas.categorias_monto[0];
-            nextForm = (prev) => ({ ...prev, id_cat_monto: String(unico.id_cat_monto) });
-            setFormData(nextForm);
+            setFormData(prev => ({ ...prev, id_cat_monto: String(unico.id_cat_monto) }));
           }
 
           setListas(listasCargadas);
         } else {
-          showToast('Error al cargar listas: ' + (json.mensaje || 'Desconocido'), 'error');
+          showToast('Error al cargar listas', 'error');
         }
       } catch (err) {
         showToast('Error de conexión: ' + err.message, 'error');
@@ -181,15 +185,21 @@ const AgregarSocio = () => {
       }
     };
     fetchListas();
+    // baseline inicial (antes de defaults asincrónicos): vacío
+    baselineRef.current = { ...initialForm };
+    baselineSetRef.current = false; // se fijará luego de aplicar defaults si corresponde
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Una vez que las listas quedan "loaded", fijamos el baseline al formulario actual
+  // Una vez que las listas quedan "loaded", fijamos el baseline al formulario ACTUAL
+  // pero solo si el usuario todavía NO interactuó (para no "pisar" cambios ya hechos).
   useEffect(() => {
-    if (listas.loaded) {
-      baselineRef.current = { ...formData };
+    if (listas.loaded && !baselineSetRef.current && !userInteractedRef.current) {
+      baselineRef.current = { ...formData }; // captura los valores por defecto (incl. autoselect)
+      baselineSetRef.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listas.loaded]);
+  }, [listas.loaded, formData]);
 
   /* Próximo ID */
   const fetchNextId = async () => {
@@ -199,7 +209,7 @@ const AgregarSocio = () => {
       if (json && json.exito) setNextId(json.next_id ?? null);
       else {
         setNextId(null);
-        if (json && json.mensaje) showToast('No se pudo obtener el próximo ID: ' + json.mensaje, 'error');
+        if (json && json.mensaje) showToast('No se pudo obtener el próximo ID', 'error');
       }
     } catch (err) {
       setNextId(null);
@@ -208,7 +218,7 @@ const AgregarSocio = () => {
   };
   useEffect(() => { fetchNextId(); }, []);
 
-  /* Validaciones */
+  /* Validaciones base */
   const regexNombre = /^[\p{L}\s]+$/u;
   const regexTextoLibre = /^[\p{L}\p{N}\s.,-]+$/u;
   const regexSoloNumeros = /^[0-9]+$/;
@@ -220,55 +230,55 @@ const AgregarSocio = () => {
 
     switch (name) {
       case 'apellido':
-        if (!val) return 'El apellido es obligatorio.';
-        if (!regexNombre.test(val)) return 'Solo se permiten letras (incluye acentos) y espacios.';
-        if (val.length > 100) return 'Máximo 100 caracteres.';
+        if (!val) return 'obligatorio';
+        if (!regexNombre.test(val)) return 'Solo letras y espacios';
+        if (val.length > 100) return 'Máximo 100 caracteres';
         break;
       case 'nombres':
-        if (!val) return 'El nombre es obligatorio.';
-        if (!regexNombre.test(val)) return 'Solo se permiten letras (incluye acentos) y espacios.';
-        if (val.length > 100) return 'Máximo 100 caracteres.';
+        if (!val) return 'obligatorio';
+        if (!regexNombre.test(val)) return 'Solo letras y espacios';
+        if (val.length > 100) return 'Máximo 100 caracteres';
         break;
       case 'domicilio':
         if (!val) return null;
-        if (!regexTextoLibre.test(val)) return 'Domicilio inválido. Letras/números, espacios y . , -';
-        if (val.length > 100) return 'Máximo 100 caracteres.';
+        if (!regexTextoLibre.test(val)) return 'Domicilio inválido';
+        if (val.length > 100) return 'Máximo 100 caracteres';
         break;
       case 'domicilio_cobro':
         if (!val) return null;
-        if (val.length > 150) return 'Máximo 150 caracteres.';
+        if (val.length > 150) return 'Máximo 150 caracteres';
         break;
       case 'comentario':
         if (!val) return null;
-        if (!regexTextoLibre.test(val)) return 'Comentario inválido. Letras/números, espacios y . , -';
-        if (val.length > 1000) return 'Máximo 1000 caracteres.';
+        if (!regexTextoLibre.test(val)) return 'Comentario inválido';
+        if (val.length > 1000) return 'Máximo 1000 caracteres';
         break;
       case 'numero':
         if (!val) return null;
-        if (!regexSoloNumeros.test(val)) return 'Solo números.';
-        if (val.length > 20) return 'Máximo 20 caracteres.';
+        if (!regexSoloNumeros.test(val)) return 'Solo números';
+        if (val.length > 20) return 'Máximo 20 caracteres';
         break;
       case 'telefono_movil':
       case 'telefono_fijo':
         if (!val) return null;
-        if (!regexTel.test(val)) return 'Solo números y guiones.';
-        if (val.length > 20) return 'Máximo 20 caracteres.';
+        if (!regexTel.test(val)) return 'Solo números y guiones';
+        if (val.length > 20) return 'Máximo 20 caracteres';
         break;
       case 'dni':
         if (!val) return null;
-        if (!regexSoloNumeros.test(val)) return 'Solo números.';
-        if (val.length > 20) return 'Máximo 20 caracteres.';
+        if (!regexSoloNumeros.test(val)) return 'Solo números';
+        if (val.length > 20) return 'Máximo 20 caracteres';
         break;
       case 'id_categoria':
       case 'id_estado':
       case 'id_cobrador':
       case 'id_cat_monto':
         if (!val) return null;
-        if (!/^\d+$/.test(val)) return 'Valor inválido.';
+        if (!/^\d+$/.test(val)) return 'Valor inválido';
         break;
       case 'nacimiento':
         if (!val) return null;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return 'Fecha inválida (YYYY-MM-DD).';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return 'Fecha inválida';
         break;
       default:
         return null;
@@ -276,25 +286,94 @@ const AgregarSocio = () => {
     return null;
   };
 
-  const validarTodo = (data) => {
-    const nuevos = {};
-    for (const k of Object.keys(data)) {
-      const err = validarCampo(k, data[k]);
-      if (err) nuevos[k] = err;
-    }
-    if (!data.apellido?.trim()) nuevos.apellido = 'El apellido es obligatorio.';
-    if (!data.nombres?.trim())  nuevos.nombres  = 'El nombre es obligatorio.';
-    return nuevos;
+  /* Reglas de obligatoriedad por paso */
+  const LABELS = {
+    apellido: 'Apellido',
+    nombres: 'Nombre',
+    dni: 'DNI',
+    nacimiento: 'Fecha de nacimiento',
+    id_categoria: 'Tipo de sangre',
+    id_cat_monto: 'Categoría (Cuota)',
+    id_estado: 'Estado',
+    domicilio: 'Domicilio',
+    numero: 'Número',
+    id_cobrador: 'Método de pago',
   };
 
-  /* Handlers */
+  const requeridosPaso1 = ['apellido', 'nombres', 'dni', 'nacimiento', 'id_categoria', 'id_cat_monto', 'id_estado'];
+  const requeridosPaso2 = ['domicilio', 'numero'];
+  const requeridoPaso3  = ['id_cobrador'];
+
+  const buildRequiredErrors = (fields, data) => {
+    const errs = {};
+    for (const f of fields) {
+      const v = (data[f] ?? '').toString().trim();
+      if (!v) errs[f] = 'obligatorio';
+      else {
+        const e = validarCampo(f, v);
+        if (e) errs[f] = e;
+      }
+    }
+    return errs;
+  };
+
+  // ==== Formateo de mensajes de error (simple, sin viñetas/puntos) ====
+  const formatRequiredMessage = (errs) => {
+    const keys = Object.keys(errs).filter(k => errs[k] === 'obligatorio');
+    // Casos pedidos explícitos:
+    if (keys.length === 2 && keys.includes('domicilio') && keys.includes('numero')) {
+      return 'Domicilio y Número son obligatorios';
+    }
+    if (keys.length === 1 && keys[0] === 'id_cobrador') {
+      return 'Método de pago es obligatorio';
+    }
+    // Si hay uno solo, "<Label> es obligatorio"
+    if (keys.length === 1) {
+      return `${LABELS[keys[0]]} es obligatorio`;
+    }
+    // Si hay varios (paso 1), mensaje genérico corto
+    if (keys.length > 1) {
+      return 'Completá los campos obligatorios';
+    }
+    // Si no hay "obligatorio" pero sí otros errores de formato, mostramos el primero, simplificado:
+    const otherErr = Object.entries(errs).find(([, msg]) => msg && msg !== 'obligatorio');
+    if (otherErr) {
+      const [k] = otherErr;
+      // Mensaje corto contextual
+      if (k === 'dni') return 'DNI inválido';
+      if (k === 'nacimiento') return 'Fecha inválida';
+      return `${LABELS[k]} inválido`;
+    }
+    return 'Revisá los campos';
+  };
+
+  const mergeAndShowErrors = (extraErrs = {}) => {
+    const merged = { ...errores, ...extraErrs };
+    setErrores(merged);
+    setMostrarErrores(true);
+    const msg = formatRequiredMessage(merged);
+    showToast(msg, 'error', 3000);
+  };
+
+  const validarTodo = (data) => {
+    // Valida todo lo requerido de los 3 pasos (seguridad extra)
+    return {
+      ...buildRequiredErrors(requeridosPaso1, data),
+      ...buildRequiredErrors(requeridosPaso2, data),
+      ...buildRequiredErrors(requeridoPaso3, data),
+    };
+  };
+
+  /* Handlers de cambios */
   const handleNumberChange = (e) => {
+    userInteractedRef.current = true; // ← marca interacción de usuario
     const { name, value } = e.target;
     const numericValue = value.replace(/[^0-9-]/g, '');
     setFormData(prev => ({ ...prev, [name]: numericValue }));
     setErrores(prev => ({ ...prev, [name]: validarCampo(name, numericValue) || undefined }));
   };
   const handleChange = (e) => {
+    userInteractedRef.current = true; // ← marca interacción de usuario
     const { name, value } = e.target;
     let nuevoValor = value;
     if (name === 'apellido' || name === 'nombres') nuevoValor = value.replace(/\s+/g, ' ');
@@ -305,52 +384,46 @@ const AgregarSocio = () => {
   const handleFocus = (f) => setActiveField(f);
   const handleBlur = () => setActiveField(null);
 
+  /* Navegación entre pasos con validación requerida */
   const handleNextStep = () => {
-    const errApe = validarCampo('apellido', formData.apellido);
-    const errNom = validarCampo('nombres', formData.nombres);
-    if (errApe || errNom) {
-      setErrores(prev => ({ ...prev, apellido: errApe, nombres: errNom }));
-      setMostrarErrores(true);
-      showToast(errApe || errNom || 'Corregí los errores.', 'error');
-      return;
+    let errs = {};
+    if (currentStep === 1) {
+      errs = buildRequiredErrors(requeridosPaso1, formData);
+      if (Object.keys(errs).length > 0) {
+        setErrores(prev => ({ ...prev, ...errs }));
+        setMostrarErrores(true);
+        showToast('Completá los campos obligatorios', 'error', 3000);
+        return;
+      }
+    } else if (currentStep === 2) {
+      errs = buildRequiredErrors(requeridosPaso2, formData);
+      if (Object.keys(errs).length > 0) {
+        mergeAndShowErrors(errs); // → mostrará "Domicilio y Número son obligatorios"
+        return;
+      }
     }
+
     setCurrentStep((p) => Math.min(p + 1, 3));
     setMostrarErrores(false);
   };
 
   const handlePrevStep = () => { setCurrentStep((p) => Math.max(p - 1, 1)); setMostrarErrores(false); };
 
-  const flattenErrores = (errObj) => {
-    if (!errObj || typeof errObj !== 'object') return '';
-    const labelMap = {
-      apellido: 'Apellido',
-      nombres: 'Nombre',
-      domicilio: 'Domicilio',
-      numero: 'Número',
-      telefono_movil: 'Teléfono móvil',
-      telefono_fijo: 'Teléfono fijo',
-      comentario: 'Comentarios',
-      nacimiento: 'Fecha nacimiento',
-      id_estado: 'Estado',
-      id_categoria: 'Tipo de sangre',
-      id_cat_monto: 'Categoría (Monto)',
-      id_cobrador: 'Método de pago',
-      domicilio_cobro: 'Domicilio de cobro',
-      dni: 'DNI',
-      general: 'General'
-    };
-    return Object.entries(errObj)
-      .filter(([, msg]) => !!msg)
-      .map(([campo, msg]) => `• ${labelMap[campo] || campo}: ${msg}`)
-      .join('\n');
-  };
-
   const handleSubmit = async (e) => {
     e?.preventDefault();
-    const nuevos = validarTodo(formData);
-    if (Object.keys(nuevos).length > 0) {
-      setErrores(nuevos); setMostrarErrores(true);
-      showToast(flattenErrores(nuevos) || 'Por favor corrige los errores.', 'error');
+
+    // Validación completa (incluye requeridos de todos los pasos)
+    const errs = validarTodo(formData);
+    if (Object.keys(errs).length > 0) {
+      // Si hay errores del Paso 1, mensaje corto genérico
+      const tieneErrPaso1 = requeridosPaso1.some(k => errs[k]);
+      if (tieneErrPaso1) {
+        setErrores(prev => ({ ...prev, ...errs }));
+        setMostrarErrores(true);
+        showToast('Completá los campos obligatorios', 'error', 3000);
+        return;
+      }
+      mergeAndShowErrors(errs); // Maneja Paso 2 ("Domicilio y Número...") y Paso 3 ("Método de pago...")
       return;
     }
 
@@ -364,28 +437,40 @@ const AgregarSocio = () => {
       });
       const data = await res.json();
       if (data.exito) {
-        showToast('Socio agregado correctamente', 'exito');
+        showToast('Socio agregado correctamente', 'exito', 3000);
         await fetchNextId();
         setTimeout(() => navigate('/socios'), 1200);
       } else {
-        let errs = {};
+        let errsResp = {};
         if (data.errores && typeof data.errores === 'object') {
-          errs = { ...data.errores };
-          if (Object.prototype.hasOwnProperty.call(errs, 'nombre')) {
-            delete errs.nombre;
-            if (!errs.apellido) errs.apellido = 'El apellido es obligatorio.';
-            if (!errs.nombres)  errs.nombres  = 'El nombre es obligatorio.';
+          errsResp = { ...data.errores };
+          if (Object.prototype.hasOwnProperty.call(errsResp, 'nombre')) {
+            delete errsResp.nombre;
+            if (!errsResp.apellido) errsResp.apellido = 'obligatorio';
+            if (!errsResp.nombres)  errsResp.nombres  = 'obligatorio';
           }
         }
-        if (Object.keys(errs).length) {
-          setErrores(errs); setMostrarErrores(true);
-          showToast(flattenErrores(errs) || 'Error de validación.', 'error');
+        if (Object.keys(errsResp).length) {
+          // Normalizamos valores "… es obligatorio." a "obligatorio"
+          Object.keys(errsResp).forEach(k => {
+            if (typeof errsResp[k] === 'string' && errsResp[k].toLowerCase().includes('obligatorio')) {
+              errsResp[k] = 'obligatorio';
+            }
+          });
+          const tieneErrPaso1Resp = requeridosPaso1.some(k => errsResp[k]);
+          if (tieneErrPaso1Resp) {
+            setErrores(prev => ({ ...prev, ...errsResp }));
+            setMostrarErrores(true);
+            showToast('Completá los campos obligatorios', 'error', 3000);
+          } else {
+            mergeAndShowErrors(errsResp); // mostrará los mensajes simples
+          }
         } else {
-          showToast('Error: ' + (data.mensaje || 'Desconocido'), 'error');
+          showToast('Error al guardar', 'error', 3000);
         }
       }
     } catch {
-      showToast('Error de conexión con el servidor', 'error');
+      showToast('Error de conexión con el servidor', 'error', 3000);
     } finally {
       setLoading(false);
     }
@@ -395,13 +480,15 @@ const AgregarSocio = () => {
     if (e.key === 'Enter') { e.preventDefault(); if (currentStep < 3) handleNextStep(); }
   };
 
-  // ===== Volver con confirmación si hay cambios =====
+  // ===== Volver con confirmación si hay cambios hechos por el usuario =====
   const handleVolverClick = () => {
-    if (isDirty) {
-      setShowConfirmLeave(true);
-    } else {
+    // Si NO hay cambios respecto al baseline (que ya incluye defaults), volver directo
+    if (!isDirty) {
       navigate('/socios');
+      return;
     }
+    // Si hay suciedad, mostrar el modal
+    setShowConfirmLeave(true);
   };
 
   const confirmLeave = () => {
@@ -453,7 +540,7 @@ const AgregarSocio = () => {
             tipo={toast.type}
             mensaje={toast.message}
             onClose={() => setToast(prev => ({ ...prev, show: false }))}
-            duracion={1800}
+            duracion={toast.duration ?? 3000}
           />
         )}
 
@@ -493,14 +580,12 @@ const AgregarSocio = () => {
                     <label className="add-socio-label"><FontAwesomeIcon icon={faUser} className="input-icon" />Apellido</label>
                     <input name="apellido" value={formData.apellido || ''} onChange={handleChange} onFocus={() => handleFocus('apellido')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.apellido && <span className="add-socio-error">{errores.apellido}</span>}
                   </div>
                   {/* Nombre */}
                   <div className={`add-socio-input-wrapper ${formData.nombres || activeField === 'nombres' ? 'has-value' : ''}`}>
                     <label className="add-socio-label"><FontAwesomeIcon icon={faUser} className="input-icon" />Nombre</label>
                     <input name="nombres" value={formData.nombres || ''} onChange={handleChange} onFocus={() => handleFocus('nombres')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.nombres && <span className="add-socio-error">{errores.nombres}</span>}
                   </div>
                 </div>
 
@@ -510,7 +595,6 @@ const AgregarSocio = () => {
                     <label className="add-socio-label"><FontAwesomeIcon icon={faIdCard} className="input-icon" />DNI</label>
                     <input name="dni" value={formData.dni || ''} onChange={handleNumberChange} onFocus={() => handleFocus('dni')} onBlur={handleBlur} className="add-socio-input" inputMode="numeric" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.dni && <span className="add-socio-error">{errores.dni}</span>}
                   </div>
 
                   {/* Fecha nacimiento */}
@@ -543,7 +627,6 @@ const AgregarSocio = () => {
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_categoria && <span className="add-socio-error">{errores.id_categoria}</span>}
                   </div>
 
                   {/* Categoría Monto */}
@@ -563,12 +646,11 @@ const AgregarSocio = () => {
                       )}
                       {listas.categorias_monto.map(cm => (
                         <option key={cm.id_cat_monto} value={String(cm.id_cat_monto)}>
-                          {cm.nombre_categoria} — ${cm.monto_mensual} / anual ${cm.monto_anual}
+                          {cm.nombre_categoria} ({`$${cm.monto_mensual}`})
                         </option>
                       ))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_cat_monto && <span className="add-socio-error">{errores.id_cat_monto}</span>}
                   </div>
                 </div>
 
@@ -581,7 +663,6 @@ const AgregarSocio = () => {
                       {listas.estados.map(e => (<option key={e.id} value={e.id}>{e.descripcion}</option>))}
                     </select>
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.id_estado && <span className="add-socio-error">{errores.id_estado}</span>}
                   </div>
                 </div>
               </div>
@@ -598,13 +679,11 @@ const AgregarSocio = () => {
                     <label className="add-socio-label"><FontAwesomeIcon icon={faHome} className="input-icon" />Domicilio</label>
                     <input name="domicilio" value={formData.domicilio || ''} onChange={handleChange} onFocus={() => handleFocus('domicilio')} onBlur={handleBlur} className="add-socio-input" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.domicilio && <span className="add-socio-error">{errores.domicilio}</span>}
                   </div>
                   <div className={`add-socio-input-wrapper ${formData.numero || activeField === 'numero' ? 'has-value' : ''}`}>
                     <label className="add-socio-label"><FontAwesomeIcon icon={faHashtag} className="input-icon" />Número</label>
                     <input name="numero" value={formData.numero || ''} onChange={handleNumberChange} onFocus={() => handleFocus('numero')} onBlur={handleBlur} className="add-socio-input" inputMode="numeric" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.numero && <span className="add-socio-error">{errores.numero}</span>}
                   </div>
                 </div>
 
@@ -612,7 +691,6 @@ const AgregarSocio = () => {
                   <label className="add-socio-label"><FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />Domicilio de Cobro</label>
                   <input name="domicilio_cobro" value={formData.domicilio_cobro || ''} onChange={handleChange} onFocus={() => handleFocus('domicilio_cobro')} onBlur={handleBlur} className="add-socio-input" />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.domicilio_cobro && <span className="add-socio-error">{errores.domicilio_cobro}</span>}
                 </div>
 
                 <div className="add-socio-group-row">
@@ -620,14 +698,12 @@ const AgregarSocio = () => {
                     <label className="add-socio-label"><FontAwesomeIcon icon={faMobileScreen} className="input-icon" />Teléfono Móvil</label>
                     <input name="telefono_movil" value={formData.telefono_movil || ''} onChange={handleNumberChange} onFocus={() => handleFocus('telefono_movil')} onBlur={handleBlur} className="add-socio-input" inputMode="tel" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_movil && <span className="add-socio-error">{errores.telefono_movil}</span>}
                   </div>
 
                   <div className={`add-socio-input-wrapper ${formData.telefono_fijo || activeField === 'telefono_fijo' ? 'has-value' : ''}`}>
                     <label className="add-socio-label"><FontAwesomeIcon icon={faPhone} className="input-icon" />Teléfono Fijo</label>
                     <input name="telefono_fijo" value={formData.telefono_fijo || ''} onChange={handleNumberChange} onFocus={() => handleFocus('telefono_fijo')} onBlur={handleBlur} className="add-socio-input" inputMode="tel" />
                     <span className="add-socio-input-highlight"></span>
-                    {mostrarErrores && errores.telefono_fijo && <span className="add-socio-error">{errores.telefono_fijo}</span>}
                   </div>
                 </div>
               </div>
@@ -646,14 +722,12 @@ const AgregarSocio = () => {
                     {listas.cobradores.map(c => (<option key={c.id} value={c.id}>{c.nombre}</option>))}
                   </select>
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.id_cobrador && <span className="add-socio-error">{errores.id_cobrador}</span>}
                 </div>
 
                 <div className={`add-socio-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
                   <label className="add-socio-label"><FontAwesomeIcon icon={faComment} className="input-icon" />Comentarios</label>
                   <textarea name="comentario" value={formData.comentario || ''} onChange={handleChange} onFocus={() => handleFocus('comentario')} onBlur={handleBlur} className="add-socio-textarea" rows="4" />
                   <span className="add-socio-input-highlight"></span>
-                  {mostrarErrores && errores.comentario && <span className="add-socio-error">{errores.comentario}</span>}
                 </div>
               </div>
             </div>

@@ -8,7 +8,6 @@ import {
   faUserEdit,
   faUser,
   faIdCard,
-  // faUserTag,  // ← ya no se usa para este label
   faCircleInfo,
   faCalendarDays,
   faHome,
@@ -19,7 +18,7 @@ import {
   faMoneyBillWave,
   faComment,
   faTags,
-  faDroplet, // ← ícono para “Tipo de sangre”
+  faDroplet,
 } from '@fortawesome/free-solid-svg-icons';
 import BASE_URL from '../../config/config';
 import Toast from '../Global/Toast';
@@ -32,6 +31,15 @@ const FORM_KEYS = [
   'nombre','id_cobrador','id_categoria','id_cat_monto','domicilio','numero','telefono_movil','telefono_fijo','comentario',
   'nacimiento','id_estado','domicilio_cobro','dni','ingreso'
 ];
+
+/* ====== Helper fetch sin cache + cache-buster ====== */
+async function fetchJSONNoStore(url, options = {}) {
+  const sep = url.includes('?') ? '&' : '?';
+  const full = `${url}${sep}ts=${Date.now()}`;
+  const res = await fetch(full, { ...options, cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
 // ---- Helpers de fecha muy livianos
 const formatFechaISO = (fecha) => {
@@ -134,7 +142,7 @@ const EditarSocio = () => {
     return null;
   }, [location?.state, id]);
 
-  // ===== CARGA INICIAL =====
+  // ===== CARGA INICIAL (SOCIO) =====
   useEffect(() => {
     let abortado = false;
     const ctrl = new AbortController();
@@ -150,8 +158,10 @@ const EditarSocio = () => {
 
     const fetchSocio = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api.php?action=editar_socio&id=${id}`, { signal: ctrl.signal, cache: 'no-store' });
-        const data = await res.json();
+        const data = await fetchJSONNoStore(
+          `${BASE_URL}/api.php?action=editar_socio&id=${id}`,
+          { signal: ctrl.signal }
+        );
         if (abortado) return;
         if (data?.exito && data?.socio) {
           const fm = socioToForm(data.socio);
@@ -179,15 +189,17 @@ const EditarSocio = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ===== Listas base (categorías/estados/categorías_monto) =====
+  // ===== Listas base (categorías/estados/categorías_monto) — SIEMPRE FRESCAS =====
   useEffect(() => {
     let abortado = false;
     const ctrl = new AbortController();
     const loadCE = async () => {
       try {
         setLoadingCE(true);
-        const res = await fetch(`${BASE_URL}/api.php?action=listas`, { signal: ctrl.signal, cache: 'force-cache' });
-        const json = await res.json();
+        const json = await fetchJSONNoStore(
+          `${BASE_URL}/api.php?action=listas`,
+          { signal: ctrl.signal }
+        );
         if (abortado) return;
         if (json?.exito && json?.listas) {
           setCategorias(json.listas.categorias ?? []);
@@ -208,7 +220,7 @@ const EditarSocio = () => {
     return () => { abortado = true; ctrl.abort(); };
   }, []);
 
-  // ===== LAZY: Cobradores cuando abrís Cobranza =====
+  // ===== LAZY: Cobradores/Periodos cuando abrís Cobranza — FRESCO TAMBIÉN =====
   useEffect(() => {
     let cancel = false;
     const ctrl = new AbortController();
@@ -217,8 +229,10 @@ const EditarSocio = () => {
       if (loadingCobradores || cobradores.length > 0) return;
       try {
         setLoadingCobradores(true);
-        const res = await fetch(`${BASE_URL}/api.php?action=listas`, { signal: ctrl.signal, cache: 'force-cache' });
-        const json = await res.json();
+        const json = await fetchJSONNoStore(
+          `${BASE_URL}/api.php?action=listas`,
+          { signal: ctrl.signal }
+        );
         if (!cancel && json?.exito && json?.listas) {
           setCobradores(json.listas.cobradores ?? []);
           setPeriodos(json.listas.periodos ?? []);
@@ -259,7 +273,7 @@ const EditarSocio = () => {
     }
   };
 
-  // === Submit ===
+  // === Submit (sin Cache-Control en headers) ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formNormalizado = normalizar(formData);
@@ -271,11 +285,13 @@ const EditarSocio = () => {
     }
     try {
       setLoadingSubmit(true);
-      const res = await fetch(`${BASE_URL}/api.php?action=editar_socio`, {
+      const res = await fetch(`${BASE_URL}/api.php?action=editar_socio&ts=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' }, // <- SIN "Cache-Control"
         body: JSON.stringify({ ...formData, id_socio: id }),
+        cache: 'no-store',
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data?.exito) {
         showToast('Socio actualizado correctamente', 'exito');
@@ -284,7 +300,7 @@ const EditarSocio = () => {
         showToast('Error al actualizar' + (data?.mensaje ? `: ${data.mensaje}` : ''), 'error');
       }
     } catch (error) {
-      showToast('Error de red: ' + error, 'error');
+      showToast('Error de red: ' + error.message, 'error');
     } finally {
       setLoadingSubmit(false);
     }
@@ -352,7 +368,6 @@ const EditarSocio = () => {
             {activeTab === 'datos' && (
               <div className="edit-tab-pane active">
                 {!readyPrimerPestana ? (
-                  // Skeleton
                   <div className="edit-skeleton">
                     <div className="skeleton-line w60" />
                     <div className="skeleton-row">
@@ -453,7 +468,7 @@ const EditarSocio = () => {
                         <span className="edit-socio-input-highlight"></span>
                       </div>
 
-                      {/* Tipo de sangre (antes “Categoría”) */}
+                      {/* Tipo de sangre */}
                       <div className="edit-socio-input-wrapper always-active has-value">
                         <label className="edit-socio-label">
                           <FontAwesomeIcon icon={faDroplet} className="input-icon" />
@@ -474,7 +489,7 @@ const EditarSocio = () => {
                         <span className="edit-socio-input-highlight"></span>
                       </div>
 
-                      {/* Categoría (Monto) */}
+                      {/* Categoría (Monto) — FIX: siempre placeholder si está vacío/null */}
                       <div className="edit-socio-input-wrapper always-active has-value">
                         <label className="edit-socio-label">
                           <FontAwesomeIcon icon={faTags} className="input-icon" />
@@ -482,17 +497,16 @@ const EditarSocio = () => {
                         </label>
                         <select
                           name="id_cat_monto"
-                          value={formData.id_cat_monto || ''}
+                          value={formData.id_cat_monto || ''}  
                           onChange={handleChange}
                           className="edit-socio-input"
                           disabled={!readyCategoriasEstados}
                         >
-                          {(!categoriasMonto || categoriasMonto.length !== 1) && (
-                            <option value="" disabled hidden>Seleccione categoría/monto</option>
-                          )}
+                          {/* Siempre mostramos el placeholder, aun con 1 sola opción */}
+                          <option value="" disabled hidden>Seleccione categoría/monto</option>
                           {categoriasMonto.map(cm => (
                             <option key={cm.id_cat_monto} value={String(cm.id_cat_monto)}>
-                              {cm.nombre_categoria} — ${cm.monto_mensual} / anual ${cm.monto_anual}
+                              {cm.nombre_categoria} (${cm.monto_mensual})
                             </option>
                           ))}
                         </select>

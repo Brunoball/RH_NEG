@@ -182,12 +182,11 @@ const Categorias = () => {
     }
   };
 
-  // ====== Historial por categoría
+  // ====== Historial por categoría (solo abre modal si hay registros)
   const abrirHistorial = async (cat) => {
     setHistCategoria({ id: cat.idCategoria, nombre: cat.nombre });
-    setHist([]);
-    setModalHistOpen(true);
     setHistLoading(true);
+    setHist([]); // limpiar cualquier lista previa
     try {
       const r = await fetch(api('categorias_historial'), {
         method: 'POST',
@@ -196,9 +195,22 @@ const Categorias = () => {
       });
       const data = await r.json();
       if (!data?.ok) throw new Error(data?.mensaje || 'No se pudo obtener el historial.');
-      setHist(Array.isArray(data.historial) ? data.historial : []);
+
+      const registros = Array.isArray(data.historial) ? data.historial : [];
+
+      if (registros.length === 0) {
+        // 👉 No abrir modal, solo toast informativo
+        showToast('info', 'Esta categoría no tiene historial de precios.');
+        setHistLoading(false);
+        return;
+      }
+
+      // Hay registros: setear estado y abrir modal
+      setHist(registros);
+      setModalHistOpen(true);
     } catch (err) {
       console.error(err);
+      // No abrir modal si hubo error
       showToast('error', 'No se pudo cargar el historial.');
     } finally {
       setHistLoading(false);
@@ -308,7 +320,7 @@ const Categorias = () => {
             <span className="cat_btn_text">Volver</span>
           </button>
 
-          <div className="cat_toolbar_spacer" />
+        <div className="cat_toolbar_spacer" />
 
           <button
             className="cat_btn cat_btn_outline"
@@ -320,7 +332,7 @@ const Categorias = () => {
         </section>
       </div>
 
-      {/* Modal Historial */}
+      {/* Modal Historial (solo se muestra cuando modalHistOpen === true) */}
       <Modal
         open={modalHistOpen}
         onClose={() => setModalHistOpen(false)}
@@ -372,7 +384,7 @@ const Categorias = () => {
       {/* TOAST */}
       {toast.show && (
         <Toast
-          tipo={toast.tipo}
+          tipo={toast.tipo}        // 'exito' | 'error' | 'info'
           mensaje={toast.mensaje}
           duracion={toast.duracion}
           onClose={closeToast}

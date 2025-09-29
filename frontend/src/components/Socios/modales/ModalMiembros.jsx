@@ -64,9 +64,16 @@ function ConfirmRemoveMemberModal({ open, miembro, isWorking, onConfirm, onCance
 }
 
 /* ---------- Tarjetas memoizadas ---------- */
-const MiembroCard = memo(function MiembroCard({ m, onRemoveClick, cascadeIndex = -1, playCascade = false }) {
+const MiembroCard = memo(function MiembroCard({
+  m,
+  onRemoveClick,
+  cascadeIndex = -1,
+  playCascade = false,
+  isAdmin = false,
+}) {
   const active = Number(m.activo) === 1;
-  const cascadeClass = playCascade && cascadeIndex > -1 && cascadeIndex < 10 ? 'modalmi-cascade' : '';
+  const cascadeClass =
+    playCascade && cascadeIndex > -1 && cascadeIndex < 10 ? 'modalmi-cascade' : '';
   const cascadeStyle = cascadeClass ? { '--mi-cascade-i': cascadeIndex } : undefined;
 
   return (
@@ -88,16 +95,26 @@ const MiembroCard = memo(function MiembroCard({ m, onRemoveClick, cascadeIndex =
         </div>
       </div>
 
-      <button className="modalmi-remove" title="Quitar" onClick={() => onRemoveClick(m)}>
-        <FaTrash />
-      </button>
+      {/* Oculto el botón de quitar en rol vista */}
+      {isAdmin && (
+        <button className="modalmi-remove" title="Quitar" onClick={() => onRemoveClick(m)}>
+          <FaTrash />
+        </button>
+      )}
     </div>
   );
 });
 
-const CandidatoCard = memo(function CandidatoCard({ c, checked, onToggle, cascadeIndex = -1, playCascade = false }) {
+const CandidatoCard = memo(function CandidatoCard({
+  c,
+  checked,
+  onToggle,
+  cascadeIndex = -1,
+  playCascade = false,
+}) {
   const active = Number(c.activo) === 1;
-  const cascadeClass = playCascade && cascadeIndex > -1 && cascadeIndex < 10 ? 'modalmi-cascade' : '';
+  const cascadeClass =
+    playCascade && cascadeIndex > -1 && cascadeIndex < 10 ? 'modalmi-cascade' : '';
   const cascadeStyle = cascadeClass ? { '--mi-cascade-i': cascadeIndex } : undefined;
 
   return (
@@ -147,6 +164,13 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
   const [delOpen, setDelOpen] = useState(false);
   const [delTarget, setDelTarget] = useState(null);
   const [delWorking, setDelWorking] = useState(false);
+
+  // === ROL (admin / vista) ===
+  const usuario = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+  }, []);
+  const rol = (usuario?.rol || 'vista').toLowerCase();
+  const isAdmin = rol === 'admin';
 
   useEffect(() => {
     if (!open || !familia) return;
@@ -249,6 +273,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
   }, []);
 
   const agregarSeleccionados = useCallback(async () => {
+    if (!isAdmin) return; // seguridad extra
     if (sel.size === 0) return;
     const ids = Array.from(sel);
     const setIds = new Set(ids);
@@ -281,13 +306,14 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
     } catch {
       notify?.('Error al agregar miembros', 'error');
     }
-  }, [sel, candidatosAll, familia, notify, onDeltaCounts]);
+  }, [isAdmin, sel, candidatosAll, familia, notify, onDeltaCounts]);
 
   /* --- flujo de quitar con modal estético --- */
   const abrirModalQuitar = useCallback((miembro) => {
+    if (!isAdmin) return; // en vista no hace nada
     setDelTarget(miembro);
     setDelOpen(true);
-  }, []);
+  }, [isAdmin]);
 
   const cerrarModalQuitar = useCallback(() => {
     if (delWorking) return;
@@ -296,7 +322,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
   }, [delWorking]);
 
   const confirmarQuitar = useCallback(async () => {
-    if (!delTarget) return;
+    if (!isAdmin || !delTarget) return;
     setDelWorking(true);
     const id_socio = delTarget.id_socio;
     const eraActivo = Number(delTarget?.activo) === 1;
@@ -327,7 +353,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
     } finally {
       setDelWorking(false);
     }
-  }, [delTarget, familia, notify, onDeltaCounts]);
+  }, [isAdmin, delTarget, familia, notify, onDeltaCounts]);
 
   // --- acciones del buscador (lupa/clear) ---
   const handleSearchIcon = useCallback(() => {
@@ -350,6 +376,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
   if (!open || !familia) return null;
 
   // Skeletons solo en primera entrada (~380ms)
+  
   const showMiembrosSkeletonNow = !didFirstIntroRef.current && showMiembrosSkeleton;
   const showCandidatosSkeletonNow = !didFirstIntroRef.current && showCandidatosSkeleton;
 
@@ -392,6 +419,7 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
                     onRemoveClick={abrirModalQuitar}
                     cascadeIndex={idx}
                     playCascade={playCascade}
+                    isAdmin={isAdmin}
                   />
                 ))
               )}
@@ -462,19 +490,22 @@ export default function ModalMiembros({ open, onClose, familia, notify, onDeltaC
 
         {/* Footer */}
         <div className="modalmi-foot">
-          <button
-            className="modalmi-btn modalmi-solid"
-            onClick={agregarSeleccionados}
-            disabled={sel.size === 0}
-            title="Agregar seleccionados"
-          >
-            <FaPlus /> Agregar seleccionados ({sel.size})
-          </button>
+          {/* Botón azul sólido (Windows 7 friendly) */}
+          {isAdmin && (
+            <button
+              className="modalmi-btn modalmi-solid"
+              onClick={agregarSeleccionados}
+              disabled={sel.size === 0}
+              title="Agregar seleccionados"
+            >
+              <FaPlus /> Agregar seleccionados ({sel.size})
+            </button>
+          )}
           <button className="modalmi-btn modalmi-ghost" onClick={onClose}>Cerrar</button>
         </div>
       </div>
 
-      {/* Modal de quitar miembro con estética famdel */}
+      {/* Modal de quitar miembro (solo se abre si sos admin) */}
       <ConfirmRemoveMemberModal
         open={delOpen}
         miembro={delTarget}
