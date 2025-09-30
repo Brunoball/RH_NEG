@@ -411,6 +411,10 @@ html, body {
   color:var(--princ-dark);
   min-width:0;
   overflow-wrap:anywhere;
+
+}
+.centers{
+  text-align: center;
 }
 
 /* ====== LEGACY FALLBACK: navegadores sin CSS Grid ====== */

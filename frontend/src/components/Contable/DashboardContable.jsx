@@ -93,16 +93,16 @@ const GridRow = memo(function GridRow({ r, i, nfPesos }) {
       <div className="gridtable-cell" role="cell" data-label="Apellido y Nombre">
         {r._nombreCompleto}
       </div>
-      <div className="gridtable-cell" role="cell" data-label="Categoría (Monto)">
+      <div className="gridtable-cell centers" role="cell" data-label="Categoría (Monto)">
         {(r._categoriaTxt || "-") + " (" + montoFmt + ")"}
       </div>
-      <div className="gridtable-cell" role="cell" data-label="Cobrador">
+      <div className="gridtable-cell centers" role="cell" data-label="Cobrador">
         {r._cb || "-"}
       </div>
-      <div className="gridtable-cell" role="cell" data-label="Fecha de Pago">
+      <div className="gridtable-cell centers" role="cell" data-label="Fecha de Pago">
         {r.fechaPago || "-"}
       </div>
-      <div className="gridtable-cell" role="cell" data-label="Periodo pago">
+      <div className="gridtable-cell centers" role="cell" data-label="Periodo pago">
         {r.Mes_Pagado || "-"}
       </div>
     </div>
@@ -797,10 +797,10 @@ export default function DashboardContable() {
             {/* Encabezado fijo (fuera del área que scrollea) */}
             <div className="gridtable-header" role="row" style={{ position: "relative", zIndex: 3 }}>
               <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
-              <div className="gridtable-cell" role="columnheader">Categoría</div>
-              <div className="gridtable-cell" role="columnheader">Cobrador</div>
-              <div className="gridtable-cell" role="columnheader">Fecha de Pago</div>
-              <div className="gridtable-cell" role="columnheader">Periodo pago</div>
+              <div className="gridtable-cell centers" role="columnheader">Categoría</div>
+              <div className="gridtable-cell centers" role="columnheader">Cobrador</div>
+              <div className="gridtable-cell centers" role="columnheader">Fecha de Pago</div>
+              <div className="gridtable-cell centers" role="columnheader">Periodo pago</div>
             </div>
 
             {/* Solo el cuerpo scrollea */}
