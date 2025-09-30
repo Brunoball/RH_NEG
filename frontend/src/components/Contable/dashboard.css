@@ -382,6 +382,8 @@ html, body {
   font-weight:800;
   letter-spacing:.2px;
   flex: 0 0 auto;
+  overflow: auto;
+  scrollbar-gutter: stable;
   display:grid;
   grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
 }
