@@ -1,11 +1,10 @@
 /* ================================
-   Dashboard Contable · Estilo Registro (Opción B)
-   Header fijo y SOLO el body scrollea
-   ================================ */
+   Dashboard Contable · CSS SÓLIDO (Win7-safe)
+   Header fijo + SOLO el body scrollea
+   ================================= */
 
-/* ---- Tokens base: tomamos los del Registro y damos alias locales ---- */
+/* ---- Tokens base ---- */
 :root{
-  /* Paleta del Registro (ya existente en tu app) */
   --princ-primary: #2563EB;
   --princ-primary-light: #3B82F6;
   --princ-primary-dark: #1D4ED8;
@@ -36,10 +35,10 @@
   --princ-shadow-xl: 0 20px 40px rgba(0,0,0,.12);
 
   --princ-glass: rgba(255,255,255,0.95);
-  --princ-glass-border: 1px solid rgba(255,255,255,0.35);
+  --princ-glass-border-real: 1px solid rgba(255,255,255,0.35);
   --princ-text-gradient: linear-gradient(135deg, var(--princ-primary) 0%, var(--princ-secondary) 100%);
 
-  /* Aliases locales para compatibilidad con las clases existentes */
+  /* Aliases locales usados en clases existentes */
   --soc-primary: var(--princ-primary);
   --soc-dark: var(--princ-dark);
   --soc-gray-50: var(--princ-light);
@@ -63,7 +62,7 @@
 }
 
 /* =======================
-   Viewport y fondo global
+   Base / Viewport
    ======================= */
 
 html, body {
@@ -71,20 +70,26 @@ html, body {
   padding: 0;
   height: 100%;
   width: 100%;
-  -webkit-overflow-scrolling: touch;
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  background-attachment: fixed;
+  /* En motores viejos, fixed puede “blanquear” — evita problemas */
+  background: #e0e7ff;
+  background-image: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  background-attachment: scroll;
 }
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
 .contable-viewport{
   min-height:100vh;
   display:flex;
   flex-direction:column;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 /* =======================
-   TOPBAR estilo registro
+   TOPBAR
    ======================= */
 
 .contable-topbar{
@@ -92,13 +97,12 @@ html, body {
   display:flex; align-items:center; justify-content:space-between;
   padding:16px 22px;
   color:#0b1220;
-  background: var(--princ-glass);
-  backdrop-filter: blur(12px) saturate(180%);
-  border-bottom: var(--princ-glass-border);
+  background: #ffffff; /* Fallback sólido */
+  border-bottom: 1px solid rgba(0,0,0,.06);
   box-shadow: var(--princ-shadow-md);
 }
 
-/* Barra superior animada (desktop) */
+/* Gradiente animado opcional (no crítico para Win7) */
 @media (min-width: 768px) {
   .contable-topbar::before{
     content:'';
@@ -115,18 +119,23 @@ html, body {
   100% { background-position: 0% 50% }
 }
 
+/* Título con fallback seguro */
 .contable-topbar-title{
   margin:0; font-size:1.45rem; display:flex; gap:10px; align-items:center;
   font-weight: 800;
-  background: var(--princ-text-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  letter-spacing: -0.2px;
+  color: #0f172a; /* Fallback visible */
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .contable-topbar-title{
+    background: var(--princ-text-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
 
 .contable-back-button{
-  background: var(--princ-text-gradient);
+  background: var(--princ-primary);
   color: #fff;
   padding:10px 16px;
   border-radius: 999px;
@@ -140,7 +149,7 @@ html, body {
 .contable-back-button:active{ transform: translateY(0); }
 
 /* =======================
-   GRID LAYOUT
+   GRID LAYOUT (padres con min-height:0)
    ======================= */
 
 .contable-grid{
@@ -150,25 +159,26 @@ html, body {
   padding:18px 2rem 24px 12px;
   box-sizing: border-box;
   height: 90vh;
+  min-height: 0; /* CLAVE para que el scroller hijo no colapse */
 }
 
 /* =======================
-   SIDEBAR estilo “card glass”
+   SIDEBAR
    ======================= */
 
 .contable-sidebar{
-  background: var(--princ-glass);
+  background: #ffffff; /* fallback sólido */
   border-radius: var(--princ-border-radius-xl);
   box-shadow: var(--princ-shadow-xl),
               inset 0 1px 0 rgba(255,255,255,0.6),
               0 0 0 1px rgba(255,255,255,0.2);
-  border: var(--princ-glass-border);
-  backdrop-filter: blur(12px) saturate(180%);
+  border: var(--princ-glass-border-real);
   padding:18px;
   display:flex;
   flex-direction:column;
   height:100%;
-  overflow:auto;
+  min-height: 0;       /* CLAVE */
+  overflow:auto;       /* Sidebar puede scrollear si hace falta */
   scrollbar-gutter: stable both-edges;
 }
 
@@ -213,7 +223,7 @@ html, body {
 }
 
 /* Bloques y títulos */
-.side-views{ display:flex; flex-direction:column; gap:14px; }
+.side-views{ display:flex; flex-direction:column; gap:14px; min-height:0; }
 .side-block{ display:flex; flex-direction:column; gap:14px; }
 .side-block-title{
   margin:0;
@@ -222,14 +232,14 @@ html, body {
   font-weight: 700;
 }
 
-/* ===== Campos (selects) estilo registro ===== */
+/* Campos */
 .side-field{ display:flex; flex-direction:column; gap:6px; }
 .side-field span{ font-size:.85rem; color:var(--princ-gray-600); font-weight: 600; }
 .side-field select{
   width: 100%;
   padding: 12px 44px 12px 14px;
   font-size: .95rem;
-  background: var(--princ-glass);
+  background: #ffffff;
   border: 2px solid var(--princ-gray-200);
   border-radius: var(--princ-border-radius);
   box-shadow: var(--princ-shadow-sm);
@@ -255,7 +265,7 @@ html, body {
   display:flex; align-items:center; justify-content:center; gap:8px;
   padding:12px 14px; border:none; cursor:pointer;
   border-radius: 999px;
-  background: var(--princ-text-gradient);
+  background: var(--princ-primary);
   color:#fff; font-weight:800;
   box-shadow: var(--princ-shadow-md);
   transition: var(--princ-transition);
@@ -263,9 +273,8 @@ html, body {
 .btn-dark:hover{ transform: translateY(-3px); box-shadow: var(--princ-shadow-lg); }
 .btn-dark:active{ transform: translateY(-1px); }
 .btn-dark.excel{ background: linear-gradient(135deg, var(--princ-success), #22c55e); }
-.btn-dark.grafics{ background: var(--princ-text-gradient); }
 
-/* KPIs con acento de marca */
+/* KPIs */
 .side-kpis{ display:flex; flex-direction:column; gap:12px; }
 .kpi{
   position:relative;
@@ -293,48 +302,43 @@ html, body {
 .kpi small{ color:var(--princ-gray-500); }
 
 /* =======================
-   MAIN (card glass)
+   MAIN (padres con min-height:0)
    ======================= */
 
 .contable-main{
-  background: var(--princ-glass);
+  background: #ffffff; /* fallback */
   border-radius: var(--princ-border-radius-xl);
   box-shadow: var(--princ-shadow-xl),
               inset 0 1px 0 rgba(255,255,255,0.6),
               0 0 0 1px rgba(255,255,255,0.2);
-  border: var(--princ-glass-border);
-  backdrop-filter: blur(12px) saturate(180%);
+  border: var(--princ-glass-border-real);
   padding:0; display:flex; flex-direction:column;
   height:100%;
-  overflow:hidden; /* OK con Opción B, el header ya no depende de sticky */
+  min-height: 0; /* CLAVE */
+  overflow:hidden; /* ok: el scroller está adentro */
 }
 
-/* Toolbar superior dentro del main */
+/* Toolbar superior */
 .table-toolbar{
   position: sticky; top: 0; z-index: 2;
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:14px 16px;
   background: rgba(255,255,255,0.96);
   border-bottom:1px solid var(--princ-gray-200);
-  backdrop-filter: blur(8px);
 }
 .toolbar-left{ display:flex; gap:10px; align-items:center; }
 .toolbar-left h2{
   margin:0; font-size:1.1rem; display:flex; gap:8px; align-items:center; color:var(--princ-dark);
   font-weight: 800;
-  background: var(--princ-text-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 .toolbar-sub{ display:block; font-size:.85rem; color:var(--princ-gray-600); margin-top:2px; }
 
-/* Buscador estilo registro */
+/* Buscador */
 .searchbox{
   display:flex; align-items:center; gap:8px; padding:10px 12px;
   border: 2px solid var(--princ-gray-200);
   border-radius: var(--princ-border-radius);
-  background: var(--princ-glass);
+  background: #ffffff;
   min-width:320px;
   box-shadow: var(--princ-shadow-sm);
   transition: var(--princ-transition);
@@ -355,26 +359,18 @@ html, body {
 /* El wrapper NO scrollea; lo hace el body interno */
 .contable-tablewrap{
   position:relative;
-  flex:1;
-  overflow: hidden;            /* clave en Opción B */
+  flex:1 1 auto;
+  min-height: 0;    /* CLAVE */
+  overflow: hidden; /* sólo body scrollea */
   border-radius:0 0 var(--princ-border-radius-xl) var(--princ-border-radius-xl);
   display:flex;
   flex-direction: column;
   background: transparent;
 }
 
-/* Estructura flex vertical para header + body */
-.gridtable{
-  display:flex;
-  flex-direction:column;
-  width:100%;
-  min-height:100%;
-  background: transparent;
-}
-
-/* Encabezado fijo arriba del body scrolleable */
+/* Encabezado fijo (no sticky) */
 .gridtable-header{
-  position: relative;          /* NO sticky */
+  position: relative;
   z-index: 3;
   background: var(--princ-gray-100);
   color: var(--princ-gray-700);
@@ -382,29 +378,28 @@ html, body {
   font-weight:800;
   letter-spacing:.2px;
   flex: 0 0 auto;
-  overflow: auto;
-  scrollbar-gutter: stable;
   display:grid;
   grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
 }
 .gridtable-header .gridtable-cell{ padding:12px 14px; }
 
-/* Cuerpo que scrollea */
+/* Cuerpo que scrollea (ÚNICO overflow) */
 .gridtable-body{
   flex: 1 1 auto;
-  overflow: auto;              /* clave: sólo el body scrollea */
+  min-height: 0;   /* CLAVE */
+  overflow: auto;  /* Único scroller */
   display: flex;
   flex-direction: column;
 }
 
-/* Filas reales (mismo grid que header) */
+/* Filas (mismo grid que header) */
 .gridtable-body .gridtable-row{
   display:grid;
   grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
   border-bottom:1px solid var(--princ-gray-100);
   transition: background .15s ease, transform .15s ease, box-shadow .15s ease, opacity .2s ease;
   flex: 0 0 auto;
-  background: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.95);
 }
 .gridtable-body .gridtable-row:hover{ background:#fff; transform: translateY(-1px); box-shadow: var(--princ-shadow-sm); }
 
@@ -413,42 +408,23 @@ html, body {
   color:var(--princ-dark);
   min-width:0;
   overflow-wrap:anywhere;
-
 }
-.centers{
-  text-align: center;
-}
+.centers{ text-align: center; }
 
-/* ====== LEGACY FALLBACK: navegadores sin CSS Grid ====== */
+/* ====== Fallback navegadores sin CSS Grid ====== */
 @supports not (display: grid) {
-  .gridtable { display: table; width: 100%; border-collapse: collapse; }
-  .gridtable-header { display: table-header-group; background: #f1f5f9; color: #334155; font-weight: 800; }
-  .gridtable-body { display: table-row-group; }
-  .gridtable-body .gridtable-row { display: table-row; background: rgba(255,255,255,0.95); }
-  .gridtable-cell {
-    display: table-cell;
-    padding: 12px 14px;
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
-    color: #0f172a;
-  }
-  .gridtable-header .gridtable-cell { border-bottom: 1px solid #cbd5e1; }
-  .gridtable-empty{ display: block; text-align: center; padding: 20px; }
-  .gridtable-empty-inner{
-    display: inline-block;
-    padding:22px 14px;
-    color:#475569;
-    background: rgba(255,255,255,0.85);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  }
+  .gridtable-header { display: table; width: 100%; table-layout: fixed; }
+  .gridtable-header .gridtable-cell { display: table-cell; padding:12px 14px; }
+  .gridtable-body { display: block; overflow: auto; }
+  .gridtable-body .gridtable-row{ display: table; width: 100%; table-layout: fixed; background: #fff; }
+  .gridtable-body .gridtable-cell{ display: table-cell; padding:12px 14px; border-bottom:1px solid #f1f5f9; }
 }
 
 /* ===== Skeleton loading ===== */
 .skeleton-row{
   position: relative;
   overflow: hidden;
-  background: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.9);
 }
 .skeleton-bar{
   display:block;
@@ -469,7 +445,7 @@ html, body {
   100%{ background-position: 0 0; }
 }
 
-/* Efecto en cascada al aparecer las filas reales */
+/* Aparición suave de filas */
 .row-appear{
   opacity: 0;
   transform: translateY(4px);
@@ -479,7 +455,7 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ===== Estados vacíos centrados ===== */
+/* ===== Estados vacíos ===== */
 .gridtable-empty{
   flex: 1 1 auto;
   display: grid;
@@ -492,7 +468,7 @@ html, body {
   color:var(--princ-gray-600);
   font-style:italic;
   max-width: 640px;
-  background: rgba(255,255,255,0.65);
+  background: rgba(255,255,255,0.9);
   border-radius: var(--princ-border-radius);
   box-shadow: var(--princ-shadow-sm);
 }
@@ -501,20 +477,15 @@ html, body {
   font-size: 40px;
   line-height: 1;
   opacity: .95;
-  filter: drop-shadow(0 2px 6px rgba(37,99,235,.18));
   margin-bottom: 8px;
 }
 
-/* ===== Loading overlay (suave) ===== */
-.contable-tablewrap.is-loading .gridtable{ 
-  opacity:.92; transition: opacity .12s ease;
-}
+/* ===== Loading overlay suave ===== */
+.contable-tablewrap.is-loading .gridtable-body{ opacity:.92; transition: opacity .12s ease; }
 
-/* ===== Scrollbars (webkit) ===== */
+/* ===== Scrollbars (webkit) — no afectan Win7/IE, son ignoradas ===== */
 .contable-sidebar::-webkit-scrollbar,
-.gridtable-body::-webkit-scrollbar{
-  width:10px; height:10px;
-}
+.gridtable-body::-webkit-scrollbar{ width:10px; height:10px; }
 .contable-sidebar::-webkit-scrollbar-thumb,
 .gridtable-body::-webkit-scrollbar-thumb{
   background: rgba(0,0,0,.18);
@@ -539,6 +510,7 @@ html, body {
     height: 80vh;
     gap: 14px;
     padding:14px;
+    min-height: 0;
   }
   .contable-sidebar{
     height: 100%;
@@ -549,10 +521,7 @@ html, body {
   .table-toolbar{ position: sticky; top: 0; }
   .searchbox{ min-width:0; width:100%; }
 
-  /* Gridtable -> cards (se mantiene HEADER visible) */
-  .gridtable-header{
-    display: none; /* En mobile usamos cards con labels */
-  }
+  .gridtable-header{ display: none; } /* móvil usa cards */
   .gridtable-body .gridtable-row,
   .skeleton-row{
     grid-template-columns: 1fr;
@@ -560,7 +529,7 @@ html, body {
     border-radius: var(--princ-border-radius);
     margin:10px 4px;
     overflow:hidden;
-    background: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.95);
   }
   .gridtable-cell{
     display:grid;
@@ -575,7 +544,6 @@ html, body {
     font-weight:700;
     color: var(--princ-gray-700);
   }
-  /* Skeleton en cards */
   .skeleton-row .gridtable-cell{ grid-template-columns: 1fr; }
 }
 
@@ -586,12 +554,8 @@ html, body {
   .toolbar-left h2{ font-size:1rem; }
 }
 
-/* =========================
-   MOBILE ONLY (<= 480px)
-   ========================= */
 @supports (selector(:has(*))) {
   @media (max-width: 480px){
-    /* Agrupar filtros en 2 columnas si hay soporte */
     .contable-sidebar .side-views .side-block:has(> label.side-field){
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -621,46 +585,24 @@ html, body {
     padding: 0;
     gap: 0;
     height: 90vh;
+    min-height: 0;
   }
 
   .contable-topbar{
     padding: 12px 14px;
     border-radius: 0;
   }
-  .contable-topbar-title{
-    font-size: 1.05rem;
-    gap: 8px;
-  }
-  .contable-back-button{
-    padding: 6px 10px;
-    border-radius: 999px;
-  }
+  .contable-topbar-title{ font-size: 1.05rem; gap: 8px; }
+  .contable-back-button{ padding: 6px 10px; border-radius: 999px; }
 
-  .contable-sidebar{
-    padding: 12px;
-    border-radius: 0;
-  }
-  .contable-main{ border-radius: 0; height: fit-content; }
+  .contable-sidebar{ padding: 12px; border-radius: 0; }
+  .contable-main{ border-radius: 0; height: auto; }
 
-  .side-switch .segmented{
-    padding: .6rem;
-    font-size: .9rem;
-  }
-  .side-block-title{
-    font-size: .95rem;
-  }
-  .side-field span{
-    font-size: .8rem;
-  }
-  .side-field select{
-    padding: 10px 40px 10px 12px;
-    font-size: .9rem;
-  }
-  .btn-dark{
-    padding: 10px;
-    font-size: .9rem;
-    border-radius: 999px;
-  }
+  .side-switch .segmented{ padding: .6rem; font-size: .9rem; }
+  .side-block-title{ font-size: .95rem; }
+  .side-field span{ font-size: .8rem; }
+  .side-field select{ padding: 10px 40px 10px 12px; font-size: .9rem; }
+  .btn-dark{ padding: 10px; font-size: .9rem; border-radius: 999px; }
 
   .table-toolbar{
     padding: 10px 12px;
@@ -668,15 +610,9 @@ html, body {
     flex-direction: column;
     align-items: stretch;
   }
-  .toolbar-left{
-    gap: 6px;
-  }
-  .toolbar-left h2{
-    font-size: 1rem;
-  }
-  .toolbar-sub{
-    font-size: .8rem;
-  }
+  .toolbar-left{ gap: 6px; }
+  .toolbar-left h2{ font-size: 1rem; }
+  .toolbar-sub{ font-size: .8rem; }
 
   .searchbox{
     min-width: 0;
@@ -684,33 +620,22 @@ html, body {
     padding: 8px 10px;
     border-radius: var(--princ-border-radius);
   }
-  .searchbox input{
-    font-size: .9rem;
-  }
+  .searchbox input{ font-size: .9rem; }
 
-  /* Tabla tipo cards más compacta */
   .gridtable-body .gridtable-row{
     margin: 8px 8px;
     border-radius: var(--princ-border-radius);
-    border: 2px solid var(--princ-gray-700);
+    border: 2px solid var(--princ-gray-300);
   }
   .gridtable-cell{
     grid-template-columns: 120px 1fr;
     padding: 6px 10px;
   }
 
-  .gridtable-empty-inner{
-    padding: 18px 12px;
-    font-size: .95rem;
-  }
-  .empty-icon{
-    font-size: 34px;
-    margin-bottom: 6px;
-  }
+  .gridtable-empty-inner{ padding: 18px 12px; font-size: .95rem; }
+  .empty-icon{ font-size: 34px; margin-bottom: 6px; }
 
-  .contable-tablewrap{
-    border-radius: 10px;
-  }
+  .contable-tablewrap{ border-radius: 10px; }
 
   .kpi{ padding: 10px; }
   .kpi strong{ font-size: 1.1rem; }
@@ -718,10 +643,106 @@ html, body {
 }
 
 /* =======================
-   Accesibilidad / Motion
+   Motion reduce
    ======================= */
 @media (prefers-reduced-motion: reduce) {
   .contable-topbar::before { animation: none; }
   .skeleton-bar { animation: none; }
   .row-appear { animation: none; }
+}
+
+/* =======================
+   Fallbacks visuales si NO hay filtros
+   (Evita pantalla “vacía” por layout)
+   ======================= */
+.contable-tablewrap:empty::after{
+  content: '';
+  display: block;
+  height: 1px;
+}
+
+/* =======================
+   FIN CSS
+   ======================= */
+
+   /* ===== IE11 (Windows 7) HARD-FALLBACK =====
+   Aplica SOLO en IE/Edge legacy gracias a la media query de alto contraste.
+   Fuerza layout tipo "table" y desactiva sticky para evitar pantallas en blanco.
+*/
+@media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+  /* Quita cualquier transparencia/confusión visual */
+  .contable-topbar,
+  .contable-sidebar,
+  .contable-main,
+  .contable-tablewrap,
+  .gridtable-body .gridtable-row {
+    background: #ffffff !important;
+  }
+
+  /* Desactiva sticky (no soportado en IE) */
+  .table-toolbar {
+    position: static !important;
+  }
+
+  /* Fuerza el layout de tabla clásico (sin CSS Grid) */
+  .gridtable-header { 
+    display: table !important; 
+    width: 100% !important; 
+    table-layout: fixed !important; 
+  }
+  .gridtable-header .gridtable-cell { 
+    display: table-cell !important; 
+    padding: 12px 14px !important; 
+    border-bottom: 1px solid #cbd5e1 !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+  }
+
+  .gridtable-body { 
+    display: block !important; 
+    overflow: auto !important; 
+    max-height: 100% !important; 
+  }
+
+  .gridtable-body .gridtable-row{ 
+    display: table !important; 
+    width: 100% !important; 
+    table-layout: fixed !important; 
+    background: #ffffff !important; 
+    border-bottom: 1px solid #f1f5f9 !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .gridtable-body .gridtable-cell{ 
+    display: table-cell !important; 
+    padding: 12px 14px !important; 
+    color: #0f172a !important; 
+    vertical-align: middle !important; 
+    text-align: left !important;
+  }
+
+  /* Evita “invisibilidad” por animaciones o transparencias */
+  .row-appear { 
+    opacity: 1 !important; 
+    transform: none !important; 
+    animation: none !important; 
+  }
+  .skeleton-bar { animation: none !important; }
+
+  /* Desactiva cards móviles en IE (puede romper por grid interno) */
+  @media (max-width: 920px){
+    .gridtable-header{ display: table !important; }
+    .gridtable-body .gridtable-row,
+    .skeleton-row{
+      display: table !important;
+      border: none !important;
+      margin: 0 !important;
+    }
+    .gridtable-cell{
+      display: table-cell !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      padding: 10px 12px !important;
+    }
+  }
 }
