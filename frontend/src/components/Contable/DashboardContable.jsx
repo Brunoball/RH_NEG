@@ -327,7 +327,7 @@ export default function DashboardContable() {
         setAniosDisponibles(years);
         setTotalSocios(totalSoc);
 
-        // Dejo preseleccionado el último año, pero NO traigo pagos aún.
+        // Dejo preseleccionado el último año
         const lastYear = years.length ? Math.max(...years) : "";
         setAnioSeleccionado(lastYear || "");
 
@@ -374,15 +374,13 @@ export default function DashboardContable() {
     return () => ctrl.abort();
   }, [fetchJSON]);
 
-  // ========= Cargar pagos del AÑO (lazy) cuando el usuario selecciona Período o Mes =========
+  // ========= Cargar pagos del AÑO SIEMPRE que haya año seleccionado =========
   const needsYearData = useMemo(() => {
-    const monthChosen = mesSeleccionado !== "Todos los meses";
-    const periodChosen = periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo";
-    return Boolean(anioSeleccionado && (monthChosen || periodChosen));
-  }, [anioSeleccionado, periodoSeleccionado, mesSeleccionado]);
+    return Boolean(anioSeleccionado);
+  }, [anioSeleccionado]);
 
   useEffect(() => {
-    if (!needsYearData) return; // no cargar pagos hasta que el usuario elija periodo o mes
+    if (!needsYearData) return; // no cargar pagos hasta que haya año
     const ctrl = new AbortController();
 
     (async () => {
@@ -399,7 +397,7 @@ export default function DashboardContable() {
           curPagosByMonthRef.current = built.pagosByMonth;
           curPeriodMergedMapRef.current = built.periodMergedMap;
 
-          // 🔧 FIX: recalcular inmediatamente en la PRIMERA veZ
+          // Recalcular inmediatamente
           setIsLoadingTable(true);
           const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
           setDerived(d);
@@ -426,7 +424,7 @@ export default function DashboardContable() {
         curPagosByMonthRef.current = built.pagosByMonth;
         curPeriodMergedMapRef.current = built.periodMergedMap;
 
-        // 🔧 FIX: recalcular al finalizar el fetch inicial
+        // Recalcular al finalizar el fetch
         const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
         setDerived(d);
 
@@ -450,7 +448,6 @@ export default function DashboardContable() {
     fetchJSON,
     periodosOpts,
     cobradores,
-    // 🔧 Importante: dependencias de los filtros para que el primer cálculo use los actuales
     periodoSeleccionado,
     mesSeleccionado,
     cobradorSeleccionado,
@@ -514,7 +511,7 @@ export default function DashboardContable() {
   const handleCobradorChange = useCallback((e) => setCobradorSeleccionado(e.target.value), []);
   const handleYearChange     = useCallback((e) => {
     setAnioSeleccionado(e.target.value);
-    // al cambiar de año, reseteo filtros y NO cargo pagos hasta que elija periodo/mes
+    // al cambiar de año, reseteo filtros
     setPeriodoSeleccionado("Selecciona un periodo");
     setMesSeleccionado("Todos los meses");
     setCobradorSeleccionado("todos");
@@ -820,7 +817,7 @@ export default function DashboardContable() {
                         <div className="empty-icon"><FontAwesomeIcon icon={faFilter} /></div>
                         {!anioSeleccionado
                           ? "Seleccione un año para ver los pagos"
-                          : "Seleccione un período o un mes para cargar y ver los registros"}
+                          : "Cargando registros…"}
                       </div>
                     </div>
                   ) : registrosFiltradosPorBusqueda.length === 0 ? (
