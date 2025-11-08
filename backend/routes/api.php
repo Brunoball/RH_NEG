@@ -190,6 +190,15 @@ try {
             require_once __DIR__ . '/../modules/contable/contable_socios.php';
             exit;
 
+        case 'obtener_monto_objetivo':
+            require_once __DIR__ . '/../modules/contable/obtener_monto_objetivo.php';
+            exit;
+
+        case 'contar_socios_por_cat_estado':
+            require_once __DIR__ . '/../modules/contable/contar_socios_por_cat_estado.php';
+            exit;
+
+
         /* =========================
                DEFAULT / 404
         ========================= */

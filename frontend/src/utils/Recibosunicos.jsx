@@ -106,7 +106,13 @@ export const imprimirRecibosUnicos = async (
       const id = getIdSocio(s) ?? '';
       const nombre = (s.apellido ? `${String(s.apellido).toUpperCase()} ` : '') + (s.nombre ? String(s.nombre).toUpperCase() : '');
       const domicilio = [s.domicilio, s.numero].filter(Boolean).join(' ').trim() || '';
-      const tel = typeof s.telefono === 'string' ? s.telefono.trim() : (s.telefono || '');
+      
+      // ✅ CORRECCIÓN: Usar teléfonos que vienen de cuotas.php
+      const telefono_movil = s.telefono_movil || '';
+      const telefono_fijo = s.telefono_fijo || '';
+      // Prioridad: móvil > fijo
+      const tel = telefono_movil.trim() || telefono_fijo.trim() || '';
+      
       const cobro = typeof s.domicilio_cobro === 'string' ? s.domicilio_cobro.trim() : (s.domicilio_cobro || '');
 
       // CORRECCIÓN: Mostrar la categoría correcta del socio

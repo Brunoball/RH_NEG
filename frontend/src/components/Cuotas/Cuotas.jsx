@@ -41,6 +41,9 @@ import axios from 'axios';
 import ModalMesCuotas from './modales/ModalMesCuotas';
 import * as XLSX from 'xlsx';
 
+// ⬇️ NUEVO: modal de exportación Galicia
+import GaliciaExport from './modales/GaliciaExport';
+
 /* =========================
  * API con interceptor
  * ========================= */
@@ -278,6 +281,9 @@ const Cuotas = () => {
   const [periodosAImprimir, setPeriodosAImprimir] = useState([]); // array de IDs
   const [imprimirContable, setImprimirContable] = useState(false);
   const [cuotaParaImprimir, setCuotaParaImprimir] = useState(null); // si es null => imprimir todos
+
+  // ⬇️ NUEVO: exportación Galicia modal
+  const [mostrarExportGalicia, setMostrarExportGalicia] = useState(false);
 
   // ===== Caché (memoria) + TTL =====
   const cacheRef = useRef({
@@ -1017,6 +1023,18 @@ const Cuotas = () => {
     XLSX.writeFile(wb, fileName);
   };
 
+  // ======= Helpers para exportación Galicia =======
+  const sociosPagadosTarjetaPeriodo = useMemo(() => {
+    if (!periodoSeleccionado) return [];
+    // Tomamos SIEMPRE la lista cacheada de "pagado" del período (no depende de la pestaña visible)
+    const listaPagados = getCachedListFor('pagado');
+    return listaPagados
+      .filter((c) => String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null)
+      .filter((c) => String(c.medio_pago || '').toLowerCase().includes('cobrador'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodoSeleccionado, cacheVersion, medioPagoSeleccionado, estadoSocioSeleccionado, q]);
+
+
   // ======= estado derivado para habilitar "Imprimir todos" =======
   const imprimirTodosDeshabilitado = useMemo(
     () => loadingPrint || loading || cuotasFiltradas.length === 0,
@@ -1327,6 +1345,32 @@ const Cuotas = () => {
               >
                 <FaFileExcel /> Exportar Excel
               </button>
+
+                {/* ⬇️ NUEVO: botón Exportar Pago Directo Galicia - COMENTADO TEMPORALMENTE */}
+                {/*
+                <button
+                  className="cuo_boton cuo_boton-dark"
+                  onClick={() => {
+                    if (!periodoSeleccionado) {
+                      setToastTipo('error');
+                      setToastMensaje('Seleccioná un período antes de exportar.');
+                      setToastVisible(true);
+                      return;
+                    }
+                    if (sociosPagadosTarjetaPeriodo.length === 0) {
+                      setToastTipo('error');
+                      setToastMensaje('No hay pagos con tarjeta en el período seleccionado.');
+                      setToastVisible(true);
+                      return;
+                    }
+                    setMostrarExportGalicia(true);
+                  }}
+                  disabled={loading || !periodoSeleccionado}
+                  title="Exportar archivo de órdenes de débito (Pago Directo Galicia)"
+                >
+                  Exportar Pago Directo Galicia
+                </button>
+                */}
             </div>
           </div>
         </div>
@@ -1526,6 +1570,18 @@ const Cuotas = () => {
               : undefined
           }
           condonar={false}
+        />
+      )}
+
+      {/* ⬇️ NUEVO: Modal Exportación Galicia */}
+      {mostrarExportGalicia && (
+        <GaliciaExport
+          open={mostrarExportGalicia}
+          onClose={() => setMostrarExportGalicia(false)}
+          anio={Number(anioSeleccionado) || currentYear}
+          periodoId={periodoSeleccionado}
+          periodoNombre={getNombrePeriodo(periodoSeleccionado)}
+          socios={sociosPagadosTarjetaPeriodo}
         />
       )}
 

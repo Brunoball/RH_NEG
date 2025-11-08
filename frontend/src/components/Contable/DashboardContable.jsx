@@ -1,48 +1,49 @@
 // src/components/Contable/DashboardContable.jsx
 import React, {
-  useState, useEffect, useMemo, useRef, useTransition, useCallback, useDeferredValue, memo
+  useState, useEffect, useMemo, useRef, useTransition,
+  useCallback, useDeferredValue
 } from "react";
 import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import BASE_URL from "../../config/config";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faDollarSign,
-  faCalendarAlt,
-  faExclamationTriangle,
-  faTimes,
-  faListAlt,
-  faTable,
-  faChartPie,
-  faFileExcel,
-  faSearch,
-  faMagnifyingGlass,
-  faFilter,
-  faArrowLeft,
-  faSpinner,
+  faDollarSign, faCalendarAlt, faExclamationTriangle, faTimes,
+  faTable, faChartPie, faFileExcel, faSearch,
+  faFilter, faArrowLeft, faSpinner,
+  faLayerGroup, faUsers, faFilePdf
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
-import ContableChartsModal from "./modalcontable/ContableChartsModal";
-import Toast from "../Global/Toast"; // (tipo, mensaje, duracion, onClose)
 
-/* ===== Constantes ===== */
+// PDFs externalizados
+import { exportDetSocPDF } from "./pdf/ExportDetSocPDF";
+import { exportCobranzaPDF } from "./pdf/ExportCobranzaPDF";
+
+import ContableChartsModal from "./modalcontable/ContableChartsModal";
+import Toast from "../Global/Toast";
+
+/* Tablas */
+import DetalleTable from "./tables/DetalleTable";
+import CobMesTable from "./tables/CobMesTable";
+import DetSocTable from "./tables/DetSocTable";
+
+/* ===== Constantes / helpers ===== */
 const MESES_NOMBRES = Object.freeze([
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
   "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
 ]);
 const mesUC = (mNum) => MESES_NOMBRES[mNum - 1].toUpperCase();
-const labelMes = (m) => m && m !== "Todos los meses" ? ` · ${mesUC(parseInt(m, 10))}` : "";
+const labelMes = (m) =>
+  m && m !== "Todos los meses" ? ` · ${mesUC(parseInt(m, 10))}` : "";
 const SKELETON_ROWS = 8;
-
 const getTxt = (o, k) => (typeof o?.[k] === "string" ? o[k].trim() : "");
 
-// Nombre socio
+/* nombres / campos normalizados */
 const getNombreSocio = (p) => {
   const combinado =
     getTxt(p, "Socio") || getTxt(p, "socio") ||
     getTxt(p, "Nombre_Completo") || getTxt(p, "nombre_completo");
   if (combinado) return combinado;
-
   const ape =
     getTxt(p, "Apellido") || getTxt(p, "apellido") ||
     getTxt(p, "Apellidos") || getTxt(p, "apellidos") ||
@@ -54,62 +55,32 @@ const getNombreSocio = (p) => {
   if (ape && nom) return `${ape} ${nom}`.replace(/\s+/g, " ").trim();
   return ape || nom || "";
 };
-
-// Cobrador
 const getNombreCobrador = (p) =>
   p?.Cobrador || p?.Nombre_Cobrador || p?.nombre_cobrador || p?.cobrador || p?.Cobrador_Nombre || "";
-
-// Categoría
 const getCategoriaTxt = (p) =>
-  getTxt(p, "Nombre_Categoria") ||
-  getTxt(p, "nombre_categoria") ||
-  getTxt(p, "Categoria") ||
-  getTxt(p, "categoria") ||
-  "";
-
-// Fecha → mes num
-const getMonthFromDate = (yyyy_mm_dd) => {
-  if (!yyyy_mm_dd || typeof yyyy_mm_dd !== "string" || yyyy_mm_dd.length < 7) return null;
-  const mm = parseInt(yyyy_mm_dd.substring(5, 7), 10);
+  getTxt(p, "Nombre_Categoria") || getTxt(p, "nombre_categoria") ||
+  getTxt(p, "Categoria") || getTxt(p, "categoria") || "";
+const getMedioPago = (p) =>
+  p?.Medio_Pago || p?.medio_pago || p?.Medio || p?.medio || p?.MedioPago || "";
+const getMonthFromDate = (d) => {
+  if (!d || typeof d !== "string" || d.length < 7) return null;
+  const mm = parseInt(d.substring(5, 7), 10);
   return Number.isNaN(mm) ? null : mm;
 };
-
 const isAnualLabel = (s) => String(s || "").toUpperCase().includes("ANUAL");
 const extractMonthsFromPeriodLabel = (label) => {
   if (!label) return [];
   const nums = String(label).match(/\d{1,2}/g) || [];
-  const months = nums.map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n) && n >= 1 && n <= 12);
+  const months = nums
+    .map((n) => parseInt(n, 10))
+    .filter((n) => !Number.isNaN(n) && n >= 1 && n <= 12);
   return Array.from(new Set(months));
 };
+const ok = (obj) => obj && (obj.success === true || obj.exito === true);
+const arr = (obj) =>
+  Array.isArray(obj?.data) ? obj.data : (Array.isArray(obj?.datos) ? obj.datos : []);
 
-const ok  = (obj) => obj && (obj.success === true || obj.exito === true);
-const arr = (obj) => Array.isArray(obj?.data) ? obj.data : (Array.isArray(obj?.datos) ? obj.datos : []);
-
-/* ====== Fila memoizada ====== */
-const GridRow = memo(function GridRow({ r, i, nfPesos }) {
-  const montoFmt = Number.isFinite(r._precioNum) ? nfPesos.format(r._precioNum) : "0";
-  return (
-    <div className="gridtable-row row-appear" role="row" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}>
-      <div className="gridtable-cell" role="cell" data-label="Apellido y Nombre">
-        {r._nombreCompleto}
-      </div>
-      <div className="gridtable-cell centers" role="cell" data-label="Categoría (Monto)">
-        {(r._categoriaTxt || "-") + " (" + montoFmt + ")"}
-      </div>
-      <div className="gridtable-cell centers" role="cell" data-label="Cobrador">
-        {r._cb || "-"}
-      </div>
-      <div className="gridtable-cell centers" role="cell" data-label="Fecha de Pago">
-        {r.fechaPago || "-"}
-      </div>
-      <div className="gridtable-cell centers" role="cell" data-label="Periodo pago">
-        {r.Mes_Pagado || "-"}
-      </div>
-    </div>
-  );
-});
-
-/* ====== Normalizador por AÑO (para cuando traemos pagos del año) ====== */
+/* ====== Normalizador por año ====== */
 function buildYearIndexes(rawContable, rawListas) {
   let periodosSrv = [];
   let cobradoresSrv = [];
@@ -138,7 +109,10 @@ function buildYearIndexes(rawContable, rawListas) {
   if (periodosSrv.length === 0) {
     periodosSrv = Array.from({ length: 12 }, (_, i) => `PERÍODO ${i + 1}`);
   }
-  const periodosOpts = periodosSrv.map((label) => ({ value: label, months: extractMonthsFromPeriodLabel(label) }));
+  const periodosOpts = periodosSrv.map((label) => ({
+    value: label,
+    months: extractMonthsFromPeriodLabel(label),
+  }));
 
   const datosMeses = arr(rawContable);
   const pagosAll = [];
@@ -147,19 +121,28 @@ function buildYearIndexes(rawContable, rawListas) {
     if (Array.isArray(b?.pagos) && b.pagos.length) {
       for (let j = 0; j < b.pagos.length; j++) {
         const p = b.pagos[j];
-        const _cb         = String(getNombreCobrador(p)).trim();
-        const _month      = getMonthFromDate(p?.fechaPago);
-        const _precioNum  = parseFloat(p?.Precio) || 0;
-        const _nombre     = getNombreSocio(p);
-        const _categoria  = getCategoriaTxt(p);
-        const _ts         = p?.fechaPago ? (new Date(p.fechaPago).getTime() || 0) : 0;
-        pagosAll.push({ ...p, _cb, _month, _precioNum, _nombreCompleto: _nombre, _categoriaTxt: _categoria, _ts });
+        const _cb = String(getNombreCobrador(p)).trim();
+        const _month = getMonthFromDate(p?.fechaPago);
+        const _precioNum = parseFloat(p?.Precio) || 0;
+        const _nombre = getNombreSocio(p);
+        const _categoria = getCategoriaTxt(p);
+        const _medio = String(getMedioPago(p) || "").trim() || "(Sin medio)";
+        const _ts = p?.fechaPago ? (new Date(p.fechaPago).getTime() || 0) : 0;
+        pagosAll.push({
+          ...p,
+          _cb,
+          _month,
+          _precioNum,
+          _nombreCompleto: _nombre,
+          _categoriaTxt: _categoria,
+          _medioPago: _medio,
+          _ts,
+        });
       }
     }
   }
 
-  const byTsDesc = (a, b) => b._ts - a._ts;
-  const pagosAllSorted = pagosAll.sort(byTsDesc);
+  const pagosAllSorted = pagosAll.sort((a, b) => b._ts - a._ts);
 
   const pagosByMonth = Array.from({ length: 13 }, () => []);
   for (let k = 0; k < pagosAllSorted.length; k++) {
@@ -169,7 +152,10 @@ function buildYearIndexes(rawContable, rawListas) {
 
   const periodMergedMap = new Map();
   for (const opt of periodosOpts) {
-    const months = (opt?.months && opt.months.length) ? opt.months : extractMonthsFromPeriodLabel(opt?.value);
+    const months =
+      (opt?.months && opt.months.length)
+        ? opt.months
+        : extractMonthsFromPeriodLabel(opt?.value);
     if (!months || !months.length) continue;
     if (months.length === 1) {
       periodMergedMap.set(opt.value, pagosByMonth[months[0]] || []);
@@ -177,18 +163,28 @@ function buildYearIndexes(rawContable, rawListas) {
       const arrays = months
         .filter((m) => m >= 1 && m <= 12 && pagosByMonth[m]?.length)
         .map((m) => pagosByMonth[m]);
-      if (!arrays.length) { periodMergedMap.set(opt.value, []); continue; }
-      if (arrays.length === 1) { periodMergedMap.set(opt.value, arrays[0]); continue; }
+      if (!arrays.length) {
+        periodMergedMap.set(opt.value, []);
+        continue;
+      }
+      if (arrays.length === 1) {
+        periodMergedMap.set(opt.value, arrays[0]);
+        continue;
+      }
 
       const idxs = arrays.map(() => 0);
       const merged = [];
       while (true) {
         let pick = -1, bestTs = -1;
         for (let i = 0; i < arrays.length; i++) {
-          const arrI = arrays[i]; const pos = idxs[i];
+          const arrI = arrays[i];
+          const pos = idxs[i];
           if (pos < arrI.length) {
             const ts = arrI[pos]._ts;
-            if (ts > bestTs) { bestTs = ts; pick = i; }
+            if (ts > bestTs) {
+              bestTs = ts;
+              pick = i;
+            }
           }
         }
         if (pick === -1) break;
@@ -198,14 +194,21 @@ function buildYearIndexes(rawContable, rawListas) {
     }
   }
 
-  let totalSocios = Number(rawContable?.total_socios ?? 0) || 0;
-  const condonados = Array.isArray(rawContable?.condonados) ? rawContable.condonados : [];
+  const totalSocios = Number(rawContable?.total_socios ?? 0) || 0;
+  const condonados = Array.isArray(rawContable?.condonados)
+    ? rawContable.condonados
+    : [];
 
   const aniosDisponibles = Array.isArray(rawContable.anios)
     ? rawContable.anios.map((n) => parseInt(n, 10)).filter(Boolean)
     : [];
   const anioSrv = parseInt(rawContable.anio_aplicado ?? 0, 10);
-  const anioInicial = anioSrv > 0 ? anioSrv : (aniosDisponibles.length ? Math.max(...aniosDisponibles) : "");
+  const anioInicial =
+    anioSrv > 0
+      ? anioSrv
+      : aniosDisponibles.length
+      ? Math.max(...aniosDisponibles)
+      : "";
 
   return {
     periodosOpts,
@@ -216,7 +219,7 @@ function buildYearIndexes(rawContable, rawListas) {
     totalSocios,
     condonados,
     aniosDisponibles,
-    anioInicial
+    anioInicial,
   };
 }
 
@@ -224,7 +227,7 @@ function buildYearIndexes(rawContable, rawListas) {
 export default function DashboardContable() {
   const navigate = useNavigate();
 
-  // ===== Filtros =====
+  // filtros
   const [anioSeleccionado, setAnioSeleccionado] = useState("");
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("Selecciona un periodo");
   const [mesSeleccionado, setMesSeleccionado] = useState("Todos los meses");
@@ -232,36 +235,45 @@ export default function DashboardContable() {
   const [searchText, setSearchText] = useState("");
   const searchDeferred = useDeferredValue(searchText);
 
-  // ===== Toasts =====
+  // vistas (detalle | cobranza | detsoc)
+  const [mainView, setMainView] = useState("detalle");
+
+  // toasts
   const [showNoDataToast, setShowNoDataToast] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // ===== Datos base =====
+  // datos base
   const [aniosDisponibles, setAniosDisponibles] = useState([]);
   const [periodosOpts, setPeriodosOpts] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [totalSocios, setTotalSocios] = useState(0);
   const [condonados, setCondonados] = useState([]);
-  const [datosMeses, setDatosMeses] = useState([]);     // para modal
-  const [datosEmpresas, setDatosEmpresas] = useState([]); // reservado
+  const [datosMeses, setDatosMeses] = useState([]);
+  const [datosEmpresas, setDatosEmpresas] = useState([]);
 
   const [error, setError] = useState(null);
   const [mostrarModalGraficos, setMostrarModalGraficos] = useState(false);
-  const [sidebarView, setSidebarView] = useState("filtros");
   const [isPending, startTransition] = useTransition();
 
-  // ===== Cargas / estados de spinner =====
+  // cargas / estados
   const [loadingYears, setLoadingYears] = useState(true);
   const [loadingPagos, setLoadingPagos] = useState(false);
-
-  // ===== Tabla =====
+  const [loadingEsperado, setLoadingEsperado] = useState(false);
   const [isLoadingTable, setIsLoadingTable] = useState(false);
 
-  // RAFs
+  // Detalle de Cobranza
+  const [esperadosPorMes, setEsperadosPorMes] = useState({});
+  const [loadingResumen, setLoadingResumen] = useState(false);
+
+  // Detalle de Socios
+  const [loadingDetSoc, setLoadingDetSoc] = useState(false);
+  const [detSocRows, setDetSocRows] = useState([]);
+  const [detSocTotales, setDetSocTotales] = useState({ ACTIVO: 0, PASIVO: 0 });
+
+  // RAF & cache
   const computeRAF1 = useRef(0);
   const computeRAF2 = useRef(0);
 
-  // Cache por año (pagos procesados)
   const yearCacheRef = useRef(Object.create(null));
   const curPagosAllSortedRef = useRef([]);
   const curPagosByMonthRef = useRef([]);
@@ -275,38 +287,11 @@ export default function DashboardContable() {
     return res.json();
   }, []);
 
-  /* ======= Derivados rápidos ======= */
-  const [derived, setDerived] = useState({ registros: [], total: 0, cobradoresUnicos: 0 });
+  const [derived, setDerived] = useState({
+    registros: [], total: 0, cobradoresUnicos: 0, esperado: 0, diferencia: 0
+  });
 
-  const recomputeFast = useCallback((periodLabel, monthSel, cobrador) => {
-    const all = curPagosAllSortedRef.current || [];
-    const byMonth = curPagosByMonthRef.current || [];
-    const byPeriod = curPeriodMergedMapRef.current || new Map();
-
-    const monthNum = monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
-    let base;
-
-    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
-      base = all;
-    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
-      base = byMonth[monthNum] || [];
-    } else {
-      base = byPeriod.get(periodLabel) || [];
-      if (monthNum) base = base.filter((p) => p._month === monthNum);
-    }
-
-    if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
-
-    let total = 0;
-    const setCb = new Set();
-    for (let i = 0; i < base.length; i++) {
-      total += base[i]._precioNum;
-      if (base[i]._cb) setCb.add(base[i]._cb);
-    }
-    return { registros: base, total, cobradoresUnicos: setCb.size };
-  }, []);
-
-  // ========= Carga INICIAL — SOLO años + listas (liviano) =========
+  // carga inicial años + listas
   useEffect(() => {
     const ctrl = new AbortController();
     (async () => {
@@ -314,10 +299,7 @@ export default function DashboardContable() {
         setError(null);
         setLoadingYears(true);
 
-        // 1) Listas (períodos/cobradores) — liviano
         const rawListas = await fetchJSON(`${BASE_URL}/api.php?action=listas`, ctrl.signal).catch(() => null);
-
-        // 2) Años disponibles — SUPER liviano (meta=years)
         const meta = await fetchJSON(`${BASE_URL}/api.php?action=contable&meta=years`, ctrl.signal);
 
         if (!ok(meta)) throw new Error("Respuesta inválida (years)");
@@ -327,11 +309,9 @@ export default function DashboardContable() {
         setAniosDisponibles(years);
         setTotalSocios(totalSoc);
 
-        // Dejo preseleccionado el último año
         const lastYear = years.length ? Math.max(...years) : "";
         setAnioSeleccionado(lastYear || "");
 
-        // Extraigo periodos/cobradores desde listas (si hay) para poder armar combos ya
         let periodosSrv = [];
         let cobradoresSrv = [];
         if (rawListas && rawListas?.listas) {
@@ -374,19 +354,17 @@ export default function DashboardContable() {
     return () => ctrl.abort();
   }, [fetchJSON]);
 
-  // ========= Cargar pagos del AÑO SIEMPRE que haya año seleccionado =========
-  const needsYearData = useMemo(() => {
-    return Boolean(anioSeleccionado);
-  }, [anioSeleccionado]);
+  // cargar pagos del año
+  const needsYearData = useMemo(() => Boolean(anioSeleccionado), [anioSeleccionado]);
 
   useEffect(() => {
-    if (!needsYearData) return; // no cargar pagos hasta que haya año
+    if (!needsYearData) return;
     const ctrl = new AbortController();
 
     (async () => {
       try {
         const key = String(anioSeleccionado);
-        // Si ya tenemos cache del año, usarlo
+
         if (yearCacheRef.current[key]) {
           const { built, datosMeses } = yearCacheRef.current[key];
           setTotalSocios(built.totalSocios);
@@ -397,22 +375,30 @@ export default function DashboardContable() {
           curPagosByMonthRef.current = built.pagosByMonth;
           curPeriodMergedMapRef.current = built.periodMergedMap;
 
-          // Recalcular inmediatamente
-          setIsLoadingTable(true);
-          const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
-          setDerived(d);
-          requestAnimationFrame(() => setIsLoadingTable(false));
+          const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+          setDerived((prev) => ({ ...prev, ...d }));
+          setIsLoadingTable(false);
+
+          await recomputeResumen();
+          await fetchDetSoc();
           return;
         }
 
-        // Caso contrario, traer pagos del año seleccionado
         setLoadingPagos(true);
         setIsLoadingTable(true);
-        const raw = await fetchJSON(`${BASE_URL}/api.php?action=contable&anio=${encodeURIComponent(anioSeleccionado)}`, ctrl.signal);
+        const raw = await fetchJSON(
+          `${BASE_URL}/api.php?action=contable&anio=${encodeURIComponent(anioSeleccionado)}`,
+          ctrl.signal
+        );
         if (!ok(raw)) throw new Error("Formato inválido en datos contables del año");
 
-        // No hace falta volver a pedir listas; ya las tenemos para combos.
-        const built = buildYearIndexes(raw, { exito:true, listas:{ periodos: periodosOpts.map(o=>o.value), cobradores: cobradores.map(n=>({nombre:n})) } });
+        const built = buildYearIndexes(raw, {
+          exito: true,
+          listas: {
+            periodos: periodosOpts.map((o) => o.value),
+            cobradores: cobradores.map((n) => ({ nombre: n })),
+          },
+        });
 
         yearCacheRef.current[key] = { built, datosMeses: arr(raw) };
 
@@ -424,20 +410,20 @@ export default function DashboardContable() {
         curPagosByMonthRef.current = built.pagosByMonth;
         curPeriodMergedMapRef.current = built.periodMergedMap;
 
-        // Recalcular al finalizar el fetch
-        const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
-        setDerived(d);
+        const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+        setDerived((prev) => ({ ...prev, ...d }));
 
+        await recomputeResumen();
+        await fetchDetSoc();
       } catch (err) {
         if (err.name !== "AbortError") {
           console.error("Error al cargar pagos del año:", err);
           setError("No se pudieron obtener los pagos del año seleccionado.");
-          // ante error, limpiar visibles
-          setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
+          setDerived({ registros: [], total: 0, cobradoresUnicos: 0, esperado: 0, diferencia: 0 });
         }
       } finally {
         setLoadingPagos(false);
-        setTimeout(() => setIsLoadingTable(false), 100);
+        setIsLoadingTable(false);
       }
     })();
 
@@ -451,18 +437,49 @@ export default function DashboardContable() {
     periodoSeleccionado,
     mesSeleccionado,
     cobradorSeleccionado,
-    recomputeFast
   ]);
 
-  /* ===== Meses disponibles por período ===== */
+  // recompute síncrono detalle
+  const recomputeSync = useCallback((periodLabel, monthSel, cobrador) => {
+    const all = curPagosAllSortedRef.current || [];
+    const byMonth = curPagosByMonthRef.current || [];
+    const byPeriod = curPeriodMergedMapRef.current || new Map();
+
+    const monthNum = monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
+    let base;
+
+    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
+      base = all;
+    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
+      base = byMonth[monthNum] || [];
+    } else {
+      base = byPeriod.get(periodLabel) || [];
+      if (monthNum) base = base.filter((p) => p._month === monthNum);
+    }
+
+    if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
+
+    let total = 0;
+    const setCb = new Set();
+    for (let i = 0; i < base.length; i++) {
+      total += base[i]._precioNum;
+      if (base[i]._cb) setCb.add(base[i]._cb);
+    }
+
+    return { registros: base, total, cobradoresUnicos: setCb.size };
+  }, []);
+
+  /* meses disponibles por período */
   const mesesDisponibles = useMemo(() => {
     if (!anioSeleccionado) return [];
     if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo") {
       return Array.from({ length: 12 }, (_, i) => i + 1);
     }
-    const opt = periodosOpts.find(o => o.value === periodoSeleccionado);
-    const ms  = opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
-    return (ms && ms.length) ? ms : [];
+    const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
+    const ms = opt?.months?.length
+      ? opt.months
+      : extractMonthsFromPeriodLabel(periodoSeleccionado);
+    return ms && ms.length ? ms : [];
   }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
 
   useEffect(() => {
@@ -472,59 +489,239 @@ export default function DashboardContable() {
     }
   }, [mesesDisponibles, mesSeleccionado]);
 
-  // Vuelve a calcular cuando cambian filtros (y ya hay datos)
+  // recompute + cobranza + det/soc
   useEffect(() => {
-    if (!curPagosAllSortedRef.current || curPagosAllSortedRef.current.length === 0) {
-      setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
-      setIsLoadingTable(false);
-      return;
-    }
-    setIsLoadingTable(true);
+    const haveData = (curPagosAllSortedRef.current?.length || 0) > 0;
+    setIsLoadingTable(!haveData);
+
     cancelAnimationFrame(computeRAF1.current);
     cancelAnimationFrame(computeRAF2.current);
+
     computeRAF1.current = requestAnimationFrame(() => {
       startTransition(() => {
-        const d = recomputeFast(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+        const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
         computeRAF2.current = requestAnimationFrame(() => {
-          setDerived(d);
-          setTimeout(() => setIsLoadingTable(false), 45);
+          setDerived((prev) => {
+            const diff = prev.esperado - d.total;
+            return { ...prev, ...d, diferencia: diff };
+          });
+          if (haveData) setIsLoadingTable(false);
         });
       });
     });
+
+    recomputeResumen();
+    fetchDetSoc();
+
     return () => {
       cancelAnimationFrame(computeRAF1.current);
       cancelAnimationFrame(computeRAF2.current);
     };
-  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, recomputeFast, startTransition]);
+  }, [
+    periodoSeleccionado,
+    mesSeleccionado,
+    cobradorSeleccionado,
+    recomputeSync,
+    startTransition,
+  ]);
 
-  // ===== Handlers =====
+  // obtener "total esperado"
+  const buildEsperadoURL = useCallback(() => {
+    if (!anioSeleccionado) return null;
+    const u = new URL(`${BASE_URL}/api.php`);
+    u.searchParams.set("action", "obtener_monto_objetivo");
+    u.searchParams.set("anio", String(anioSeleccionado));
+
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const n = parseInt(mesSeleccionado, 10);
+      if (Number.isFinite(n)) u.searchParams.set("mes", String(n));
+    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      u.searchParams.set("periodo", periodoSeleccionado);
+    }
+    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+      u.searchParams.set("cobrador", cobradorSeleccionado);
+    }
+    return u.toString();
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
+
+  useEffect(() => {
+    const url = buildEsperadoURL();
+    if (!url) return;
+    const ctrl = new AbortController();
+
+    (async () => {
+      try {
+        setLoadingEsperado(true);
+        const res = await fetch(url + `&ts=${Date.now()}`, { signal: ctrl.signal });
+        const data = await res.json().catch(() => ({}));
+        if (data && (data.exito === true || data.success === true)) {
+          const esperado = Number(data.total_esperado || 0);
+          setDerived((prev) => ({
+            ...prev,
+            esperado,
+            diferencia: esperado - (prev.total || 0),
+          }));
+        } else {
+          setDerived((prev) => ({ ...prev, esperado: 0, diferencia: 0 }));
+        }
+      } catch (e) {
+        if (e.name !== "AbortError") {
+          console.error("Error obtener_monto_objetivo:", e);
+          setDerived((prev) => ({ ...prev, esperado: 0, diferencia: 0 }));
+        }
+      } finally {
+        setLoadingEsperado(false);
+      }
+    })();
+
+    return () => ctrl.abort();
+  }, [buildEsperadoURL]);
+
+  // Detalle de Cobranza – esperados por mes
+  const mesesParaResumen = useMemo(() => {
+    if (!anioSeleccionado) return [];
+    if (mesSeleccionado !== "Todos los meses") return [parseInt(mesSeleccionado, 10)];
+    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
+      const ms = opt?.months?.length
+        ? opt.months
+        : extractMonthsFromPeriodLabel(periodoSeleccionado);
+      return ms && ms.length ? ms.slice().sort((a, b) => a - b) : [];
+    }
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, periodosOpts]);
+
+  const fetchEsperadoMes = useCallback(
+    async (mes) => {
+      const u = new URL(`${BASE_URL}/api.php`);
+      u.searchParams.set("action", "obtener_monto_objetivo");
+      u.searchParams.set("anio", String(anioSeleccionado));
+      u.searchParams.set("mes", String(mes));
+      if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+        u.searchParams.set("cobrador", cobradorSeleccionado);
+      }
+      const res = await fetch(u.toString() + `&ts=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+      if (data && (data.exito === true || data.success === true)) {
+        return Number(data.total_esperado || 0);
+      }
+      return 0;
+    },
+    [anioSeleccionado, cobradorSeleccionado]
+  );
+
+  const recomputeResumen = useCallback(async () => {
+    if (!anioSeleccionado || mesesParaResumen.length === 0) {
+      setEsperadosPorMes({});
+      return;
+    }
+    try {
+      setLoadingResumen(true);
+      const pairs = await Promise.all(
+        mesesParaResumen.map((m) => fetchEsperadoMes(m).then((val) => [m, val]))
+      );
+      const obj = {};
+      for (const [m, val] of pairs) obj[m] = val;
+      setEsperadosPorMes(obj);
+    } catch (e) {
+      console.error("Detalle de Cobranza: error obteniendo esperados por mes", e);
+      setEsperadosPorMes({});
+    } finally {
+      setLoadingResumen(false);
+    }
+  }, [anioSeleccionado, mesesParaResumen, fetchEsperadoMes]);
+
+  // Detalle de Socios
+  const buildDetSocURL = useCallback(() => {
+    if (!anioSeleccionado) return null;
+    const u = new URL(`${BASE_URL}/api.php`);
+    u.searchParams.set("action", "contar_socios_por_cat_estado");
+    u.searchParams.set("anio", String(anioSeleccionado));
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const n = parseInt(mesSeleccionado, 10);
+      if (Number.isFinite(n)) u.searchParams.set("mes", String(n));
+    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      u.searchParams.set("periodo", periodoSeleccionado);
+    }
+    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+      u.searchParams.set("cobrador", cobradorSeleccionado);
+    }
+    return u.toString();
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
+
+  const fetchDetSoc = useCallback(async () => {
+    const url = buildDetSocURL();
+    if (!url) {
+      setDetSocRows([]);
+      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+      return;
+    }
+    try {
+      setLoadingDetSoc(true);
+      const res = await fetch(url + `&ts=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+      if (data && (data.exito === true || data.success === true)) {
+        const filas = Array.isArray(data.filas) ? data.filas : [];
+        const tot = { ACTIVO: 0, PASIVO: 0 };
+        for (const f of filas) {
+          if (f.servicio === "ACTIVO") tot.ACTIVO += Number(f.cantidad || 0);
+          if (f.servicio === "PASIVO") tot.PASIVO += Number(f.cantidad || 0);
+        }
+        setDetSocRows(filas);
+        setDetSocTotales(tot);
+      } else {
+        setDetSocRows([]);
+        setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+      }
+    } catch (e) {
+      console.error("contar_socios_por_cat_estado error:", e);
+      setDetSocRows([]);
+      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+    } finally {
+      setLoadingDetSoc(false);
+    }
+  }, [buildDetSocURL]);
+
+  // periodos visibles
+  const periodosVisibles = useMemo(() => {
+    if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo") return periodosOpts;
+    return periodosOpts.filter((p) => p.value === periodoSeleccionado);
+  }, [periodosOpts, periodoSeleccionado]);
+
+  // handlers UI
   const volver = useCallback(() => navigate(-1), [navigate]);
-
-  const handlePeriodoChange  = useCallback((e) => {
+  const handlePeriodoChange = useCallback((e) => {
     setPeriodoSeleccionado(e.target.value);
   }, []);
-
-  const handleMesChange      = useCallback((e) => {
+  const handleMesChange = useCallback((e) => {
     setMesSeleccionado(e.target.value);
   }, []);
-
-  const handleCobradorChange = useCallback((e) => setCobradorSeleccionado(e.target.value), []);
-  const handleYearChange     = useCallback((e) => {
+  const handleCobradorChange = useCallback(
+    (e) => setCobradorSeleccionado(e.target.value),
+    []
+  );
+  const handleYearChange = useCallback((e) => {
     setAnioSeleccionado(e.target.value);
-    // al cambiar de año, reseteo filtros
     setPeriodoSeleccionado("Selecciona un periodo");
     setMesSeleccionado("Todos los meses");
     setCobradorSeleccionado("todos");
-    // limpio tabla visible
     curPagosAllSortedRef.current = [];
     curPagosByMonthRef.current = [];
     curPeriodMergedMapRef.current = new Map();
-    setDerived({ registros: [], total: 0, cobradoresUnicos: 0 });
+    setDerived({
+      registros: [],
+      total: 0,
+      cobradoresUnicos: 0,
+      esperado: 0,
+      diferencia: 0,
+    });
+    setEsperadosPorMes({});
+    setDetSocRows([]);
+    setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
   }, []);
+  const handleSearch = useCallback((e) => setSearchText(e.target.value), []);
 
-  const handleSearch         = useCallback((e) => setSearchText(e.target.value), []);
-
-  // Buscador (sobre visibles)
+  /* ===== Buscador ===== */
   const registrosFiltradosPorBusqueda = useMemo(() => {
     const q = (searchDeferred || "").trim().toLowerCase();
     if (!q) return derived.registros;
@@ -538,77 +735,415 @@ export default function DashboardContable() {
         (r.Mes_Pagado || "").toLowerCase().includes(q) ||
         (r.fechaPago || "").toLowerCase().includes(q) ||
         String(r._precioNum || "").toLowerCase().includes(q) ||
-        (r._categoriaTxt || "").toLowerCase().includes(q)
-      ) out.push(r);
+        (r._categoriaTxt || "").toLowerCase().includes(q) ||
+        (r._medioPago || "").toLowerCase().includes(q)
+      )
+        out.push(r);
     }
     return out;
   }, [derived.registros, searchDeferred]);
 
-  // Exportar Excel
+  // util fecha
+  const hoyStr = () => {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = d.getFullYear();
+    return `${dd}/${mm}/${yy}`;
+  };
+  const periodoLinea = () => {
+    if (mesSeleccionado !== "Todos los meses") {
+      return `Periodo ${parseInt(mesSeleccionado, 10)}  ${anioSeleccionado || ""}`;
+    }
+    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      return `${periodoSeleccionado}  ${anioSeleccionado || ""}`;
+    }
+    return `Año ${anioSeleccionado || ""}`;
+  };
+
+  /* ===== EXPORTAR EXCEL ===== */
   const exportarExcel = useCallback(() => {
-    const rows = registrosFiltradosPorBusqueda || [];
-    if (!rows.length) {
+    if (mainView === "detalle") {
+      const rows = registrosFiltradosPorBusqueda || [];
+      if (!rows.length) {
+        setShowNoDataToast(true);
+        return;
+      }
+      const data = rows.map((r) => ({
+        SOCIO: r._nombreCompleto,
+        CATEGORÍA: r._categoriaTxt || "",
+        MONTO: Number(r._precioNum || 0),
+        COBRADOR: r._cb || "",
+        "MEDIO PAGO": r._medioPago || "",
+        "FECHA DE PAGO": r.fechaPago || "",
+        "PERÍODO PAGO": r.Mes_Pagado || "",
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data, {
+        header: [
+          "SOCIO",
+          "CATEGORÍA",
+          "MONTO",
+          "COBRADOR",
+          "MEDIO PAGO",
+          "FECHA DE PAGO",
+          "PERÍODO PAGO",
+        ],
+      });
+      ws["!cols"] = [
+        { wch: 32 },
+        { wch: 14 },
+        { wch: 10 },
+        { wch: 20 },
+        { wch: 16 },
+        { wch: 14 },
+        { wch: 18 },
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, "Detalle");
+
+      const parts = ["detalle"];
+      if (anioSeleccionado) parts.push(anioSeleccionado);
+      if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo")
+        parts.push(periodoSeleccionado.replace(/\s+/g, "_"));
+      if (mesSeleccionado && mesSeleccionado !== "Todos los meses")
+        parts.push(mesUC(parseInt(mesSeleccionado, 10)));
+      XLSX.writeFile(wb, `resumen_pagos_${parts.join("_")}.xlsx`);
+      setShowSuccessToast(true);
+      return;
+    }
+
+    if (mainView === "detsoc") {
+      if (!detSocRows.length) {
+        setShowNoDataToast(true);
+        return;
+      }
+
+      const baseRows = detSocRows.map((r) => ({
+        SERVICIO: r.servicio,
+        CATEGORÍA: r.categoria,
+        CANTIDAD: r.cantidad,
+      }));
+
+      const rowsConTotales = [
+        ...baseRows,
+        { SERVICIO: "TOTAL ACTIVO", CATEGORÍA: "—", CANTIDAD: detSocTotales.ACTIVO },
+        { SERVICIO: "TOTAL PASIVO", CATEGORÍA: "—", CANTIDAD: detSocTotales.PASIVO },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rowsConTotales, {
+        header: ["SERVICIO", "CATEGORÍA", "CANTIDAD"],
+      });
+      ws["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(wb, ws, "Detalle_Socios");
+
+      const parts = ["det_soc"];
+      if (anioSeleccionado) parts.push(anioSeleccionado);
+      if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo")
+        parts.push(periodoSeleccionado.replace(/\s+/g, "_"));
+      if (mesSeleccionado && mesSeleccionado !== "Todos los meses")
+        parts.push(mesUC(parseInt(mesSeleccionado, 10)));
+      if (cobradorSeleccionado && cobradorSeleccionado !== "todos")
+        parts.push(cobradorSeleccionado.replace(/\s+/g, "_"));
+      XLSX.writeFile(wb, `det_soc_${parts.join("_")}.xlsx`);
+      setShowSuccessToast(true);
+      return;
+    }
+
+    // Detalle de Cobranza (antes Cob/Mes)
+    if (periodosVisibles.length === 0) {
       setShowNoDataToast(true);
       return;
     }
 
-    const data = rows.map((r) => ({
-      "SOCIO": r._nombreCompleto,
-      "CATEGORIA": r._categoriaTxt || "",
-      "MONTO": Number(r._precioNum || 0),
-      "COBRADOR": r._cb || "",
-      "FECHA DE PAGO": r.fechaPago || "",
-      "PERIODO PAGO": r.Mes_Pagado || "",
-    }));
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data, {
-      header: ["SOCIO","CATEGORIA","MONTO","COBRADOR","FECHA DE PAGO","PERIODO PAGO"],
+    const rows = [];
+    let totalEsperadoAnual = 0;
+    let totalRecaudadoAnual = 0;
+
+    for (const p of periodosVisibles) {
+      const label = p.value;
+      const months = p.months || extractMonthsFromPeriodLabel(label);
+
+      let recaudado = 0;
+      for (const m of months) {
+        let pagosMes = curPagosByMonthRef.current[m] || [];
+        if (cobradorSeleccionado !== "todos") {
+          pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+        }
+        recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+      }
+
+      let esperado = 0;
+      for (const m of months) {
+        esperado += Number(esperadosPorMes[m] || 0);
+      }
+
+      const diferencia = esperado - recaudado;
+      totalEsperadoAnual += esperado;
+      totalRecaudadoAnual += recaudado;
+
+      rows.push({
+        PERÍODO: label,
+        ESPERADO: esperado,
+        RECAUDADO: recaudado,
+        "DIFERENCIA (ESP-REC)": diferencia,
+      });
+    }
+
+    rows.push({
+      PERÍODO: "TOTAL AÑO",
+      ESPERADO: totalEsperadoAnual,
+      RECAUDADO: totalRecaudadoAnual,
+      "DIFERENCIA (ESP-REC)": totalEsperadoAnual - totalRecaudadoAnual,
     });
-    ws["!cols"] = [{ wch: 32 }, { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 18 }];
-    XLSX.utils.book_append_sheet(wb, ws, "Pagos");
 
-    const parts = [];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows, {
+      header: ["PERÍODO", "ESPERADO", "RECAUDADO", "DIFERENCIA (ESP-REC)"],
+    });
+    ws["!cols"] = [{ wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Detalle_Cobranza");
+
+    const parts = ["cobranza"];
     if (anioSeleccionado) parts.push(anioSeleccionado);
-    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") parts.push(periodoSeleccionado.replace(/\s+/g, "_"));
-    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") parts.push(mesUC(parseInt(mesSeleccionado, 10)));
-    const fname = `resumen_pagos_${parts.join("_") || "filtros"}.xlsx`;
-    XLSX.writeFile(wb, fname);
-
+    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo")
+      parts.push(periodoSeleccionado.replace(/\s+/g, "_"));
+    if (cobradorSeleccionado && cobradorSeleccionado !== "todos")
+      parts.push(cobradorSeleccionado.replace(/\s+/g, "_"));
+    XLSX.writeFile(wb, `resumen_pagos_${parts.join("_")}.xlsx`);
     setShowSuccessToast(true);
-  }, [registrosFiltradosPorBusqueda, anioSeleccionado, periodoSeleccionado, mesSeleccionado]);
+  }, [
+    mainView,
+    registrosFiltradosPorBusqueda,
+    periodosVisibles,
+    esperadosPorMes,
+    cobradorSeleccionado,
+    anioSeleccionado,
+    periodoSeleccionado,
+    mesSeleccionado,
+    detSocRows,
+    detSocTotales,
+  ]);
 
-  const calcularTotalRegistros = useCallback(
-    () => registrosFiltradosPorBusqueda.length,
-    [registrosFiltradosPorBusqueda.length]
+  /* ===== EXPORTAR PDF (usa archivos externos) ===== */
+  const exportarPDF = useCallback(() => {
+    if (mainView === "detalle") {
+      // Bloqueado en pestaña Detalle
+      setShowNoDataToast(true);
+      return;
+    }
+
+    if (mainView === "detsoc") {
+      if (!detSocRows.length) {
+        setShowNoDataToast(true);
+        return;
+      }
+      exportDetSocPDF({
+        rows: detSocRows,
+        totales: detSocTotales,
+        fecha: hoyStr(),
+        lineaPeriodo: periodoLinea(),
+        anio: anioSeleccionado,
+        periodo: periodoSeleccionado,
+        mes: mesSeleccionado,
+        cobrador: cobradorSeleccionado,
+      });
+      setShowSuccessToast(true);
+      return;
+    }
+
+    // Detalle de Cobranza
+    if (periodosVisibles.length === 0) {
+      setShowNoDataToast(true);
+      return;
+    }
+
+    // Armamos filas para el PDF de cobranza
+    const rows = [];
+    let totalEsperadoAnual = 0;
+    let totalRecaudadoAnual = 0;
+
+    for (const p of periodosVisibles) {
+      const label = p.value;
+      const months = p.months || extractMonthsFromPeriodLabel(label);
+
+      let recaudado = 0;
+      for (const m of months) {
+        let pagosMes = curPagosByMonthRef.current[m] || [];
+        if (cobradorSeleccionado !== "todos") {
+          pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+        }
+        recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+      }
+
+      let esperado = 0;
+      for (const m of months) {
+        esperado += Number(esperadosPorMes[m] || 0);
+      }
+
+      const diferencia = esperado - recaudado;
+      totalEsperadoAnual += esperado;
+      totalRecaudadoAnual += recaudado;
+
+      rows.push({
+        periodo: label,
+        esperado,
+        recaudado,
+        diferencia,
+      });
+    }
+
+    rows.push({
+      periodo: "TOTAL AÑO",
+      esperado: totalEsperadoAnual,
+      recaudado: totalRecaudadoAnual,
+      diferencia: totalEsperadoAnual - totalRecaudadoAnual,
+    });
+
+    exportCobranzaPDF({
+      rows,
+      fecha: hoyStr(),
+      lineaPeriodo: periodoLinea(),
+      anio: anioSeleccionado,
+      periodo: periodoSeleccionado,
+      mes: mesSeleccionado,
+      cobrador: cobradorSeleccionado,
+      nf: nfPesos,
+    });
+    setShowSuccessToast(true);
+  }, [
+    mainView,
+    detSocRows,
+    detSocTotales,
+    periodosVisibles,
+    esperadosPorMes,
+    anioSeleccionado,
+    periodoSeleccionado,
+    mesSeleccionado,
+    cobradorSeleccionado,
+    nfPesos,
+  ]);
+
+  const haveData = (curPagosAllSortedRef.current?.length || 0) > 0;
+  const showSkeleton = loadingPagos || (isLoadingTable && !haveData);
+
+  // títulos
+  const mainTitle = (
+    <>
+      {mainView === "detalle" && (<><FontAwesomeIcon icon={faTable} /> Detalle</>)}
+      {mainView === "cobmes" && (<><FontAwesomeIcon icon={faLayerGroup} /> Detalle de Cobranza</>)}
+      {mainView === "detsoc" && (<><FontAwesomeIcon icon={faUsers} /> Detalle de Socios</>)}
+    </>
   );
 
-  const renderSkeletonRows = () =>
-    Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
-      <div className="gridtable-row skeleton-row" role="row" key={`sk-${idx}`} aria-hidden="true">
-        <div className="gridtable-cell"><span className="skeleton-bar w-80" /></div>
-        <div className="gridtable-cell"><span className="skeleton-bar w-40" /></div>
-        <div className="gridtable-cell"><span className="skeleton-bar w-60" /></div>
-        <div className="gridtable-cell"><span className="skeleton-bar w-50" /></div>
-        <div className="gridtable-cell"><span className="skeleton-bar w-70" /></div>
+  const mainSubtitle = (
+    <>
+      {anioSeleccionado ? `Año ${anioSeleccionado}` : ""}
+      {mainView !== "detalle" && periodoSeleccionado !== "Selecciona un periodo" ? ` · ${periodoSeleccionado}` : ""}
+      {mainView !== "detalle" ? labelMes(mesSeleccionado) : ""}
+      {cobradorSeleccionado !== "todos" ? ` · ${cobradorSeleccionado}` : ""}
+    </>
+  );
+
+  /* ====== Tarjetas resumen ======
+     - En Detalle de Cobranza: montos (recaudado / esperado / diferencia)
+     - En Detalle de Socios: cantidades (ACTIVO / PASIVO / TOTAL)  */
+  const CardsResumen = () => {
+    const box = {
+      wrap: {
+        display: "grid",
+        gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+        gap: "12px",
+        margin: "12px 0 6px",
+      },
+      card: {
+        border: "1px dashed rgba(0,0,0,.12)",
+        borderRadius: "12px",
+        padding: "14px 16px",
+        background: "#fff",
+      },
+      title: { fontSize: 13, fontWeight: 600, color: "#334155" },
+      num: { fontSize: 22, fontWeight: 800, marginTop: 4 },
+      foot: { fontSize: 11, color: "#6b7280", marginTop: 2 },
+    };
+
+    if (mainView === "cobmes") {
+      const esperado = Number(derived.esperado || 0);
+      const recaudado = Number(derived.total || 0);
+      const diferencia = Number(derived.diferencia || 0);
+      const diffTxt = `${diferencia < 0 ? "-" : ""}$${nfPesos.format(Math.abs(diferencia))}`;
+
+      return (
+        <div style={box.wrap} aria-label="Resumen global (montos)">
+          <div style={box.card}>
+            <div style={box.title}>Total recaudado</div>
+            <div style={box.num}>${nfPesos.format(recaudado)}</div>
+            <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
+          </div>
+          <div style={box.card}>
+            <div style={box.title}>
+              Total esperado{" "}
+              {loadingEsperado && <FontAwesomeIcon icon={faSpinner} spin style={{ marginLeft: 6 }} />}
+            </div>
+            <div style={box.num}>${nfPesos.format(esperado)}</div>
+            <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
+          </div>
+          <div style={{ ...box.card, borderColor: "rgba(59,130,246,.35)" }}>
+            <div style={{ ...box.title, color: "#2563eb" }}>
+              Faltante / Superávit (esperado – recaudado)
+            </div>
+            <div style={{ ...box.num, color: diferencia < 0 ? "#dc2626" : "#16a34a" }}>
+              {diffTxt}
+            </div>
+            <div style={box.foot}>= Comparación con filtros aplicados</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Detalle de Socios → solo cantidades
+    const totalAct = Number(detSocTotales.ACTIVO || 0);
+    const totalPas = Number(detSocTotales.PASIVO || 0);
+    const totalGen = totalAct + totalPas;
+
+    return (
+      <div style={box.wrap} aria-label="Resumen de socios">
+        <div style={box.card}>
+          <div style={box.title}>Total ACTIVO</div>
+          <div style={box.num}>{totalAct}</div>
+          <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
+        </div>
+        <div style={box.card}>
+          <div style={box.title}>Total PASIVO</div>
+          <div style={box.num}>{totalPas}</div>
+          <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
+        </div>
+        <div style={{ ...box.card, borderColor: "rgba(59,130,246,.35)" }}>
+          <div style={{ ...box.title, color: "#2563eb" }}>TOTAL GENERAL</div>
+          <div style={box.num}>{totalGen}</div>
+          <div style={box.foot}>= Activo + Pasivo</div>
+        </div>
       </div>
-    ));
+    );
+  };
 
   return (
     <div className="contable-viewport">
-      {/* HEADER SUPERIOR */}
+      {/* HEADER */}
       <header className="contable-topbar">
         <h1 className="contable-topbar-title">
           <FontAwesomeIcon icon={faDollarSign} /> Resumen de pagos
         </h1>
 
         <button className="contable-back-button" onClick={volver} aria-label="Volver">
-          <FontAwesomeIcon icon={faArrowLeft} />&nbsp; Volver
+          <FontAwesomeIcon icon={faArrowLeft} />
+          &nbsp; Volver
         </button>
       </header>
 
-      {/* LAYOUT DOS COLUMNAS */}
+      {/* LAYOUT */}
       <div className="contable-grid">
-        {/* PANEL IZQUIERDO */}
+        {/* SIDEBAR */}
         <aside className="contable-sidebar">
           {error && (
             <div className="contable-warning">
@@ -620,222 +1155,232 @@ export default function DashboardContable() {
             </div>
           )}
 
-          {/* Conmutador Filtros/Resumen */}
-          <div className="side-switch" role="tablist" aria-label="Cambiar sección de la barra lateral">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={sidebarView === "filtros"}
-              className={`segmented ${sidebarView === "filtros" ? "is-active" : ""}`}
-              onClick={() => setSidebarView("filtros")}
-            >
-              <FontAwesomeIcon icon={faCalendarAlt} /> Filtros
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={sidebarView === "resumen"}
-              className={`segmented ${sidebarView === "resumen" ? "is-active" : ""}`}
-              onClick={() => setSidebarView("resumen")}
-            >
-              <FontAwesomeIcon icon={faListAlt} /> Resumen
-            </button>
-          </div>
+          <h3 className="side-block-title" style={{ marginTop: 0 }}>
+            <FontAwesomeIcon icon={faCalendarAlt} /> Filtros
+          </h3>
 
-          {/* Vistas exclusivas */}
-          <div className="side-views">
-            {/* ====== VISTA: FILTROS ====== */}
-            {sidebarView === "filtros" && (
-              <section className="side-block" aria-labelledby="titulo-filtros">
-                <h3 id="titulo-filtros" className="side-block-title"><FontAwesomeIcon icon={faCalendarAlt} /> Filtros</h3>
+          <section className="side-block" aria-labelledby="titulo-filtros">
+            {/* Año */}
+            <label className="side-field">
+              <span>
+                Año{" "}
+                {loadingYears && (
+                  <FontAwesomeIcon icon={faSpinner} spin title="Cargando..." style={{ marginLeft: 6 }} />
+                )}
+              </span>
+              <select
+                value={anioSeleccionado || ""}
+                onChange={handleYearChange}
+                disabled={loadingYears || aniosDisponibles.length === 0}
+              >
+                {loadingYears ? (
+                  <option>Cargando…</option>
+                ) : aniosDisponibles.length === 0 ? (
+                  <option value="">Sin pagos</option>
+                ) : (
+                  aniosDisponibles.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
 
-                {/* Año */}
-                <label className="side-field">
-                  <span>Año {loadingYears && <FontAwesomeIcon icon={faSpinner} spin title="Cargando..." style={{marginLeft:6}}/>}</span>
-                  <select value={anioSeleccionado || ""} onChange={handleYearChange} disabled={loadingYears || aniosDisponibles.length===0}>
-                    {loadingYears ? (
-                      <option>Cargando…</option>
-                    ) : aniosDisponibles.length === 0 ? (
-                      <option value="">Sin pagos</option>
-                    ) : (
-                      aniosDisponibles.map((y) => <option key={y} value={y}>{y}</option>)
-                    )}
-                  </select>
-                </label>
+            {/* Período */}
+            <label className="side-field">
+              <span>
+                Período{" "}
+                {loadingPagos && needsYearData && (
+                  <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{ marginLeft: 6 }} />
+                )}
+              </span>
+              <select
+                value={periodoSeleccionado}
+                onChange={handlePeriodoChange}
+                disabled={!anioSeleccionado || loadingYears}
+                title={!anioSeleccionado ? "Seleccione un año" : undefined}
+              >
+                <option value="Selecciona un periodo">Selecciona un periodo</option>
+                {periodosOpts.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.value}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                {/* Período */}
-                <label className="side-field">
-                  <span>Período {loadingPagos && needsYearData && <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{marginLeft:6}}/>}</span>
-                  <select
-                    value={periodoSeleccionado}
-                    onChange={handlePeriodoChange}
-                    disabled={!anioSeleccionado || loadingYears}
-                    title={!anioSeleccionado ? "Seleccione un año" : undefined}
-                  >
-                    <option value="Selecciona un periodo">Selecciona un periodo</option>
-                    {periodosOpts.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.value}</option>
-                    ))}
-                  </select>
-                </label>
+            {/* Mes */}
+            <label className="side-field">
+              <span>
+                Mes{" "}
+                {loadingPagos && needsYearData && (
+                  <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{ marginLeft: 6 }} />
+                )}
+              </span>
+              <select
+                value={mesSeleccionado}
+                onChange={handleMesChange}
+                disabled={!anioSeleccionado || loadingYears}
+                title={!anioSeleccionado ? "Seleccione un año" : undefined}
+              >
+                <option>Todos los meses</option>
+                {mesesDisponibles.map((m) => (
+                  <option key={m} value={m}>
+                    {mesUC(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                {/* Mes dependiente */}
-                <label className="side-field">
-                  <span>Mes {loadingPagos && needsYearData && <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{marginLeft:6}}/>}</span>
-                  <select
-                    value={mesSeleccionado}
-                    onChange={handleMesChange}
-                    disabled={!anioSeleccionado || loadingYears}
-                    title={!anioSeleccionado ? "Seleccione un año" : undefined}
-                  >
-                    <option>Todos los meses</option>
-                    {mesesDisponibles.map((m) => <option key={m} value={m}>{mesUC(m)}</option>)}
-                  </select>
-                </label>
+            {/* Cobrador */}
+            <label className="side-field">
+              <span>Cobrador</span>
+              <select
+                value={cobradorSeleccionado}
+                onChange={handleCobradorChange}
+                disabled={!anioSeleccionado || loadingYears}
+              >
+                <option value="todos">Todos</option>
+                {cobradores.map((cb, idx) => (
+                  <option key={idx} value={cb}>
+                    {cb}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-                {/* Cobrador */}
-                <label className="side-field">
-                  <span>Cobrador</span>
-                  <select
-                    value={cobradorSeleccionado}
-                    onChange={handleCobradorChange}
-                    disabled={!anioSeleccionado || loadingYears}
-                  >
-                    <option value="todos">Todos</option>
-                    {cobradores.map((cb, idx) => <option key={idx} value={cb}>{cb}</option>)}
-                  </select>
-                </label>
+            {/* Acciones */}
+            <div className="side-actions">
+              <button
+                className="btn-dark grafics"
+                type="button"
+                onClick={() => setMostrarModalGraficos(true)}
+                disabled={!anioSeleccionado || loadingYears}
+                title="Ver gráficos"
+              >
+                <FontAwesomeIcon icon={faChartPie} /> Gráficos
+              </button>
 
-                {/* Acciones */}
-                <div className="side-actions">
-                  <button
-                    className="btn-dark grafics"
-                    type="button"
-                    onClick={() => setMostrarModalGraficos(true)}
-                    disabled={!anioSeleccionado || loadingYears}
-                    title="Ver gráficos"
-                  >
-                    <FontAwesomeIcon icon={faChartPie} /> Gráficos
-                  </button>
+              <button
+                className="btn-dark excel"
+                type="button"
+                onClick={exportarExcel}
+                disabled={!anioSeleccionado || loadingYears}
+                title="Exportar Excel"
+              >
+                <FontAwesomeIcon icon={faFileExcel} /> Excel
+              </button>
 
-                  <button
-                    className="btn-dark excel"
-                    type="button"
-                    onClick={exportarExcel}
-                    disabled={!anioSeleccionado || loadingYears}
-                    title="Exportar registros visibles"
-                  >
-                    <FontAwesomeIcon icon={faFileExcel} /> Excel
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {/* ====== VISTA: RESUMEN ====== */}
-            {sidebarView === "resumen" && (
-              <section className="side-block" aria-labelledby="titulo-resumen">
-                <h3 id="titulo-resumen" className="side-block-title"><FontAwesomeIcon icon={faListAlt} /> Resumen</h3>
-                <div className="side-kpis">
-                  <div className="kpi">
-                    <span>Total recaudado</span>
-                    <strong>${nfPesos.format(derived.total)}</strong>
-                    <small>
-                      {anioSeleccionado ? `Año ${anioSeleccionado}` : "Sin año"}
-                      {periodoSeleccionado !== "Selecciona un periodo" ? ` · ${periodoSeleccionado}` : ""}
-                      {labelMes(mesSeleccionado)}
-                    </small>
-                  </div>
-
-                  <div className="kpi">
-                    <span>Cobradores (únicos)</span>
-                    <strong>{derived.cobradoresUnicos}</strong>
-                    <small>Año {anioSeleccionado || "-"}</small>
-                  </div>
-
-                  <div className="kpi">
-                    <span>Total registros visibles</span>
-                    <strong>{calcularTotalRegistros()}</strong>
-                    <small>Aplica búsqueda y filtros</small>
-                  </div>
-                </div>
-              </section>
-            )}
-          </div>
+              {/* PDF: habilitado solo en Detalle de Socios y Detalle de Cobranza */}
+              <button
+                className="btn-dark pdf"
+                type="button"
+                onClick={exportarPDF}
+                disabled={!anioSeleccionado || loadingYears || mainView === "detalle"}
+                title={
+                  mainView === "detalle"
+                    ? "Disponible en Detalle de Socios o Detalle de Cobranza"
+                    : (mainView === "detsoc" ? "Exportar PDF Detalle de Socios" : "Exportar PDF Detalle de Cobranza")
+                }
+              >
+                <FontAwesomeIcon icon={faFilePdf} /> PDF
+              </button>
+            </div>
+          </section>
         </aside>
 
-        {/* CONTENIDO DERECHO */}
+        {/* MAIN */}
         <main className="contable-main">
-          <div className="table-toolbar">
-            <div className="toolbar-left">
-              <h2><FontAwesomeIcon icon={faTable} /> Registros</h2>
-              <span className="toolbar-sub">
-                {anioSeleccionado ? `Año ${anioSeleccionado}` : ""}
-                {periodoSeleccionado !== "Selecciona un periodo" ? ` · ${periodoSeleccionado}` : ""}
-                {labelMes(mesSeleccionado)}
-              </span>
+          {/* BARRA SUPERIOR */}
+          <div className="main-switch" role="tablist" aria-label="Cambiar vista principal">
+            <div className="switch-left">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mainView === "detalle"}
+                className={`segmented ${mainView === "detalle" ? "is-active" : ""}`}
+                onClick={() => setMainView("detalle")}
+              >
+                <FontAwesomeIcon icon={faTable} /> Detalle
+              </button>
+
+              {/* Izquierda: Detalle de Socios · Derecha: Detalle de Cobranza */}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mainView === "detsoc"}
+                className={`segmented ${mainView === "detsoc" ? "is-active" : ""}`}
+                onClick={() => setMainView("detsoc")}
+              >
+                <FontAwesomeIcon icon={faUsers} /> Detalle de Socios
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mainView === "cobmes"}
+                className={`segmented ${mainView === "cobmes" ? "is-active" : ""}`}
+                onClick={() => setMainView("cobmes")}
+              >
+                <FontAwesomeIcon icon={faLayerGroup} /> Detalle de Cobranza
+              </button>
             </div>
 
-            {/* Buscador */}
-            <div className="searchbox">
-              <FontAwesomeIcon icon={faSearch} />
-              <input
-                type="text"
-                placeholder="Buscar por socio, categoría, cobrador, período, fecha o monto…"
-                value={searchText}
-                onChange={handleSearch}
-                disabled={!anioSeleccionado || loadingYears}
-              />
-            </div>
-          </div>
+            <div className="switch-right">
+              <div className="switch-meta">
+                <h2>{mainTitle}</h2>
+                <span className="toolbar-sub">{mainSubtitle}</span>
+              </div>
 
-          {/* GRID TABLE — Opción B: header fijo y solo el body scrollea */}
-          <div className={`contable-tablewrap ${(isLoadingTable || isPending) ? "is-loading" : ""}`}>
-
-            {/* Encabezado fijo (fuera del área que scrollea) */}
-            <div className="gridtable-header" role="row" style={{ position: "relative", zIndex: 3 }}>
-              <div className="gridtable-cell" role="columnheader">Apellido y Nombre</div>
-              <div className="gridtable-cell centers" role="columnheader">Categoría</div>
-              <div className="gridtable-cell centers" role="columnheader">Cobrador</div>
-              <div className="gridtable-cell centers" role="columnheader">Fecha de Pago</div>
-              <div className="gridtable-cell centers" role="columnheader">Periodo pago</div>
-            </div>
-
-            {/* Solo el cuerpo scrollea */}
-            <div
-              className="gridtable-body"
-              role="rowgroup"
-              aria-rowcount={registrosFiltradosPorBusqueda.length || 0}
-              style={{ flex: "1 1 auto", overflow: "auto", display: "flex", flexDirection: "column" }}
-            >
-              {(isLoadingTable || isPending) ? (
-                renderSkeletonRows()
-              ) : (
-                <>
-                  {(!needsYearData) ? (
-                    <div className="gridtable-empty" role="row" style={{ flex: "1 1 auto", display: "grid", placeItems: "center" }}>
-                      <div className="gridtable-empty-inner" role="cell">
-                        <div className="empty-icon"><FontAwesomeIcon icon={faFilter} /></div>
-                        {!anioSeleccionado
-                          ? "Seleccione un año para ver los pagos"
-                          : "Cargando registros…"}
-                      </div>
-                    </div>
-                  ) : registrosFiltradosPorBusqueda.length === 0 ? (
-                    <div className="gridtable-empty" role="row" style={{ flex: "1 1 auto", display: "grid", placeItems: "center" }}>
-                      <div className="gridtable-empty-inner" role="cell">
-                        <div className="empty-icon"><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
-                        No hay registros para ese filtro/búsqueda.
-                      </div>
-                    </div>
-                  ) : (
-                    registrosFiltradosPorBusqueda.map((r, i) => (
-                      <GridRow key={r._ts ? `${r._ts}-${i}` : i} r={r} i={i} nfPesos={nfPesos} />
-                    ))
-                  )}
-                </>
+              {mainView === "detalle" && (
+                <div className="searchbox">
+                  <FontAwesomeIcon icon={faSearch} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por socio, categoría, cobrador, medio, período, fecha o monto…"
+                    value={searchText}
+                    onChange={handleSearch}
+                    disabled={!anioSeleccionado || loadingYears}
+                  />
+                </div>
               )}
             </div>
           </div>
+
+          {/* === Tarjetas === */}
+          {(mainView === "cobmes" || mainView === "detsoc") && <CardsResumen />}
+
+          {/* === TABLAS === */}
+          {mainView === "detalle" && (
+            <DetalleTable
+              showSkeleton={showSkeleton || isPending}
+              renderSkeletonRows={renderSkeletonRows}
+              needsYearData={needsYearData}
+              registrosFiltradosPorBusqueda={registrosFiltradosPorBusqueda}
+              nfPesos={nfPesos}
+            />
+          )}
+
+          {mainView === "cobmes" && (
+            <CobMesTable
+              loadingResumen={loadingResumen}
+              periodosVisibles={periodosVisibles}
+              esperadosPorMes={esperadosPorMes}
+              getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
+              cobradorSeleccionado={cobradorSeleccionado}
+              nfPesos={nfPesos}
+            />
+          )}
+
+          {mainView === "detsoc" && (
+            <DetSocTable
+              anioSeleccionado={anioSeleccionado}
+              loadingDetSoc={loadingDetSoc}
+              detSocRows={detSocRows}
+              detSocTotales={detSocTotales}
+            />
+          )}
         </main>
       </div>
 
@@ -845,7 +1390,8 @@ export default function DashboardContable() {
         onClose={() => setMostrarModalGraficos(false)}
         datosMeses={datosMeses}
         datosEmpresas={datosEmpresas}
-        mesSeleccionado={periodoSeleccionado}
+        // Corrección: pasamos mesSeleccionado real
+        mesSeleccionado={mesSeleccionado}
         medioSeleccionado={cobradorSeleccionado}
         totalSocios={totalSocios}
         anioSeleccionado={anioSeleccionado}
@@ -856,20 +1402,32 @@ export default function DashboardContable() {
       {showNoDataToast && (
         <Toast
           tipo="advertencia"
-          mensaje="No hay registros para exportar con los filtros actuales."
+          mensaje="No hay datos para exportar con los filtros actuales."
           duracion={2500}
           onClose={() => setShowNoDataToast(false)}
         />
       )}
-
       {showSuccessToast && (
         <Toast
           tipo="exito"
-          mensaje="Excel exportado con éxito."
+          mensaje="Exportación realizada con éxito."
           duracion={2200}
           onClose={() => setShowSuccessToast(false)}
         />
       )}
     </div>
   );
+}
+
+/* ====== Skeleton rows (abajo para mantener el archivo compacto) ====== */
+function renderSkeletonRows() {
+  return Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
+    <div className="gridtable-row skeleton-row" role="row" key={`sk-${idx}`} aria-hidden="true">
+      <div className="gridtable-cell"><span className="skeleton-bar w-80" /></div>
+      <div className="gridtable-cell"><span className="skeleton-bar w-40" /></div>
+      <div className="gridtable-cell"><span className="skeleton-bar w-60" /></div>
+      <div className="gridtable-cell"><span className="skeleton-bar w-50" /></div>
+      <div className="gridtable-cell"><span className="skeleton-bar w-70" /></div>
+    </div>
+  ));
 }

@@ -63,9 +63,9 @@ try {
     $row = null;
     $idCatFinal = null;
 
-    // Probamos primero sin esquema y luego con esquema completo.
-    $catTables   = ['categoria_monto', 'rh_neg.categoria_monto'];
-    $sociosTables= ['socios', 'rh_neg.socios'];
+    // IMPORTANTE: No referenciar nunca el nombre de la base (sin "rh_neg.").
+    $catTables    = ['categoria_monto'];
+    $sociosTables = ['socios'];
 
     // 1) Resolver id_cat_monto a partir de lo recibido
     if ($idCatReq !== null) {
@@ -93,7 +93,7 @@ try {
         }
     }
 
-    // 3) Fallback: último registro disponible (por si no llegó nada)
+    // 3) Fallback: último registro disponible (por si no llegó nada o no se encontró)
     if (!$row) {
         foreach ($catTables as $catFqn) {
             try {

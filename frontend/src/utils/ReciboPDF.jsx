@@ -71,7 +71,13 @@ export async function generarReciboPDFUnico(opts = {}) {
     (socioInput.nombre ? String(socioInput.nombre).toUpperCase() : (socioInput.nombre_socio || ''))
   ).trim();
   const domicilio = [socioInput.domicilio, socioInput.numero].filter(Boolean).join(' ').trim() || '';
-  const tel = typeof socioInput.telefono === 'string' ? socioInput.telefono.trim() : (socioInput.telefono || '');
+  
+  // ✅ CORRECCIÓN: Usar teléfonos que vienen de cuotas.php
+  const telefono_movil = socioInput.telefono_movil || '';
+  const telefono_fijo = socioInput.telefono_fijo || '';
+  // Prioridad: móvil > fijo
+  const tel = telefono_movil.trim() || telefono_fijo.trim() || '';
+  
   const cobro = typeof socioInput.domicilio_cobro === 'string' ? socioInput.domicilio_cobro.trim() : (socioInput.domicilio_cobro || '');
 
   // CORRECCIÓN: Mostrar la categoría correcta del socio
