@@ -1,11 +1,7 @@
 // src/components/Contable/tables/CobMesTable.jsx
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faFilter,
-  faMagnifyingGlass,
-  faSpinner,
-} from "@fortawesome/free-solid-svg-icons";
+import { faFilter, faMagnifyingGlass, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import "../dashboard.css";
 
 const sumMoneda = (arr) =>
@@ -17,6 +13,7 @@ export default function CobMesTable({
   esperadosPorMes,
   getPagosByMonth,
   cobradorSeleccionado,
+  mesSeleccionado,
   nfPesos,
 }) {
   const rows = (periodosVisibles || []).map((p) => {
@@ -31,18 +28,26 @@ export default function CobMesTable({
     let recaudado = 0;
     let esperado = 0;
 
-    months.forEach((m) => {
-      const pagosMes = (getPagosByMonth(m) || []).filter((pg) =>
-        cobradorSeleccionado === "todos"
-          ? true
-          : pg._cb === cobradorSeleccionado
+    // MODIFICACIÓN PRINCIPAL: Si hay un mes específico seleccionado, usar solo ese mes
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const mesNum = parseInt(mesSeleccionado, 10);
+      const pagosMes = (getPagosByMonth(mesNum) || []).filter((pg) =>
+        cobradorSeleccionado === "todos" ? true : pg._cb === cobradorSeleccionado
       );
-      recaudado += sumMoneda(pagosMes);
-      esperado += Number(esperadosPorMes?.[m] || 0);
-    });
+      recaudado = sumMoneda(pagosMes);
+      esperado = Number(esperadosPorMes?.[mesNum] || 0);
+    } else {
+      // Comportamiento original para períodos completos
+      months.forEach((m) => {
+        const pagosMes = (getPagosByMonth(m) || []).filter((pg) =>
+          cobradorSeleccionado === "todos" ? true : pg._cb === cobradorSeleccionado
+        );
+        recaudado += sumMoneda(pagosMes);
+        esperado += Number(esperadosPorMes?.[m] || 0);
+      });
+    }
 
-    const diferencia = esperado - recaudado;
-
+    const diferencia = esperado - recaudado; // positiva = faltante, negativa = superávit
     return { label, esperado, recaudado, diferencia };
   });
 
@@ -54,33 +59,25 @@ export default function CobMesTable({
     },
     { esperado: 0, recaudado: 0 }
   );
-  const totalDif = totales.esperado - totales.recaudado;
 
+  const totalDif = totales.esperado - totales.recaudado;
   const noPeriodos = (periodosVisibles || []).length === 0;
 
+  const fmt = (num) => `$ ${nfPesos.format(num)}`;
+  const fmtDif = (num) => `$ ${nfPesos.format(Math.abs(num))}`;
+  const difStyle = (num) => ({
+    color: num <= 0 ? "#16a34a" /* verde superávit */ : "#ef4444" /* rojo faltante */,
+    fontWeight: 600,
+  });
+
   return (
-    <section
-      className="resumen-wrap cobmes-section"
-      aria-label="Cobros por mes/período"
-    >
-      <div
-        className={`contable-tablewrap ${
-          loadingResumen ? "is-loading" : ""
-        }`}
-      >
+    <section className="resumen-wrap cobmes-section" aria-label="Cobros por mes/período">
+      <div className={`contable-tablewrap ${loadingResumen ? "is-loading" : ""}`}>
         <div className="gridtable-header cobmes-header" role="row">
-          <div className="gridtable-cell" role="columnheader">
-            Período
-          </div>
-          <div className="gridtable-cell centers" role="columnheader">
-            Esperado
-          </div>
-          <div className="gridtable-cell centers" role="columnheader">
-            Recaudado
-          </div>
-          <div className="gridtable-cell centers" role="columnheader">
-            Dif. (Esp-Rec)
-          </div>
+          <div className="gridtable-cell" role="columnheader">Período</div>
+          <div className="gridtable-cell centers" role="columnheader">Esperado</div>
+          <div className="gridtable-cell centers" role="columnheader">Recaudado</div>
+          <div className="gridtable-cell centers" role="columnheader">Dif. (Esp-Rec)</div>
         </div>
 
         <div className="gridtable-body cobmes-body" role="rowgroup">
@@ -115,36 +112,37 @@ export default function CobMesTable({
             <>
               {rows.map((r, i) => (
                 <div className="gridtable-row" role="row" key={`cm-${i}`}>
-                  <div className="gridtable-cell" role="cell">
-                    {r.label}
+                  <div className="gridtable-cell" role="cell">{r.label}</div>
+                  <div className="gridtable-cell centers" role="cell">
+                    {fmt(r.esperado)}
                   </div>
                   <div className="gridtable-cell centers" role="cell">
-                    {nfPesos.format(r.esperado)}
+                    {fmt(r.recaudado)}
                   </div>
-                  <div className="gridtable-cell centers" role="cell">
-                    {nfPesos.format(r.recaudado)}
-                  </div>
-                  <div className="gridtable-cell centers" role="cell">
-                    {nfPesos.format(r.diferencia)}
+                  <div
+                    className="gridtable-cell centers"
+                    role="cell"
+                    style={difStyle(r.diferencia)}
+                  >
+                    {fmtDif(r.diferencia)}
                   </div>
                 </div>
               ))}
 
-              <div
-                className="gridtable-row cobmes-total"
-                role="row"
-              >
-                <div className="gridtable-cell" role="cell">
-                  TOTAL AÑO
+              <div className="gridtable-row cobmes-total" role="row">
+                <div className="gridtable-cell" role="cell">TOTAL AÑO</div>
+                <div className="gridtable-cell centers" role="cell">
+                  {fmt(totales.esperado)}
                 </div>
                 <div className="gridtable-cell centers" role="cell">
-                  {nfPesos.format(totales.esperado)}
+                  {fmt(totales.recaudado)}
                 </div>
-                <div className="gridtable-cell centers" role="cell">
-                  {nfPesos.format(totales.recaudado)}
-                </div>
-                <div className="gridtable-cell centers" role="cell">
-                  {nfPesos.format(totalDif)}
+                <div
+                  className="gridtable-cell centers"
+                  role="cell"
+                  style={difStyle(totalDif)}
+                >
+                  {fmtDif(totalDif)}
                 </div>
               </div>
             </>

@@ -89,7 +89,7 @@ try {
 
     $whereSQL = $where ? 'WHERE '.implode(' AND ',$where) : '';
 
-    /* ---- Consulta: colapso de "SIN ESTADO" a una fila ---- */
+    /* ---- Consulta: colapso de "SIN ESTADO" a una fila (sin prefijo de base) ---- */
     $sql = "
         SELECT
             CASE
@@ -103,10 +103,10 @@ try {
                 ELSE '—'
             END AS categoria,
             COUNT(*) AS cantidad
-        FROM rh_neg.socios s
-        LEFT JOIN rh_neg.estado    e   ON e.id_estado      = s.id_estado
-        LEFT JOIN rh_neg.categoria cat ON cat.id_categoria = s.id_categoria
-        LEFT JOIN rh_neg.cobrador  cb  ON cb.id_cobrador   = s.id_cobrador
+        FROM `socios` s
+        LEFT JOIN `estado`    e   ON e.id_estado      = s.id_estado
+        LEFT JOIN `categoria` cat ON cat.id_categoria = s.id_categoria
+        LEFT JOIN `cobrador`  cb  ON cb.id_cobrador   = s.id_cobrador
         $whereSQL
         GROUP BY servicio, categoria
         ORDER BY FIELD(servicio,'ACTIVO','PASIVO','SIN ESTADO'), categoria

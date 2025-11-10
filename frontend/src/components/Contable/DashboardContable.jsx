@@ -125,6 +125,14 @@ const extractMonthsFromPeriodLabel = (label) => {
   return Array.from(new Set(months));
 };
 
+// NUEVA FUNCIÓN: Encontrar período que contiene un mes específico
+const findPeriodoForMes = (periodosOpts, mesNum) => {
+  if (!mesNum) return null;
+  return periodosOpts.find(opt => 
+    opt.months && opt.months.includes(mesNum)
+  )?.value || null;
+};
+
 const ok = (obj) => obj && (obj.success === true || obj.exito === true);
 
 const arr = (obj) =>
@@ -853,21 +861,50 @@ export default function DashboardContable() {
 
   /* ===== periodos visibles ===== */
   const periodosVisibles = useMemo(() => {
+    if (!anioSeleccionado) return [];
+    
+    // MODIFICACIÓN PRINCIPAL: Si hay un mes específico seleccionado, mostrar solo el período que contiene ese mes
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const mesNum = parseInt(mesSeleccionado, 10);
+      const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
+      if (periodoForMes) {
+        return periodosOpts.filter((p) => p.value === periodoForMes);
+      }
+      return [];
+    }
+    
     if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo")
       return periodosOpts;
     return periodosOpts.filter((p) => p.value === periodoSeleccionado);
-  }, [periodosOpts, periodoSeleccionado]);
+  }, [periodosOpts, periodoSeleccionado, mesSeleccionado, anioSeleccionado]);
 
   /* ===== handlers UI ===== */
   const volver = useCallback(() => navigate(-1), [navigate]);
 
   const handlePeriodoChange = useCallback((e) => {
     setPeriodoSeleccionado(e.target.value);
+    // Si se selecciona un período específico, resetear el mes a "Todos los meses"
+    if (e.target.value !== "Selecciona un periodo") {
+      setMesSeleccionado("Todos los meses");
+    }
   }, []);
 
   const handleMesChange = useCallback((e) => {
-    setMesSeleccionado(e.target.value);
-  }, []);
+    const nuevoMes = e.target.value;
+    setMesSeleccionado(nuevoMes);
+    
+    // MODIFICACIÓN: Si se selecciona un mes específico, encontrar y establecer el período correspondiente
+    if (nuevoMes !== "Todos los meses") {
+      const mesNum = parseInt(nuevoMes, 10);
+      const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
+      if (periodoForMes) {
+        setPeriodoSeleccionado(periodoForMes);
+      }
+    } else {
+      // Si se selecciona "Todos los meses", resetear el período
+      setPeriodoSeleccionado("Selecciona un periodo");
+    }
+  }, [periodosOpts]);
 
   const handleCobradorChange = useCallback((e) => {
     setCobradorSeleccionado(e.target.value);
@@ -1070,17 +1107,27 @@ export default function DashboardContable() {
       const months = p.months || extractMonthsFromPeriodLabel(label);
 
       let recaudado = 0;
-      for (const m of months) {
-        let pagosMes = curPagosByMonthRef.current[m] || [];
+      let esperado = 0;
+
+      // MODIFICACIÓN: Si hay un mes específico seleccionado, usar solo ese mes
+      if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+        const mesNum = parseInt(mesSeleccionado, 10);
+        let pagosMes = curPagosByMonthRef.current[mesNum] || [];
         if (cobradorSeleccionado !== "todos") {
           pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
         }
-        recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-      }
-
-      let esperado = 0;
-      for (const m of months) {
-        esperado += Number(esperadosPorMes[m] || 0);
+        recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+        esperado = Number(esperadosPorMes[mesNum] || 0);
+      } else {
+        // Comportamiento original para períodos completos
+        for (const m of months) {
+          let pagosMes = curPagosByMonthRef.current[m] || [];
+          if (cobradorSeleccionado !== "todos") {
+            pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+          }
+          recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+          esperado += Number(esperadosPorMes[m] || 0);
+        }
       }
 
       const diferencia = esperado - recaudado;
@@ -1174,17 +1221,27 @@ export default function DashboardContable() {
       const months = p.months || extractMonthsFromPeriodLabel(label);
 
       let recaudado = 0;
-      for (const m of months) {
-        let pagosMes = curPagosByMonthRef.current[m] || [];
+      let esperado = 0;
+
+      // MODIFICACIÓN: Si hay un mes específico seleccionado, usar solo ese mes
+      if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+        const mesNum = parseInt(mesSeleccionado, 10);
+        let pagosMes = curPagosByMonthRef.current[mesNum] || [];
         if (cobradorSeleccionado !== "todos") {
           pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
         }
-        recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-      }
-
-      let esperado = 0;
-      for (const m of months) {
-        esperado += Number(esperadosPorMes[m] || 0);
+        recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+        esperado = Number(esperadosPorMes[mesNum] || 0);
+      } else {
+        // Comportamiento original para períodos completos
+        for (const m of months) {
+          let pagosMes = curPagosByMonthRef.current[m] || [];
+          if (cobradorSeleccionado !== "todos") {
+            pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+          }
+          recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
+          esperado += Number(esperadosPorMes[m] || 0);
+        }
       }
 
       const diferencia = esperado - recaudado;
@@ -1592,6 +1649,7 @@ export default function DashboardContable() {
               esperadosPorMes={esperadosPorMes}
               getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
               cobradorSeleccionado={cobradorSeleccionado}
+              mesSeleccionado={mesSeleccionado}
               nfPesos={nfPesos}
             />
           )}

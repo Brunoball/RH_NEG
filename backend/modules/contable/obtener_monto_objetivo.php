@@ -1,6 +1,6 @@
 <?php
 /**
- * obtener_monto_objetivo.php  —  CÁLCULO CORRECTO POR MES/PERIODO
+ * obtener_monto_objetivo.php  —  CÁLCULO CORRECTO POR MES/PERIODO (sin prefijo de base)
  *
  * Regla clave (lo que pediste):
  *  - categoria_monto.monto_mensual = IMPORTE POR PERÍODO (bimestre).
@@ -122,7 +122,7 @@ try {
 
     $whereSQL = $where ? ('WHERE '.implode(' AND ', $where)) : '';
 
-    /* ====== Traer socios + monto POR PERÍODO ====== */
+    /* ====== Traer socios + monto POR PERÍODO (sin prefijo de base) ====== */
     $sql = "
         SELECT
             s.id_socio,
@@ -133,10 +133,10 @@ try {
             s.id_cat_monto,
             COALESCE(cm.monto_mensual, 0)         AS monto_por_periodo, -- ¡es bimestral!
             s.activo
-        FROM rh_neg.socios s
-        LEFT JOIN rh_neg.categoria_monto cm ON cm.id_cat_monto = s.id_cat_monto
-        LEFT JOIN rh_neg.cobrador       cb ON cb.id_cobrador   = s.id_cobrador
-        LEFT JOIN rh_neg.estado         e  ON e.id_estado      = s.id_estado
+        FROM `socios` s
+        LEFT JOIN `categoria_monto` cm ON cm.id_cat_monto = s.id_cat_monto
+        LEFT JOIN `cobrador`       cb ON cb.id_cobrador   = s.id_cobrador
+        LEFT JOIN `estado`         e  ON e.id_estado      = s.id_estado
         $whereSQL
     ";
 
@@ -262,7 +262,6 @@ try {
         'exito'             => true,
         'anio'              => $anio,
         'meses'             => $mesesSel,
-        // También devolvemos los períodos implícitos (útiles para debug)
         'periodos'          => array_values(array_unique(array_map($mesToPeriodo, $mesesSel))),
         'cobrador_aplicado' => $cobradorAplicado,
         'estado_aplicado'   => $estadoAplicado,
