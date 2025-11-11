@@ -180,7 +180,7 @@ export default function CobMesTable({
               {rows.map((r, i) => (
                 <React.Fragment key={`cm-${i}`}>
                   {/* Fila principal del período */}
-                  <div className="gridtable-row" role="row">
+                  <div className="gridtable-row cobmestable-row" role="row">
                     <div className="gridtable-cell" role="cell">{r.label}</div>
                     <div className="gridtable-cell centers" role="cell">
                       {fmt(r.esperado)}

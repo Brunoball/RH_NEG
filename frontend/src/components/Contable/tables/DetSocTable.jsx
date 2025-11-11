@@ -66,7 +66,7 @@ export default function DetSocTable({
           ) : (
             <>
               {detSocRows.map((r, i) => (
-                <div className="gridtable-row" role="row" key={`ds-${i}`}>
+                <div className="gridtable-row detsoctable-row" role="row" key={`ds-${i}`}>
                   <div className="gridtable-cell" role="cell">
                     {r.servicio}
                   </div>
