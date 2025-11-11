@@ -535,3 +535,67 @@ html, body {
 .detsoc-section .detsoc-total-pasivo {
   background: rgba(234, 179, 8, 0.08);
 }
+/* ===== Ajuste de alturas: que las tablas usen el 100% del contenedor ===== */
+
+/* La grilla principal ocupa todo el alto disponible bajo el header */
+.contable-grid {
+  flex: 1 1 auto;
+  min-height: 0; /* permite que el main y el sidebar scrolleen bien */
+}
+
+/* Panel derecho como contenedor flexible */
+.contable-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden; /* el scroll va en los cuerpos de tabla */
+}
+
+/* Wrapper genérico de tablas: se estira al alto disponible */
+.contable-tablewrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* el scroll sólo en .gridtable-body */
+}
+
+/* Body de tabla: ocupa resto y scrollea */
+.gridtable-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cada sección específica ocupa 100% del alto disponible */
+.detalle-section,
+.cobmes-section,
+.detsoc-section {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Y sus wrappers internos también respetan el alto */
+.detalle-section .contable-tablewrap,
+.cobmes-section .contable-tablewrap,
+.detsoc-section .contable-tablewrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Estados vacíos centrados pero sin romper el layout */
+.detalle-section .detalle-empty,
+.cobmes-section .cobmes-empty,
+.detsoc-section .detsoc-empty {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
