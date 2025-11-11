@@ -2,12 +2,11 @@
 /**
  * obtener_monto_objetivo.php  —  CÁLCULO CORRECTO POR MES/PERIODO (sin prefijo de base)
  *
- * Regla clave (lo que pediste):
+ * Reglas clave que pediste:
  *  - categoria_monto.monto_mensual = IMPORTE POR PERÍODO (bimestre).
  *  - Si se pide un **mes** puntual, ese mes vale **1/2** de un período.
- *  - Si se piden 2 meses del mismo período (p.ej. enero y febrero), esos
- *    dos meses juntos valen **1** período (no 2).
- *  - Para todo el año (12 meses) el factor es 6 períodos.
+ *  - Si se piden 2 meses del mismo período, juntos valen **1** período (no 2).
+ *  - Para todo el año (12 meses) el factor total es 6 períodos.
  *
  * Elegibilidad (igual que el contador de socios):
  *  - s.activo = 1
@@ -22,6 +21,10 @@
  *   - cobrador (id o nombre, opcional)
  *   - estado_socio ("ACTIVO"|"PASIVO", opcional)
  *   - debug=1 (opcional)                  // devuelve detalle por socio
+ *   - todos_cobradores=1 (opcional)       // incluye esperado agregado por cobrador
+ *
+ * NUEVO:
+ *   - esperado_por_cobrador_por_mes: { id_cobrador | nombre => {mes -> esperado}}  (respeta 0.5 por mes y tope 1 por período/socio)
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -45,6 +48,7 @@ try {
     $cobrador   = $g('cobrador', null);
     $estadoSoc  = $g('estado_socio', null);
     $wantDebug  = $g('debug','0') === '1';
+    $todosCobradores = $g('todos_cobradores','0') === '1';
 
     /* ====== Resolver MESES seleccionados ====== */
     $mesesSel = [];
@@ -86,6 +90,17 @@ try {
     // helper: devuelve período 1..6 para un mes 1..12
     $mesToPeriodo = static function(int $m): int { return intdiv($m-1, 2) + 1; };
 
+    /* ====== OBTENER TODOS LOS COBRADORES ====== */
+    $sqlCobradores = "SELECT id_cobrador, nombre FROM cobrador ORDER BY nombre";
+    $stCobradores = $pdo->query($sqlCobradores);
+    $todosLosCobradores = $stCobradores->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // map id->nombre para conveniencia
+    $cobrId2Nombre = [];
+    foreach ($todosLosCobradores as $c) {
+        $cobrId2Nombre[(int)$c['id_cobrador']] = $c['nombre'];
+    }
+
     /* ====== WHERE (elegibilidad = contador) ====== */
     $where  = [];
     $params = [];
@@ -96,7 +111,7 @@ try {
     $params[':max_mes'] = $maxMes;
 
     $cobradorAplicado = null;
-    if ($cobrador !== null && $cobrador !== '') {
+    if ($cobrador !== null && $cobrador !== '' && !$todosCobradores) {
         if (ctype_digit((string)$cobrador)) {
             $where[] = "s.id_cobrador = :id_cobrador";
             $params[':id_cobrador'] = (int)$cobrador;
@@ -145,32 +160,35 @@ try {
     $st->execute();
     $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    /* ====== Cálculo: sumar FRACCIONES de período (0.5 por mes, hasta 1 por período) ====== */
+    /* ====== Cálculo: sumar FRACCIONES por mes (0.5 por mes, tope 1 por período/socio) ====== */
     $totalEsperado  = 0;
     $sociosContados = 0;
     $detalle        = [];
 
-    // Precompute: meses seleccionados -> array
-    $mesesSelArr = array_values($mesesSel);
+    $esperadoPorCobrador = [];             // totales por cobrador (todos los meses combinados)
+    $esperadoPorCobradorPorMes = [];       // NUEVO: id_cobrador => { mes => esperado }
+
+    // Inicializar mapas de agregación
+    $initCob = function($id, $nombre) use (&$esperadoPorCobrador, &$esperadoPorCobradorPorMes) {
+        if (!isset($esperadoPorCobrador[$id])) {
+            $esperadoPorCobrador[$id] = [
+                'id_cobrador'     => $id,
+                'nombre'          => $nombre,
+                'total_esperado'  => 0,
+                'socios_contados' => 0
+            ];
+        }
+        if (!isset($esperadoPorCobradorPorMes[$id])) {
+            $esperadoPorCobradorPorMes[$id] = []; // mes => esperado
+        }
+    };
 
     foreach ($rows as $r) {
         if ((int)$r['activo'] !== 1) continue;
 
         $impPeriodo = (int)$r['monto_por_periodo'];
-        if ($impPeriodo <= 0) {
-            if ($wantDebug) {
-                $detalle[] = [
-                    'id_socio'      => (int)$r['id_socio'],
-                    'socio_nombre'  => $r['socio_nombre'],
-                    'ingreso'       => $r['ingreso'],
-                    'monto_periodo' => 0,
-                    'factor'        => 0.0,
-                    'parcial'       => 0,
-                    'razon'         => 'monto_por_periodo=0'
-                ];
-            }
-            continue;
-        }
+        $idCobrador = (int)$r['id_cobrador'];
+        $cobradorNombre = $r['cobrador_nombre'] ?? ($cobrId2Nombre[$idCobrador] ?? (string)$idCobrador);
 
         // Parse ingreso
         $yIng = 0; $mIng = 1;
@@ -188,15 +206,14 @@ try {
         // 1) Meses válidos para el socio (según ingreso)
         $mesesValidos = [];
         if ($yIng === 0 || $yIng < $anio) {
-            $mesesValidos = $mesesSelArr;                // todos los seleccionados
+            $mesesValidos = $mesesSel;                // todos los seleccionados
         } elseif ($yIng > $anio) {
-            $mesesValidos = [];                          // ninguno
+            $mesesValidos = [];                       // ninguno
         } else { // yIng == anio
-            foreach ($mesesSelArr as $m) {
+            foreach ($mesesSel as $m) {
                 if ($m >= $mIng) $mesesValidos[] = $m;
             }
         }
-
         if (!$mesesValidos) {
             if ($wantDebug) {
                 $detalle[] = [
@@ -212,20 +229,29 @@ try {
             continue;
         }
 
-        // 2) Contar fracciones por período: 0.5 por mes del período, tope 1 por período
-        $contPorPeriodo = []; // p => 0..2 meses
+        // 2) Para distribuir por MES: 0.5 * monto_por_periodo por cada mes del período (tope 2 meses = 1 período)
+        //    Agrupamos meses válidos del socio por período
+        $mesesPorPeriodo = []; // p => [meses...]
         foreach ($mesesValidos as $m) {
             $p = $mesToPeriodo($m);
-            $contPorPeriodo[$p] = min(2, ($contPorPeriodo[$p] ?? 0) + 1);
+            $mesesPorPeriodo[$p][] = $m;
         }
 
-        $factor = 0.0;
-        foreach ($contPorPeriodo as $cantMesesEnP) {
-            // 1 mes = 0.5 ; 2 meses = 1.0
-            $factor += min(1.0, $cantMesesEnP / 2.0);
+        $parcialTotalSocio = 0;
+        $mesesParciales = []; // mes => parcial asignado
+
+        foreach ($mesesPorPeriodo as $p => $mesesDelP) {
+            sort($mesesDelP);
+            // Solo hasta 2 meses por período:
+            $asignables = array_slice($mesesDelP, 0, 2);
+            foreach ($asignables as $m) {
+                $parcialMes = (int) round($impPeriodo / 2); // 0.5 del período
+                $parcialTotalSocio += $parcialMes;
+                $mesesParciales[$m] = ($mesesParciales[$m] ?? 0) + $parcialMes;
+            }
         }
 
-        if ($factor <= 0.0) {
+        if ($parcialTotalSocio <= 0) {
             if ($wantDebug) {
                 $detalle[] = [
                     'id_socio'      => (int)$r['id_socio'],
@@ -240,25 +266,36 @@ try {
             continue;
         }
 
-        // 3) Monto esperado = importe_por_periodo * factor_de_periodos
-        $parcial = (int) round($impPeriodo * $factor);
-        $totalEsperado  += $parcial;
+        // Acumuladores globales
+        $totalEsperado  += $parcialTotalSocio;
         $sociosContados++;
+
+        // Inicializar agregadores del cobrador
+        $initCob($idCobrador, $cobradorNombre);
+
+        // Sumar totales por cobrador
+        $esperadoPorCobrador[$idCobrador]['total_esperado'] += $parcialTotalSocio;
+        $esperadoPorCobrador[$idCobrador]['socios_contados']++;
+
+        // NUEVO: sumar por MES del cobrador
+        foreach ($mesesParciales as $mes => $parcial) {
+            $esperadoPorCobradorPorMes[$idCobrador][$mes] = ($esperadoPorCobradorPorMes[$idCobrador][$mes] ?? 0) + $parcial;
+        }
 
         if ($wantDebug) {
             $detalle[] = [
                 'id_socio'      => (int)$r['id_socio'],
                 'socio_nombre'  => $r['socio_nombre'],
-                'cobrador'      => $r['cobrador_nombre'],
+                'cobrador'      => $cobradorNombre,
                 'ingreso'       => $r['ingreso'],
                 'monto_periodo' => $impPeriodo,
-                'factor'        => $factor,               // p.ej. 0.5 si es un solo mes del período
-                'parcial'       => $parcial
+                'parcial_total' => $parcialTotalSocio,
+                'meses_parciales' => $mesesParciales, // { mes => parcialMes }
             ];
         }
     }
 
-    echo json_encode([
+    $response = [
         'exito'             => true,
         'anio'              => $anio,
         'meses'             => $mesesSel,
@@ -267,8 +304,29 @@ try {
         'estado_aplicado'   => $estadoAplicado,
         'total_esperado'    => (int)$totalEsperado,
         'total_socios'      => (int)$sociosContados,
-        'detalle'           => $wantDebug ? $detalle : null
-    ], JSON_UNESCAPED_UNICODE);
+    ];
+
+    if ($todosCobradores) {
+        // Totales por cobrador (global) + NUEVO: por mes
+        $response['esperado_por_cobrador'] = array_values($esperadoPorCobrador);
+
+        // Normalizamos el formato por mes para que sea: [{id_cobrador, nombre, por_mes:{mes:valor}}]
+        $pm = [];
+        foreach ($esperadoPorCobradorPorMes as $id => $mapMes) {
+            $pm[] = [
+                'id_cobrador' => $id,
+                'nombre'      => $cobrId2Nombre[$id] ?? (string)$id,
+                'por_mes'     => array_change_key_case(array_combine(array_map('intval', array_keys($mapMes)), array_values($mapMes)), CASE_LOWER)
+            ];
+        }
+        $response['esperado_por_cobrador_por_mes'] = $pm;
+    }
+
+    if ($wantDebug) {
+        $response['detalle'] = $detalle;
+    }
+
+    echo json_encode($response, JSON_UNESCAPED_UNICODE);
 
 } catch (Throwable $e) {
     http_response_code(500);

@@ -125,12 +125,10 @@ const extractMonthsFromPeriodLabel = (label) => {
   return Array.from(new Set(months));
 };
 
-// NUEVA FUNCIÓN: Encontrar período que contiene un mes específico
+// Encontrar período que contiene un mes específico
 const findPeriodoForMes = (periodosOpts, mesNum) => {
   if (!mesNum) return null;
-  return periodosOpts.find(opt => 
-    opt.months && opt.months.includes(mesNum)
-  )?.value || null;
+  return periodosOpts.find((opt) => opt.months && opt.months.includes(mesNum))?.value || null;
 };
 
 const ok = (obj) => obj && (obj.success === true || obj.exito === true);
@@ -264,13 +262,10 @@ function buildYearIndexes(rawContable, rawListas) {
   }
 
   const totalSocios = Number(rawContable?.total_socios ?? 0) || 0;
-
   const condonados = Array.isArray(rawContable?.condonados) ? rawContable.condonados : [];
-
   const aniosDisponibles = Array.isArray(rawContable.anios)
     ? rawContable.anios.map((n) => parseInt(n, 10)).filter(Boolean)
     : [];
-
   const anioSrv = parseInt(rawContable.anio_aplicado ?? 0, 10);
   const anioInicial =
     anioSrv > 0 ? anioSrv : aniosDisponibles.length ? Math.max(...aniosDisponibles) : "";
@@ -295,7 +290,7 @@ export default function DashboardContable() {
   // filtros
   const [anioSeleccionado, setAnioSeleccionado] = useState("");
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("Selecciona un periodo");
-  const [mesSeleccionado, setMesSeleccionado] = useState("Todos los meses");
+  const [mesSeleccionado, setMesSeleccionado] = useState("Todos los meses"); // mes sin selección inicial
   const [cobradorSeleccionado, setCobradorSeleccionado] = useState("todos");
   const [searchText, setSearchText] = useState("");
   const searchDeferred = useDeferredValue(searchText);
@@ -329,6 +324,7 @@ export default function DashboardContable() {
 
   // Detalle Cobranza
   const [esperadosPorMes, setEsperadosPorMes] = useState({});
+  const [esperadosPorMesPorMedio, setEsperadosPorMesPorMedio] = useState({});
   const [loadingResumen, setLoadingResumen] = useState(false);
 
   // Detalle Socios
@@ -347,6 +343,9 @@ export default function DashboardContable() {
   const curPagosAllSortedRef = useRef([]);
   const curPagosByMonthRef = useRef([]);
   const curPeriodMergedMapRef = useRef(new Map());
+
+  // bandera de inicialización de filtros (primera vez)
+  const didInitRef = useRef(false);
 
   const nfPesos = useMemo(() => new Intl.NumberFormat("es-AR"), []);
 
@@ -425,13 +424,35 @@ export default function DashboardContable() {
           periodosSrv = Array.from({ length: 12 }, (_, i) => `PERÍODO ${i + 1}`);
         }
 
-        setPeriodosOpts(
-          periodosSrv.map((label) => ({
-            value: label,
-            months: extractMonthsFromPeriodLabel(label),
-          }))
-        );
+        const periodosOptsLocal = periodosSrv.map((label) => ({
+          value: label,
+          months: extractMonthsFromPeriodLabel(label),
+        }));
+
+        setPeriodosOpts(periodosOptsLocal);
         setCobradores(cobradoresSrv);
+
+        // ===== INICIALIZACIÓN SOLO LA PRIMERA VEZ =====
+        if (!didInitRef.current && lastYear) {
+          const hoy = new Date();
+          const yNow = hoy.getFullYear();
+          const mNow = hoy.getMonth() + 1; // 1..12
+
+          if (Number(lastYear) === yNow) {
+            const periodoActual = findPeriodoForMes(periodosOptsLocal, mNow);
+            if (periodoActual) {
+              setPeriodoSeleccionado(periodoActual);
+            } else {
+              setPeriodoSeleccionado("Selecciona un periodo");
+            }
+            setMesSeleccionado("Todos los meses");
+          } else {
+            setPeriodoSeleccionado("Selecciona un periodo");
+            setMesSeleccionado("Todos los meses");
+          }
+
+          didInitRef.current = true;
+        }
       } catch (err) {
         if (err.name !== "AbortError") {
           console.error("Error en carga inicial (years):", err);
@@ -518,7 +539,6 @@ export default function DashboardContable() {
       try {
         const key = String(anioSeleccionado);
 
-        // cache
         if (yearCacheRef.current[key]) {
           const { built, datosMeses } = yearCacheRef.current[key];
 
@@ -610,7 +630,6 @@ export default function DashboardContable() {
     })();
 
     return () => ctrl.abort();
-    // 👇 importante: NO incluir recomputeSync/recomputeResumen/fetchDetSoc acá
   }, [
     needsYearData,
     anioSeleccionado,
@@ -622,7 +641,7 @@ export default function DashboardContable() {
     cobradorSeleccionado,
   ]);
 
-  /* ===== helpers esperado / detsoc (definidos como callbacks) ===== */
+  /* ===== helpers esperado / detsoc ===== */
 
   const buildEsperadoURL = useCallback(() => {
     if (!anioSeleccionado) return null;
@@ -646,23 +665,39 @@ export default function DashboardContable() {
     return u.toString();
   }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
 
+  // usar NOMBRE del cobrador en mayúsculas como key
   const fetchEsperadoMes = useCallback(
     async (mes) => {
       const u = new URL(`${BASE_URL}/api.php`);
       u.searchParams.set("action", "obtener_monto_objetivo");
       u.searchParams.set("anio", String(anioSeleccionado));
       u.searchParams.set("mes", String(mes));
-      if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
-        u.searchParams.set("cobrador", cobradorSeleccionado);
-      }
+      u.searchParams.set("todos_cobradores", "1");
+
       const res = await fetch(u.toString() + `&ts=${Date.now()}`);
       const data = await res.json().catch(() => ({}));
+
+      let totalMes = 0;
+      const porMedio = {}; // { NOMBRE_MAYUS => valor }
+
       if (data && (data.exito === true || data.success === true)) {
-        return Number(data.total_esperado || 0);
+        totalMes = Number(data.total_esperado || 0);
+
+        const lista = Array.isArray(data.esperado_por_cobrador_por_mes)
+          ? data.esperado_por_cobrador_por_mes
+          : [];
+
+        for (const item of lista) {
+          const nombre = String(item?.nombre ?? item?.id_cobrador ?? "").toUpperCase().trim();
+          const v = Number(item?.por_mes?.[mes] || 0);
+          if (!porMedio[nombre]) porMedio[nombre] = 0;
+          porMedio[nombre] += v;
+        }
       }
-      return 0;
+
+      return { totalMes, porMedio };
     },
-    [anioSeleccionado, cobradorSeleccionado]
+    [anioSeleccionado]
   );
 
   const mesesParaResumen = useMemo(() => {
@@ -682,23 +717,32 @@ export default function DashboardContable() {
   const recomputeResumen = useCallback(async () => {
     if (!anioSeleccionado || mesesParaResumen.length === 0) {
       setEsperadosPorMes({});
+      setEsperadosPorMesPorMedio({});
       return;
     }
     try {
       setLoadingResumen(true);
       const pairs = await Promise.all(
-        mesesParaResumen.map((m) =>
-          fetchEsperadoMes(m).then((val) => [m, val])
-        )
+        mesesParaResumen.map((m) => fetchEsperadoMes(m).then((val) => [m, val]))
       );
+
       const obj = {};
-      for (const [m, val] of pairs) {
-        obj[m] = val;
+      const porMedio = {};
+
+      for (const [m, { totalMes, porMedio: mapMedio }] of pairs) {
+        obj[m] = totalMes;
+        for (const nombreKey of Object.keys(mapMedio)) {
+          if (!porMedio[nombreKey]) porMedio[nombreKey] = {};
+          porMedio[nombreKey][m] = (porMedio[nombreKey][m] ?? 0) + mapMedio[nombreKey];
+        }
       }
+
       setEsperadosPorMes(obj);
+      setEsperadosPorMesPorMedio(porMedio);
     } catch (e) {
-      console.error("Detalle de Cobranza: error obteniendo esperados por mes", e);
+      console.error("Detalle de Cobranza: error obteniendo esperados por mes/medio", e);
       setEsperadosPorMes({});
+      setEsperadosPorMesPorMedio({});
     } finally {
       setLoadingResumen(false);
     }
@@ -742,34 +786,21 @@ export default function DashboardContable() {
       const data = await res.json().catch(() => ({}));
       if (data && (data.exito === true || data.success === true)) {
         const filas = Array.isArray(data.filas) ? data.filas : [];
-        const tot = {
-          ACTIVO: 0,
-          PASIVO: 0,
-        };
+        const tot = { ACTIVO: 0, PASIVO: 0 };
         for (const f of filas) {
-          if (f.servicio === "ACTIVO") {
-            tot.ACTIVO += Number(f.cantidad || 0);
-          }
-          if (f.servicio === "PASIVO") {
-            tot.PASIVO += Number(f.cantidad || 0);
-          }
+          if (f.servicio === "ACTIVO") tot.ACTIVO += Number(f.cantidad || 0);
+          if (f.servicio === "PASIVO") tot.PASIVO += Number(f.cantidad || 0);
         }
         setDetSocRows(filas);
         setDetSocTotales(tot);
       } else {
         setDetSocRows([]);
-        setDetSocTotales({
-          ACTIVO: 0,
-          PASIVO: 0,
-        });
+        setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
       }
     } catch (e) {
       console.error("contar_socios_por_cat_estado error:", e);
       setDetSocRows([]);
-      setDetSocTotales({
-        ACTIVO: 0,
-        PASIVO: 0,
-      });
+      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
     } finally {
       setLoadingDetSoc(false);
     }
@@ -795,20 +826,12 @@ export default function DashboardContable() {
             diferencia: esperado - (prev.total || 0),
           }));
         } else {
-          setDerived((prev) => ({
-            ...prev,
-            esperado: 0,
-            diferencia: 0,
-          }));
+          setDerived((prev) => ({ ...prev, esperado: 0, diferencia: 0 }));
         }
       } catch (e) {
         if (e.name !== "AbortError") {
           console.error("Error obtener_monto_objetivo:", e);
-          setDerived((prev) => ({
-            ...prev,
-            esperado: 0,
-            diferencia: 0,
-          }));
+          setDerived((prev) => ({ ...prev, esperado: 0, diferencia: 0 }));
         }
       } finally {
         setLoadingEsperado(false);
@@ -836,15 +859,9 @@ export default function DashboardContable() {
         computeRAF2.current = requestAnimationFrame(() => {
           setDerived((prev) => {
             const diff = prev.esperado - d.total;
-            return {
-              ...prev,
-              ...d,
-              diferencia: diff,
-            };
+            return { ...prev, ...d, diferencia: diff };
           });
-          if (haveData) {
-            setIsLoadingTable(false);
-          }
+          if (haveData) setIsLoadingTable(false);
         });
       });
     });
@@ -856,14 +873,12 @@ export default function DashboardContable() {
       cancelAnimationFrame(computeRAF1.current);
       cancelAnimationFrame(computeRAF2.current);
     };
-    // 👇 no agregamos recomputeSync/recomputeResumen/fetchDetSoc
-  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, startTransition]);
+  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, startTransition, recomputeResumen, fetchDetSoc]);
 
   /* ===== periodos visibles ===== */
   const periodosVisibles = useMemo(() => {
     if (!anioSeleccionado) return [];
-    
-    // MODIFICACIÓN PRINCIPAL: Si hay un mes específico seleccionado, mostrar solo el período que contiene ese mes
+
     if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
       const mesNum = parseInt(mesSeleccionado, 10);
       const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
@@ -872,7 +887,7 @@ export default function DashboardContable() {
       }
       return [];
     }
-    
+
     if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo")
       return periodosOpts;
     return periodosOpts.filter((p) => p.value === periodoSeleccionado);
@@ -883,28 +898,24 @@ export default function DashboardContable() {
 
   const handlePeriodoChange = useCallback((e) => {
     setPeriodoSeleccionado(e.target.value);
-    // Si se selecciona un período específico, resetear el mes a "Todos los meses"
     if (e.target.value !== "Selecciona un periodo") {
       setMesSeleccionado("Todos los meses");
     }
   }, []);
 
-  const handleMesChange = useCallback((e) => {
-    const nuevoMes = e.target.value;
-    setMesSeleccionado(nuevoMes);
-    
-    // MODIFICACIÓN: Si se selecciona un mes específico, encontrar y establecer el período correspondiente
-    if (nuevoMes !== "Todos los meses") {
-      const mesNum = parseInt(nuevoMes, 10);
-      const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
-      if (periodoForMes) {
-        setPeriodoSeleccionado(periodoForMes);
+  const handleMesChange = useCallback(
+    (e) => {
+      const nuevoMes = e.target.value;
+      setMesSeleccionado(nuevoMes);
+
+      if (nuevoMes !== "Todos los meses") {
+        const mesNum = parseInt(nuevoMes, 10);
+        const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
+        if (periodoForMes) setPeriodoSeleccionado(periodoForMes);
       }
-    } else {
-      // Si se selecciona "Todos los meses", resetear el período
-      setPeriodoSeleccionado("Selecciona un periodo");
-    }
-  }, [periodosOpts]);
+    },
+    [periodosOpts]
+  );
 
   const handleCobradorChange = useCallback((e) => {
     setCobradorSeleccionado(e.target.value);
@@ -928,11 +939,9 @@ export default function DashboardContable() {
       diferencia: 0,
     });
     setEsperadosPorMes({});
+    setEsperadosPorMesPorMedio({});
     setDetSocRows([]);
-    setDetSocTotales({
-      ACTIVO: 0,
-      PASIVO: 0,
-    });
+    setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
   }, []);
 
   const handleSearch = useCallback((e) => {
@@ -1055,16 +1064,8 @@ export default function DashboardContable() {
 
       const rowsConTotales = [
         ...baseRows,
-        {
-          SERVICIO: "TOTAL ACTIVO",
-          CATEGORÍA: "—",
-          CANTIDAD: detSocTotales.ACTIVO,
-        },
-        {
-          SERVICIO: "TOTAL PASIVO",
-          CATEGORÍA: "—",
-          CANTIDAD: detSocTotales.PASIVO,
-        },
+        { SERVICIO: "TOTAL ACTIVO", CATEGORÍA: "—", CANTIDAD: detSocTotales.ACTIVO },
+        { SERVICIO: "TOTAL PASIVO", CATEGORÍA: "—", CANTIDAD: detSocTotales.PASIVO },
       ];
 
       const wb = XLSX.utils.book_new();
@@ -1109,21 +1110,23 @@ export default function DashboardContable() {
       let recaudado = 0;
       let esperado = 0;
 
-      // MODIFICACIÓN: Si hay un mes específico seleccionado, usar solo ese mes
       if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
         const mesNum = parseInt(mesSeleccionado, 10);
         let pagosMes = curPagosByMonthRef.current[mesNum] || [];
         if (cobradorSeleccionado !== "todos") {
-          pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+          pagosMes = pagosMes.filter(
+            (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+          );
         }
         recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
         esperado = Number(esperadosPorMes[mesNum] || 0);
       } else {
-        // Comportamiento original para períodos completos
         for (const m of months) {
           let pagosMes = curPagosByMonthRef.current[m] || [];
           if (cobradorSeleccionado !== "todos") {
-            pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+            pagosMes = pagosMes.filter(
+              (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+            );
           }
           recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
           esperado += Number(esperadosPorMes[m] || 0);
@@ -1223,37 +1226,39 @@ export default function DashboardContable() {
       let recaudado = 0;
       let esperado = 0;
 
-      // MODIFICACIÓN: Si hay un mes específico seleccionado, usar solo ese mes
       if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
         const mesNum = parseInt(mesSeleccionado, 10);
         let pagosMes = curPagosByMonthRef.current[mesNum] || [];
         if (cobradorSeleccionado !== "todos") {
-          pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+          pagosMes = pagosMes.filter(
+            (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+          );
         }
         recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
         esperado = Number(esperadosPorMes[mesNum] || 0);
       } else {
-        // Comportamiento original para períodos completos
         for (const m of months) {
           let pagosMes = curPagosByMonthRef.current[m] || [];
           if (cobradorSeleccionado !== "todos") {
-            pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
+            pagosMes = pagosMes.filter(
+              (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+            );
           }
           recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
           esperado += Number(esperadosPorMes[m] || 0);
         }
       }
 
-      const diferencia = esperado - recaudado;
-      totalEsperadoAnual += esperado;
-      totalRecaudadoAnual += recaudado;
-
+      const diferencia = totalEsperadoAnual + esperado - (totalRecaudadoAnual + recaudado); // no afecta visual
       rows.push({
         periodo: label,
         esperado,
         recaudado,
-        diferencia,
+        diferencia: esperado - recaudado,
       });
+
+      totalEsperadoAnual += esperado;
+      totalRecaudadoAnual += recaudado;
     }
 
     rows.push({
@@ -1325,10 +1330,10 @@ export default function DashboardContable() {
     if (mainView === "cobmes") {
       const esperado = Number(derived.esperado || 0);
       const recaudado = Number(derived.total || 0);
-      const diferencia = Number(derived.diferencia || 0);
-      const diffTxt = `${diferencia < 0 ? "-" : ""}$${nfPesos.format(
-        Math.abs(diferencia)
-      )}`;
+      const diferencia = Number(esperado - recaudado); // esperado – recaudado
+      const diffTxt = `${diferencia >= 0 ? "$" : "-$"}${nfPesos.format(Math.abs(diferencia))}`;
+      // 🔴 rojo si falta (esperado > recaudado), 🟢 verde si superávit
+      const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a";
 
       return (
         <div style={box.wrap} aria-label="Resumen global (montos)">
@@ -1347,16 +1352,11 @@ export default function DashboardContable() {
             <div style={box.num}>${nfPesos.format(esperado)}</div>
             <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
           </div>
-          <div style={{ ...box.card, borderColor: "rgba(59,130,246,.35)" }}>
-            <div style={{ ...box.title, color: "#2563eb" }}>
+          <div style={{ ...box.card, borderColor: colorTexto }}>
+            <div style={{ ...box.title, color: colorTexto }}>
               Faltante / Superávit (esperado – recaudado)
             </div>
-            <div
-              style={{
-                ...box.num,
-                color: diferencia < 0 ? "#dc2626" : "#16a34a",
-              }}
-            >
+            <div style={{ ...box.num, color: colorTexto }}>
               {diffTxt}
             </div>
             <div style={box.foot}>= Comparación con filtros aplicados</div>
@@ -1414,7 +1414,7 @@ export default function DashboardContable() {
       <div className="contable-grid">
         {/* SIDEBAR */}
         <aside className="contable-sidebar">
-          {/* Errores generales (no el de pagos del año) */}
+          {/* Errores generales */}
           {error &&
             error !== "No se pudieron obtener los pagos del año seleccionado." && (
               <div className="contable-warning">
@@ -1562,6 +1562,7 @@ export default function DashboardContable() {
                 type="button"
                 onClick={exportarPDF}
                 disabled={!anioSeleccionado || loadingYears || mainView === "detalle"}
+                aria-disabled={!anioSeleccionado || loadingYears || mainView === "detalle"}
                 title={
                   mainView === "detalle"
                     ? "Disponible en Detalle de Socios o Detalle de Cobranza"
@@ -1647,6 +1648,7 @@ export default function DashboardContable() {
               loadingResumen={loadingResumen}
               periodosVisibles={periodosVisibles}
               esperadosPorMes={esperadosPorMes}
+              esperadosPorMesPorMedio={esperadosPorMesPorMedio}
               getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
               cobradorSeleccionado={cobradorSeleccionado}
               mesSeleccionado={mesSeleccionado}

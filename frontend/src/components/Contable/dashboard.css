@@ -1,5 +1,6 @@
 /* ================================
-   Dashboard Contable · CSS
+   Dashboard Contable · CSS (Unificado)
+   Estética = 2º CSS  |  Scroll = 1º CSS
    ================================= */
 
 /* ---- Tokens base ---- */
@@ -80,7 +81,8 @@ html, body {
   box-shadow: var(--princ-shadow-md);
 }
 .contable-topbar-title{
-  margin:0; font-size:1.45rem; display:flex; gap:10px; align-items:center; font-weight:800; color:#0f172a;
+  margin:0; font-size:1.45rem; display:flex; gap:10px; align-items:center; font-weight:800;
+  color: var(--princ-primary);
 }
 .contable-back-button{
   background: var(--princ-primary); color:#fff; padding:10px 16px; border-radius:999px;
@@ -103,7 +105,9 @@ html, body {
 .contable-sidebar{
   background:#fff; border-radius:var(--princ-border-radius-xl);
   box-shadow: var(--princ-shadow-xl); border: 1px solid rgba(255,255,255,0.35);
-  padding:18px; display:flex; flex-direction:column; height:100%; overflow:auto;
+  padding:18px; display:flex; flex-direction:column; height:100%;
+  overflow-y:auto; overflow-x:hidden;
+  scrollbar-gutter: stable both-edges;  /* scroll estable y sin saltos */
 }
 .side-block-title{ margin:0 0 10px 0; font-size:1rem; font-weight:700; color:#0f172a; display:flex; gap:8px; align-items:center; }
 .side-field{ display:flex; flex-direction:column; gap:6px; }
@@ -125,13 +129,34 @@ html, body {
 }
 .btn-dark.excel{ background: linear-gradient(135deg, #10B981, #22c55e); }
 
+/* PDF button visual states */
+.btn-dark.pdf:not(:disabled){
+  background: linear-gradient(135deg, var(--princ-danger), #f87171);
+}
+.btn-dark.pdf:disabled,
+.btn-dark.pdf[disabled]{
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
+  box-shadow: none;
+  border: 1px solid #e2e8f0;
+  opacity: 1;
+}
+.btn-dark.pdf:disabled:hover,
+.btn-dark.pdf[disabled]:hover{
+  transform: none;
+  box-shadow: none;
+}
+
 /* =======================
    MAIN (panel derecho)
    ======================= */
 .contable-main{
   background:#fff; border-radius:var(--princ-border-radius-xl);
   box-shadow: var(--princ-shadow-xl); border: 1px solid rgba(255,255,255,0.35);
-  display:flex; flex-direction:column; height:100%; overflow:hidden;
+  display:flex; flex-direction:column; height:100%; min-height:0;
+  /* Clave: NO recortar para que se vea la barra de scroll interna */
+  overflow: visible;
 }
 
 /* Barra superior unificada: pestañas + meta + buscador */
@@ -139,6 +164,8 @@ html, body {
   position: sticky; top:0; z-index:3;
   display:flex; align-items:center; gap:12px; padding:10px 12px;
   background: rgba(255,255,255,0.96); border-bottom:1px solid #E2E8F0;
+  border-top-left-radius: var(--princ-border-radius-xl);
+  border-top-right-radius: var(--princ-border-radius-xl);
 }
 .switch-left{ display:flex; gap:8px; flex:0 0 auto; }
 .switch-right{
@@ -165,14 +192,45 @@ html, body {
 .searchbox:focus-within{ border-color:#3B82F6; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
 .searchbox input{ border:none; outline:none; font-size:.95rem; color:#0f172a; background:transparent; }
 
-/* Tabla (detalle) */
-.contable-tablewrap{ position:relative; flex:1 1 auto; overflow:hidden; display:flex; flex-direction:column; }
+/* =========================
+   Tabla genérica (Detalle)
+   ========================= */
+
+/* Wrapper redondeado que MANTIENE estética y enmascara bordes */
+.contable-tablewrap{
+  position:relative;
+  flex:1 1 auto; min-height:0;
+  display:flex; flex-direction:column;
+  background:#fff;
+  border-radius: var(--princ-border-radius);
+  box-shadow: var(--princ-shadow-sm);
+  border: 1px solid #E2E8F0;
+
+  /* Importante: ocultar overflow para conservar esquinas redondeadas,
+     pero el scroll vive dentro del body (ver .gridtable-body) */
+  overflow: hidden;
+}
+
+/* Header fijo, redondeado arriba */
 .gridtable-header{
+  position: sticky; top: 0; z-index: 2;
   background:#F1F5F9; color:#334155; border-bottom:1px solid #CBD5E1; font-weight:800;
   display:grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
+  border-top-left-radius: var(--princ-border-radius);
+  border-top-right-radius: var(--princ-border-radius);
 }
 .gridtable-header .gridtable-cell{ padding:12px 14px; }
-.gridtable-body{ flex:1 1 auto; overflow:auto; display:flex; flex-direction:column; }
+
+/* El BODY es el contenedor que scrollea y reserva canal */
+.gridtable-body{
+  flex:1 1 auto; min-height:0;
+  overflow-y:auto; overflow-x:hidden;
+  display:flex; flex-direction:column;
+  scrollbar-gutter: stable both-edges; /* scroll estable (como 1º CSS) */
+  /* redondeo inferior visible gracias al wrapper con overflow:hidden */
+  border-bottom-left-radius: var(--princ-border-radius);
+  border-bottom-right-radius: var(--princ-border-radius);
+}
 .gridtable-body .gridtable-row{
   display:grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.4fr;
   border-bottom:1px solid #F1F5F9; background:#fff; transition:.15s;
@@ -237,301 +295,46 @@ html, body {
   .kpi{ padding:10px; } .kpi strong{ font-size:1.1rem; } .kpi span,.kpi small{ font-size:.8rem; }
 }
 
-
-
-
-/* src/components/Contable/tables/DetSocTable.css */
-
-
-/* Scope suave para no romper otras tablas */
-.detsoc-section {
-  width: 100%;
+/* ================= DetalleTable (scope) ================= */
+.detalle-section { width: 100%; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+.detalle-section .detalle-header { position: relative; z-index: 3; }
+.detalle-section .detalle-body{
+  flex: 1 1 auto; min-height:0;
+  overflow-y: auto; overflow-x: hidden; display:flex; flex-direction:column;
+  scrollbar-gutter: stable both-edges;
 }
+.detalle-section .detalle-empty { flex: 1 1 auto; display: grid; place-items: center; }
+.detalle-section .gridtable-empty-inner { text-align: center; opacity: 0.85; font-size: 0.95rem; }
+.detalle-section .empty-icon { font-size: 1.4rem; margin-bottom: 0.4rem; opacity: 0.9; }
+.detalle-section .row-appear { animation: detalle-row-appear 220ms ease-out both; }
+@keyframes detalle-row-appear { from { opacity:0; transform: translateY(4px);} to {opacity:1; transform:none;} }
 
-/* Header fijo visualmente por encima del body */
-.detsoc-section .detsoc-header {
-  position: relative;
-  z-index: 3;
-}
-
-/* Body scrollable en columna */
-.detsoc-section .detsoc-body {
-  flex: 1 1 auto;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Estado vacío centrado */
-.detsoc-section .detsoc-empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-}
-
-.detsoc-section .gridtable-empty-inner {
-  text-align: center;
-  opacity: 0.85;
-  font-size: 0.95rem;
-}
-
-.detsoc-section .empty-icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.4rem;
-  opacity: 0.9;
-}
-
-/* Filas totales destacadas */
-.detsoc-section .detsoc-total {
-  font-weight: bold;
-}
-
-.detsoc-section .detsoc-total-activo {
-  background: rgba(16, 185, 129, 0.08); /* verde suave */
-}
-
-.detsoc-section .detsoc-total-pasivo {
-  background: rgba(234, 179, 8, 0.08); /* amarillo suave */
-}
-
-
-
-/* src/components/Contable/tables/CobMesTable.css */
-
-/* Scope para esta tabla sin romper otras */
-.cobmes-section {
-  width: 100%;
-}
-
-/* Header por encima del body */
+/* ================= CobMesTable (scope) ================= */
+.cobmes-section { width: 100%; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 .cobmes-section .cobmes-header {
-  position: relative;
-  z-index: 3;
+  position: sticky; top:0; z-index:3; background:#f1f5f9;
 }
-
-/* Body scrollable en columna */
-.cobmes-section .cobmes-body {
-  flex: 1 1 auto;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
+.cobmes-section .cobmes-body{
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
+  scrollbar-gutter: stable both-edges;
 }
+.cobmes-section .cobmes-empty { flex: 1 1 auto; display: grid; place-items: center; padding: 12px; }
+.cobmes-section .gridtable-empty-inner { text-align: center; opacity: 0.85; font-size: 0.95rem; }
+.cobmes-section .empty-icon { font-size: 1.4rem; margin-bottom: 0.4rem; opacity: 0.9; }
+.cobmes-section .cobmes-total { font-weight: bold; background: rgba(59, 130, 246, 0.08); }
 
-/* Estados vacíos centrados */
-.cobmes-section .cobmes-empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
+/* ================= DetSocTable (scope) ================= */
+.detsoc-section { width: 100%; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+.detsoc-section .detsoc-header { position: sticky; top:0; z-index:3; background:#f1f5f9; }
+.detsoc-section .detsoc-body{
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
+  scrollbar-gutter: stable both-edges;
 }
-
-.cobmes-section .gridtable-empty-inner {
-  text-align: center;
-  opacity: 0.85;
-  font-size: 0.95rem;
-}
-
-.cobmes-section .empty-icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.4rem;
-  opacity: 0.9;
-}
-
-/* Fila total destacada */
-.cobmes-section .cobmes-total {
-  font-weight: bold;
-  background: rgba(59, 130, 246, 0.08); /* azul suave institucional */
-}
-
-/* src/components/Contable/tables/DetalleTable.css */
-
-/* Scope general para esta tabla */
-.detalle-section {
-  width: 100%;
-}
-
-/* Header arriba del body */
-.detalle-section .detalle-header {
-  position: relative;
-  z-index: 3;
-}
-
-/* Body scrollable en columna */
-.detalle-section .detalle-body {
-  flex: 1 1 auto;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Estados vacíos centrados */
-.detalle-section .detalle-empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-}
-
-.detalle-section .gridtable-empty-inner {
-  text-align: center;
-  opacity: 0.85;
-  font-size: 0.95rem;
-}
-
-.detalle-section .empty-icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.4rem;
-  opacity: 0.9;
-}
-
-/* Animación de aparición de filas si ya la usabas en global,
-   esto sólo asegura que exista algo razonable aquí */
-.detalle-section .row-appear {
-  animation: detalle-row-appear 220ms ease-out both;
-}
-
-@keyframes detalle-row-appear {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-/* ================= CobMesTable ================= */
-
-/* La sección ocupa todo el alto disponible dentro del panel */
-.cobmes-section {
-  width: 100%;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* clave para que el hijo con flex pueda scrollear */
-}
-
-/* El wrapper de la tabla se estira al alto disponible */
-.cobmes-section .contable-tablewrap {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden; /* el scroll va en el body */
-  border-radius: 12px;
-  background: #ffffff;
-}
-
-/* Header fijo visualmente arriba del body */
-.cobmes-section .cobmes-header {
-  position: sticky; /* si querés que quede fijo al hacer scroll */
-  top: 0;
-  z-index: 3;
-  background: #f1f5f9;
-}
-
-/* Body ocupa todo el resto y scrollea */
-.cobmes-section .cobmes-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Estados vacíos centrados sin achicar el contenedor */
-.cobmes-section .cobmes-empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-  padding: 12px;
-}
-
-.cobmes-section .gridtable-empty-inner {
-  text-align: center;
-  opacity: 0.85;
-  font-size: 0.95rem;
-}
-
-.cobmes-section .empty-icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.4rem;
-  opacity: 0.9;
-}
-
-/* Fila total destacada al final, siempre visible si hay scroll */
-.cobmes-section .cobmes-total {
-  font-weight: bold;
-  background: rgba(59, 130, 246, 0.08);
-}
-/* ================= DetSocTable ================= */
-
-/* La sección ocupa todo el alto disponible dentro del panel derecho */
-.detsoc-section {
-  width: 100%;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* permite que el body haga scroll sin colapsar */
-}
-
-/* El wrapper de la tabla se estira al alto disponible */
-.detsoc-section .contable-tablewrap {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden; /* el scroll va en el body */
-  border-radius: 12px;
-  background: #ffffff;
-}
-
-/* Header fijo visualmente arriba del body */
-.detsoc-section .detsoc-header {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  background: #f1f5f9;
-}
-
-/* Body ocupa todo el resto y scrollea */
-.detsoc-section .detsoc-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Estado vacío centrado y ocupando espacio completo */
-.detsoc-section .detsoc-empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-  padding: 12px;
-}
-
-.detsoc-section .gridtable-empty-inner {
-  text-align: center;
-  opacity: 0.85;
-  font-size: 0.95rem;
-}
-
-.detsoc-section .empty-icon {
-  font-size: 1.4rem;
-  margin-bottom: 0.4rem;
-  opacity: 0.9;
-}
-
-/* Filas totales destacadas al final */
-.detsoc-section .detsoc-total {
-  font-weight: bold;
-}
-
-.detsoc-section .detsoc-total-activo {
-  background: rgba(16, 185, 129, 0.08);
-}
-
-.detsoc-section .detsoc-total-pasivo {
-  background: rgba(234, 179, 8, 0.08);
-}
+.detsoc-section .detsoc-empty { flex: 1 1 auto; display: grid; place-items: center; padding: 12px; }
+.detsoc-section .gridtable-empty-inner { text-align: center; opacity: 0.85; font-size: 0.95rem; }
+.detsoc-section .empty-icon { font-size: 1.4rem; margin-bottom: 0.4rem; opacity: 0.9; }
+.detsoc-section .detsoc-total { font-weight: bold; }
+.detsoc-section .detsoc-total-activo { background: rgba(16, 185, 129, 0.08); }
+.detsoc-section .detsoc-total-pasivo { background: rgba(234, 179, 8, 0.08); }
