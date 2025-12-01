@@ -83,6 +83,10 @@ try {
             require_once __DIR__ . '/../modules/socios/dar_alta_socio.php';
             exit;
 
+        case 'estado_pagos_socios':
+            require __DIR__ . '/../modules/socios/estado_pagos_socios.php';
+            break;
+
         /* =========================
            FAMILIAS (archivos separados)
         ========================= */

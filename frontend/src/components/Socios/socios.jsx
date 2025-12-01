@@ -27,7 +27,7 @@ import {
   FaUsers,
   FaFilter,
   FaChevronDown,
-  FaCalendarAlt
+  FaCalendarAlt,
 } from 'react-icons/fa';
 import './Socios.css';
 import ModalEliminarSocio from './modales/ModalEliminarSocio';
@@ -65,7 +65,7 @@ function useResponsiveItemSize(hasSelected) {
     mq.addEventListener?.('change', update);
     mq.addListener?.(update);
     return () => {
-      mq.removeEventListener?.('change', update);
+      mq.removeEventListener?.( 'change', update);
       mq.removeListener?.(update);
     };
   }, [hasSelected]);
@@ -79,7 +79,7 @@ const SS_KEYS = {
   SEL_ID: 'socios_last_sel_id',
   SCROLL: 'socios_last_scroll',
   TS: 'socios_last_ts',
-  FILTERS: 'socios_last_filters'
+  FILTERS: 'socios_last_filters',
 };
 const LS_FILTERS = 'filtros_socios_v2'; // nueva versión (con showAll)
 
@@ -102,116 +102,194 @@ const parseDateToTs = (d) => {
   const parts = String(d).split('-');
   if (parts.length === 3) {
     const [yy, mm, dd] = parts.map(Number);
-    const ts = new Date(yy, (mm - 1), dd).getTime();
+    const ts = new Date(yy, mm - 1, dd).getTime();
     return Number.isFinite(ts) ? ts : null;
   }
   const ts = new Date(d).getTime();
   return Number.isFinite(ts) ? ts : null;
 };
 
+// Normaliza la cantidad de meses/periodos adeudados que viene del backend
+const getDeudaMesesFromSocio = (s) => {
+  const raw =
+    s.deuda_meses ??
+    s.meses_deuda ??
+    s.deuda_periodos ??
+    s.periodos_deuda ??
+    s.meses_adeudados ??
+    0;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n;
+};
+
+// Devuelve el estado de pago en base a la deuda
+//  - 'al-dia'       => 0 meses / periodos
+//  - 'debe-1-2'     => 1 o 2
+//  - 'debe-3+'      => 3 o más
+const getEstadoPago = (deudaMeses) => {
+  const d = Number(deudaMeses);
+  if (!Number.isFinite(d) || d <= 0) return 'al-dia';
+  if (d <= 2) return 'debe-1-2';
+  return 'debe-3+';
+};
+
 /* ============================
    BARRA SUPERIOR
 ============================ */
-const BarraSuperior = React.memo(({
-  cargando,
-  busquedaInput,
-  setBusquedaInput,
-  busquedaId,
-  letraSeleccionada,
-  categoriaSeleccionada,
-  fechaDesde,
-  fechaHasta,
-  setFiltros,
-  filtrosRef,
-  mostrarFiltros,
-  setMostrarFiltros,
-  categorias,
-  startTransition
-}) => {
-  const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] = useState(false);
-  const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] = useState(false);
-  const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
+const BarraSuperior = React.memo(
+  ({
+    cargando,
+    busquedaInput,
+    setBusquedaInput,
+    busquedaId,
+    letraSeleccionada,
+    categoriaSeleccionada,
+    fechaDesde,
+    fechaHasta,
+    setFiltros,
+    filtrosRef,
+    mostrarFiltros,
+    setMostrarFiltros,
+    categorias,
+    startTransition,
+  }) => {
+    const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] =
+      useState(false);
+    const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] =
+      useState(false);
+    const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
 
-  const toggleSubmenu = useCallback((cual) => {
-    setMostrarSubmenuAlfabetico(cual === 'alfabetico' ? v => !v : false);
-    setMostrarSubmenuCategoria(cual === 'categoria' ? v => !v : false);
-    setMostrarSubmenuFecha(cual === 'fecha' ? v => !v : false);
-  }, []);
+    const toggleSubmenu = useCallback((cual) => {
+      setMostrarSubmenuAlfabetico(cual === 'alfabetico' ? (v) => !v : false);
+      setMostrarSubmenuCategoria(cual === 'categoria' ? (v) => !v : false);
+      setMostrarSubmenuFecha(cual === 'fecha' ? (v) => !v : false);
+    }, []);
 
-  const handleLetraClick = useCallback((letra) => {
-    startTransition(() => {
-      setFiltros(prev => ({
-        ...prev,
-        letraSeleccionada: letra,
-        showAll: false,
-      }));
-    });
-    setMostrarSubmenuAlfabetico(false);
-    setMostrarFiltros(false);
-  }, [setFiltros, setMostrarFiltros, startTransition]);
+    const handleLetraClick = useCallback(
+      (letra) => {
+        startTransition(() => {
+          setFiltros((prev) => ({
+            ...prev,
+            letraSeleccionada: letra,
+            showAll: false,
+          }));
+        });
+        setMostrarSubmenuAlfabetico(false);
+        setMostrarFiltros(false);
+      },
+      [setFiltros, setMostrarFiltros, startTransition]
+    );
 
-  const handleCategoriaClick = useCallback((value) => {
-    startTransition(() => {
-      setFiltros(prev => ({
-        ...prev,
-        categoriaSeleccionada: value,
-        showAll: false,
-      }));
-    });
-    setMostrarSubmenuCategoria(false);
-    setMostrarFiltros(false);
-  }, [setFiltros, setMostrarFiltros, startTransition]);
+    const handleCategoriaClick = useCallback(
+      (value) => {
+        startTransition(() => {
+          setFiltros((prev) => ({
+            ...prev,
+            categoriaSeleccionada: value,
+            showAll: false,
+          }));
+        });
+        setMostrarSubmenuCategoria(false);
+        setMostrarFiltros(false);
+      },
+      [setFiltros, setMostrarFiltros, startTransition]
+    );
 
-  const handleMostrarTodos = useCallback(() => {
-    startTransition(() => {
-      setFiltros(prev => ({
-        ...prev,
-        busqueda: '',
-        busquedaId: '',
-        letraSeleccionada: 'TODOS',
-        categoriaSeleccionada: 'OPCIONES',
-        fechaDesde: '',
-        fechaHasta: '',
-        showAll: true,
-      }));
-      setBusquedaInput('');
-    });
-    setMostrarSubmenuAlfabetico(false);
-    setMostrarSubmenuCategoria(false);
-    setMostrarSubmenuFecha(false);
-    setMostrarFiltros(false);
-  }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
+    const handleMostrarTodos = useCallback(() => {
+      startTransition(() => {
+        setFiltros((prev) => ({
+          ...prev,
+          busqueda: '',
+          busquedaId: '',
+          letraSeleccionada: 'TODOS',
+          categoriaSeleccionada: 'OPCIONES',
+          fechaDesde: '',
+          fechaHasta: '',
+          showAll: true,
+        }));
+        setBusquedaInput('');
+      });
+      setMostrarSubmenuAlfabetico(false);
+      setMostrarSubmenuCategoria(false);
+      setMostrarSubmenuFecha(false);
+      setMostrarFiltros(false);
+    }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
 
-  // Abrir calendario cuando el usuario hace click o da foco al input
-  const openPickerOnEvent = useCallback((e) => {
-    try { e.target.showPicker?.(); } catch {}
-  }, []);
+    // Abrir calendario cuando el usuario hace click o da foco al input
+    const openPickerOnEvent = useCallback((e) => {
+      try {
+        e.target.showPicker?.();
+      } catch {}
+    }, []);
 
-  return (
-    <div className="soc-barra-superior">
-      <div className="soc-titulo-container">
-        <h2 className="soc-titulo">Gestión de Socios</h2>
-      </div>
+    return (
+      <div className="soc-barra-superior">
+        <div className="soc-titulo-container">
+          <h2 className="soc-titulo">Gestión de Socios</h2>
+        </div>
 
-      <div className="soc-buscadores-container">
-        {/* Buscador por nombre */}
-        <div className="soc-buscador-container">
-          <input
-            type="text"
-            placeholder="Buscar por nombre..."
-            value={busquedaInput}
-            onChange={(e) => setBusquedaInput(e.target.value)}
-            className="soc-buscador"
-            disabled={cargando}
-          />
-          <div className="soc-buscador-iconos">
-            {busquedaInput ? (
+        <div className="soc-buscadores-container">
+          {/* Buscador por nombre */}
+          <div className="soc-buscador-container">
+            <input
+              type="text"
+              placeholder="Buscar por nombre..."
+              value={busquedaInput}
+              onChange={(e) => setBusquedaInput(e.target.value)}
+              className="soc-buscador"
+              disabled={cargando}
+            />
+            <div className="soc-buscador-iconos">
+              {busquedaInput ? (
+                <FaTimes
+                  className="soc-buscador-icono"
+                  onClick={() => {
+                    setBusquedaInput('');
+                    startTransition(() => {
+                      setFiltros((prev) => ({ ...prev, busqueda: '' }));
+                    });
+                  }}
+                />
+              ) : (
+                <FaSearch className="soc-buscador-icono" />
+              )}
+            </div>
+          </div>
+
+          {/* Buscador por ID */}
+          <div className="soc-buscador-container soc-buscador-id-container">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="ID"
+              value={busquedaId}
+              onChange={(e) => {
+                const onlyNums = e.target.value.replace(/\D/g, '');
+                startTransition(() => {
+                  setFiltros((prev) => ({
+                    ...prev,
+                    busquedaId: onlyNums,
+                    showAll: false,
+                  }));
+                });
+              }}
+              className="soc-buscador soc-buscador-id"
+              disabled={cargando}
+              title="Buscar por ID (match exacto)"
+              maxLength={10}
+            />
+            {busquedaId ? (
               <FaTimes
                 className="soc-buscador-icono"
                 onClick={() => {
-                  setBusquedaInput('');
                   startTransition(() => {
-                    setFiltros(prev => ({ ...prev, busqueda: '' }));
+                    setFiltros((prev) => ({
+                      ...prev,
+                      busquedaId: '',
+                      showAll: false,
+                    }));
                   });
                 }}
               />
@@ -221,209 +299,208 @@ const BarraSuperior = React.memo(({
           </div>
         </div>
 
-        {/* Buscador por ID */}
-        <div className="soc-buscador-container soc-buscador-id-container">
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            placeholder="ID"
-            value={busquedaId}
-            onChange={(e) => {
-              const onlyNums = e.target.value.replace(/\D/g, '');
-              startTransition(() => {
-                setFiltros(prev => ({
-                  ...prev,
-                  busquedaId: onlyNums,
-                  showAll: false,
-                }));
-              });
+        {/* Filtros */}
+        <div className="soc-filtros-container" ref={filtrosRef}>
+          <button
+            className="soc-boton-filtros soc-boton-filtros--emp"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMostrarFiltros(!mostrarFiltros);
+              if (!mostrarFiltros) {
+                setMostrarSubmenuAlfabetico(false);
+                setMostrarSubmenuCategoria(false);
+                setMostrarSubmenuFecha(false);
+              }
             }}
-            className="soc-buscador soc-buscador-id"
             disabled={cargando}
-            title="Buscar por ID (match exacto)"
-            maxLength={10}
-          />
-          {busquedaId ? (
-            <FaTimes
-              className="soc-buscador-icono"
-              onClick={() => {
-                startTransition(() => {
-                  setFiltros(prev => ({ ...prev, busquedaId: '', showAll: false }));
-                });
-              }}
+          >
+            <FaFilter className="soc-icono-boton" />
+            <span>Aplicar Filtros</span>
+            <FaChevronDown
+              className={`soc-chevron-icon ${
+                mostrarFiltros ? 'soc-rotate' : ''
+              }`}
             />
-          ) : (
-            <FaSearch className="soc-buscador-icono" />
+          </button>
+
+          {mostrarFiltros && (
+            <div
+              className="soc-menu-filtros soc-menu-filtros--emp"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* LETRAS */}
+              <div
+                className="soc-filtros-menu-item"
+                onClick={() => toggleSubmenu('alfabetico')}
+              >
+                <span>Filtrar de la A a la Z</span>
+                <FaChevronDown
+                  className={`soc-chevron-icon ${
+                    mostrarSubmenuAlfabetico ? 'soc-rotate' : ''
+                  }`}
+                />
+              </div>
+              {mostrarSubmenuAlfabetico && (
+                <div className="soc-filtros-submenu">
+                  <div className="soc-alfabeto-filtros">
+                    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letra) => (
+                      <button
+                        key={letra}
+                        className={`soc-letra-filtro ${
+                          letraSeleccionada === letra ? 'active' : ''
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLetraClick(letra);
+                        }}
+                        title={`Filtrar por ${letra}`}
+                      >
+                        {letra}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* CATEGORÍAS */}
+              <div
+                className="soc-filtros-menu-item"
+                onClick={() => toggleSubmenu('categoria')}
+              >
+                <span>Tipo de sangre</span>
+                <FaChevronDown
+                  className={`soc-chevron-icon ${
+                    mostrarSubmenuCategoria ? 'soc-rotate' : ''
+                  }`}
+                />
+              </div>
+              {mostrarSubmenuCategoria && (
+                <div className="soc-filtros-submenu">
+                  <div className="soc-submenu-lista">
+                    {categorias.map((cat) => {
+                      const active =
+                        String(categoriaSeleccionada) === String(cat.id);
+                      return (
+                        <div
+                          key={cat.id}
+                          className={`soc-filtros-submenu-item ${
+                            active ? 'active' : ''
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCategoriaClick(String(cat.id));
+                          }}
+                          title={`Filtrar por ${cat.descripcion}`}
+                        >
+                          {cat.descripcion}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* FECHA DE INGRESO */}
+              <div
+                className="soc-filtros-menu-item"
+                onClick={() => toggleSubmenu('fecha')}
+              >
+                <span>Fecha de ingreso</span>
+                <FaChevronDown
+                  className={`soc-chevron-icon ${
+                    mostrarSubmenuFecha ? 'soc-rotate' : ''
+                  }`}
+                />
+              </div>
+              {mostrarSubmenuFecha && (
+                <div className="soc-filtros-submenu">
+                  <div className="soc-fecha-rango">
+                    <div className="soc-fecha-field">
+                      <FaCalendarAlt className="soc-fecha-icon" />
+                      <label>Desde</label>
+                      <input
+                        type="date"
+                        value={fechaDesde || ''}
+                        onClick={openPickerOnEvent}
+                        onFocus={openPickerOnEvent}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          startTransition(() => {
+                            setFiltros((prev) => ({
+                              ...prev,
+                              fechaDesde: val,
+                              showAll: false,
+                            }));
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="soc-fecha-field">
+                      <FaCalendarAlt className="soc-fecha-icon" />
+                      <label>Hasta</label>
+                      <input
+                        type="date"
+                        value={fechaHasta || ''}
+                        onClick={openPickerOnEvent}
+                        onFocus={openPickerOnEvent}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          startTransition(() => {
+                            setFiltros((prev) => ({
+                              ...prev,
+                              fechaHasta: val,
+                              showAll: false,
+                            }));
+                          });
+                        }}
+                      />
+                    </div>
+                    <div className="soc-fecha-actions">
+                      <button
+                        className="soc-fecha-btn limpiar"
+                        onClick={() => {
+                          startTransition(() => {
+                            setFiltros((prev) => ({
+                              ...prev,
+                              fechaDesde: '',
+                              fechaHasta: '',
+                              showAll: false,
+                            }));
+                          });
+                        }}
+                      >
+                        Limpiar
+                      </button>
+                      <button
+                        className="soc-fecha-btn aplicar"
+                        onClick={() => {
+                          setMostrarSubmenuFecha(false);
+                          setMostrarFiltros(false);
+                        }}
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="soc-filtros-menu-item soc-filtros-menu-item__mostrar-todas"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMostrarTodos();
+                }}
+              >
+                <span>Mostrar Todos</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
-
-      {/* Filtros */}
-      <div className="soc-filtros-container" ref={filtrosRef}>
-        <button
-          className="soc-boton-filtros soc-boton-filtros--emp"
-          onClick={(e) => {
-            e.stopPropagation();
-            setMostrarFiltros(!mostrarFiltros);
-            if (!mostrarFiltros) {
-              setMostrarSubmenuAlfabetico(false);
-              setMostrarSubmenuCategoria(false);
-              setMostrarSubmenuFecha(false);
-            }
-          }}
-          disabled={cargando}
-        >
-          <FaFilter className="soc-icono-boton" />
-          <span>Aplicar Filtros</span>
-          <FaChevronDown className={`soc-chevron-icon ${mostrarFiltros ? 'soc-rotate' : ''}`} />
-        </button>
-
-        {mostrarFiltros && (
-          <div
-            className="soc-menu-filtros soc-menu-filtros--emp"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* LETRAS */}
-            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('alfabetico')}>
-              <span>Filtrar de la A a la Z</span>
-              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuAlfabetico ? 'soc-rotate' : ''}`} />
-            </div>
-            {mostrarSubmenuAlfabetico && (
-              <div className="soc-filtros-submenu">
-                <div className="soc-alfabeto-filtros">
-                  {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letra) => (
-                    <button
-                      key={letra}
-                      className={`soc-letra-filtro ${letraSeleccionada === letra ? 'active' : ''}`}
-                      onClick={(e) => { e.stopPropagation(); handleLetraClick(letra); }}
-                      title={`Filtrar por ${letra}`}
-                    >
-                      {letra}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* CATEGORÍAS */}
-            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('categoria')}>
-              <span>Tipo de sangre</span>
-              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuCategoria ? 'soc-rotate' : ''}`} />
-            </div>
-            {mostrarSubmenuCategoria && (
-              <div className="soc-filtros-submenu">
-                <div className="soc-submenu-lista">
-                  {categorias.map(cat => {
-                    const active = String(categoriaSeleccionada) === String(cat.id);
-                    return (
-                      <div
-                        key={cat.id}
-                        className={`soc-filtros-submenu-item ${active ? 'active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCategoriaClick(String(cat.id));
-                        }}
-                        title={`Filtrar por ${cat.descripcion}`}
-                      >
-                        {cat.descripcion}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* FECHA DE INGRESO */}
-            <div className="soc-filtros-menu-item" onClick={() => toggleSubmenu('fecha')}>
-              <span>Fecha de ingreso</span>
-              <FaChevronDown className={`soc-chevron-icon ${mostrarSubmenuFecha ? 'soc-rotate' : ''}`} />
-            </div>
-            {mostrarSubmenuFecha && (
-              <div className="soc-filtros-submenu">
-                <div className="soc-fecha-rango">
-                  <div className="soc-fecha-field">
-                    <FaCalendarAlt className="soc-fecha-icon" />
-                    <label>Desde</label>
-                    <input
-                      type="date"
-                      value={fechaDesde || ''}
-                      onClick={openPickerOnEvent}
-                      onFocus={openPickerOnEvent}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        startTransition(() => {
-                          setFiltros(prev => ({
-                            ...prev,
-                            fechaDesde: val,
-                            showAll: false
-                          }));
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="soc-fecha-field">
-                    <FaCalendarAlt className="soc-fecha-icon" />
-                    <label>Hasta</label>
-                    <input
-                      type="date"
-                      value={fechaHasta || ''}
-                      onClick={openPickerOnEvent}
-                      onFocus={openPickerOnEvent}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        startTransition(() => {
-                          setFiltros(prev => ({
-                            ...prev,
-                            fechaHasta: val,
-                            showAll: false
-                          }));
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="soc-fecha-actions">
-                    <button
-                      className="soc-fecha-btn limpiar"
-                      onClick={() => {
-                        startTransition(() => {
-                          setFiltros(prev => ({
-                            ...prev,
-                            fechaDesde: '',
-                            fechaHasta: '',
-                            showAll: false
-                          }));
-                        });
-                      }}
-                    >
-                      Limpiar
-                    </button>
-                    <button
-                      className="soc-fecha-btn aplicar"
-                      onClick={() => {
-                        setMostrarSubmenuFecha(false);
-                        setMostrarFiltros(false);
-                      }}
-                    >
-                      Aplicar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div
-              className="soc-filtros-menu-item soc-filtros-menu-item__mostrar-todas"
-              onClick={(e) => { e.stopPropagation(); handleMostrarTodos(); }}
-            >
-              <span>Mostrar Todos</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
 /* ============================
            COMPONENTE
@@ -433,7 +510,11 @@ const Socios = () => {
 
   // === ROL DEL USUARIO (admin/vista) ===
   const usuario = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('usuario')); } catch { return null; }
+    try {
+      return JSON.parse(localStorage.getItem('usuario'));
+    } catch {
+      return null;
+    }
   }, []);
   const rol = (usuario?.rol || 'vista').toLowerCase();
   const isAdmin = rol === 'admin';
@@ -464,21 +545,27 @@ const Socios = () => {
   const location = useLocation();
   const [isPending, startTransition] = useTransition();
 
-  const [toast, setToast] = useState({ mostrar: false, tipo: '', mensaje: '' });
+  const [toast, setToast] = useState({
+    mostrar: false,
+    tipo: '',
+    mensaje: '',
+  });
 
   // Filtros
   const [filtros, setFiltros] = useState(() => {
     try {
       const saved = localStorage.getItem(LS_FILTERS);
-      return saved ? JSON.parse(saved) : {
-        busqueda: '',
-        busquedaId: '',
-        letraSeleccionada: 'TODOS',
-        categoriaSeleccionada: 'OPCIONES',
-        fechaDesde: '',
-        fechaHasta: '',
-        showAll: false
-      };
+      return saved
+        ? JSON.parse(saved)
+        : {
+            busqueda: '',
+            busquedaId: '',
+            letraSeleccionada: 'TODOS',
+            categoriaSeleccionada: 'OPCIONES',
+            fechaDesde: '',
+            fechaHasta: '',
+            showAll: false,
+          };
     } catch {
       return {
         busqueda: '',
@@ -487,13 +574,18 @@ const Socios = () => {
         categoriaSeleccionada: 'OPCIONES',
         fechaDesde: '',
         fechaHasta: '',
-        showAll: false
+        showAll: false,
       };
     }
   });
   const {
-    busqueda, busquedaId, letraSeleccionada,
-    categoriaSeleccionada, fechaDesde, fechaHasta, showAll
+    busqueda,
+    busquedaId,
+    letraSeleccionada,
+    categoriaSeleccionada,
+    fechaDesde,
+    fechaHasta,
+    showAll,
   } = filtros;
 
   // Input controlado + debounce
@@ -503,10 +595,13 @@ const Socios = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       startTransition(() => {
-        setFiltros(prev => ({
+        setFiltros((prev) => ({
           ...prev,
           busqueda: busquedaInput || '',
-          showAll: (busquedaInput && busquedaInput.trim().length > 0) ? false : prev.showAll,
+          showAll:
+            busquedaInput && busquedaInput.trim().length > 0
+              ? false
+              : prev.showAll,
         }));
       });
     }, NAME_DEBOUNCE_MS);
@@ -527,7 +622,7 @@ const Socios = () => {
       const raw = sessionStorage.getItem(SS_KEYS.FILTERS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setFiltros(prev => ({ ...prev, ...parsed }));
+        setFiltros((prev) => ({ ...prev, ...parsed }));
         setBusquedaInput(parsed.busqueda || '');
       }
     } catch {}
@@ -546,20 +641,32 @@ const Socios = () => {
   }, [socios]);
 
   /* ===== FILTRADO ===== */
-  const activeFilters = useMemo(() => ({
-    byId: !!busquedaId,
-    bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
-    byLetter: letraSeleccionada && letraSeleccionada !== 'TODOS',
-    byCategory: categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES',
-    byDate: !!(fechaDesde || fechaHasta),
-  }), [busquedaId, deferredBusqueda, letraSeleccionada, categoriaSeleccionada, fechaDesde, fechaHasta]);
+  const activeFilters = useMemo(
+    () => ({
+      byId: !!busquedaId,
+      bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
+      byLetter: letraSeleccionada && letraSeleccionada !== 'TODOS',
+      byCategory:
+        categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES',
+      byDate: !!(fechaDesde || fechaHasta),
+    }),
+    [
+      busquedaId,
+      deferredBusqueda,
+      letraSeleccionada,
+      categoriaSeleccionada,
+      fechaDesde,
+      fechaHasta,
+    ]
+  );
 
-  const activeFiltersCount = useMemo(() =>
-    Object.values(activeFilters).filter(Boolean).length
-  , [activeFilters]);
+  const activeFiltersCount = useMemo(
+    () => Object.values(activeFilters).filter(Boolean).length,
+    [activeFilters]
+  );
 
   const sociosFiltrados = useMemo(() => {
-    let arr = socios.filter(s => s._isActive);
+    let arr = socios.filter((s) => s._isActive);
 
     if (showAll) return arr;
 
@@ -570,27 +677,29 @@ const Socios = () => {
     }
 
     if (activeFilters.byLetter) {
-      arr = arr.filter(s => s._first === letraSeleccionada);
+      arr = arr.filter((s) => s._first === letraSeleccionada);
     }
 
     if (activeFilters.byCategory) {
-      arr = arr.filter(s =>
-        String(s.id_categoria) === String(categoriaSeleccionada) &&
-        Number(s.id_estado) === 2
+      arr = arr.filter(
+        (s) =>
+          String(s.id_categoria) === String(categoriaSeleccionada) &&
+          Number(s.id_estado) === 2
       );
     }
 
     if (activeFilters.bySearch) {
       const q = deferredBusqueda.toLowerCase();
-      arr = arr.filter(s => s._name.includes(q));
+      arr = arr.filter((s) => s._name.includes(q));
     }
 
     // RANGO FECHAS (ingreso)
     if (activeFilters.byDate) {
       const tsDesde = parseDateToTs(fechaDesde);
       const tsHastaRaw = parseDateToTs(fechaHasta);
-      const tsHasta = tsHastaRaw != null ? (tsHastaRaw + 24 * 60 * 60 * 1000) : null;
-      arr = arr.filter(s => {
+      const tsHasta =
+        tsHastaRaw != null ? tsHastaRaw + 24 * 60 * 60 * 1000 : null;
+      arr = arr.filter((s) => {
         const t = s._ingresoTs;
         if (t == null) return false;
         if (tsDesde != null && t < tsDesde) return false;
@@ -602,21 +711,31 @@ const Socios = () => {
     if (activeFiltersCount === 0) return [];
     return arr;
   }, [
-    socios, idxById,
-    activeFilters, activeFiltersCount,
-    busquedaId, letraSeleccionada, categoriaSeleccionada,
-    deferredBusqueda, showAll, fechaDesde, fechaHasta
+    socios,
+    idxById,
+    activeFilters,
+    activeFiltersCount,
+    busquedaId,
+    letraSeleccionada,
+    categoriaSeleccionada,
+    deferredBusqueda,
+    showAll,
+    fechaDesde,
+    fechaHasta,
   ]);
 
   /* ===== ANIMACIÓN ENTRADA ===== */
   const allowCascade = sociosFiltrados.length <= CASCADE_DISABLE_ABOVE;
-  const triggerCascade = useCallback((duration = 360) => {
-    if (!allowCascade) return;
-    setAnimacionActiva(true);
-    setTablaVersion(v => v + 1);
-    const t = setTimeout(() => setAnimacionActiva(false), duration);
-    return () => clearTimeout(t);
-  }, [allowCascade]);
+  const triggerCascade = useCallback(
+    (duration = 360) => {
+      if (!allowCascade) return;
+      setAnimacionActiva(true);
+      setTablaVersion((v) => v + 1);
+      const t = setTimeout(() => setAnimacionActiva(false), duration);
+      return () => clearTimeout(t);
+    },
+    [allowCascade]
+  );
 
   const lastCountRef = useRef(0);
   useEffect(() => {
@@ -651,27 +770,39 @@ const Socios = () => {
   const restorePendingRef = useRef(false);
   const restoredOnceRef = useRef(false);
 
-  const goEditar = useCallback((socio) => {
-    try {
-      const currentOffset = lastScrollOffsetRef.current || 0;
-      sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
-      sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
-      sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
-      sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
-      sessionStorage.setItem(`socio_prefetch_${socio.id_socio}`, JSON.stringify(socio));
-    } catch {}
-    navigate(`/socios/editar/${socio.id_socio}`, { state: { refresh: true, socio } });
-  }, [navigate, filtros]);
+  const goEditar = useCallback(
+    (socio) => {
+      try {
+        const currentOffset = lastScrollOffsetRef.current || 0;
+        sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
+        sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
+        sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
+        sessionStorage.setItem(
+          `socio_prefetch_${socio.id_socio}`,
+          JSON.stringify(socio)
+        );
+      } catch {}
+      navigate(`/socios/editar/${socio.id_socio}`, {
+        state: { refresh: true, socio },
+      });
+    },
+    [navigate, filtros]
+  );
 
   const locationRef = useRef(location);
-  useEffect(() => { locationRef.current = location; }, [location]);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   useEffect(() => {
     const state = locationRef.current.state;
     if (state && state.refresh) {
       setNeedsRefresh(true);
       restorePendingRef.current = true;
-      navigate(locationRef.current.pathname, { replace: true, state: {} });
+      navigate(locationRef.current.pathname, {
+        replace: true,
+        state: {},
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -692,8 +823,39 @@ const Socios = () => {
       const ctrlSoc = new AbortController();
       fetchAbortRef.current.socios = ctrlSoc;
 
-      const rSoc = await fetch(`${BASE_URL}/api.php?action=socios`, { signal: ctrlSoc.signal, cache: 'no-store' });
+      // 1) SOCIOS
+      const rSoc = await fetch(`${BASE_URL}/api.php?action=socios`, {
+        signal: ctrlSoc.signal,
+        cache: 'no-store',
+      });
       const data = await rSoc.json();
+
+      // 2) ESTADO DE PAGOS (nuevo)
+      let mapEstadosPagos = new Map();
+      try {
+        const rPag = await fetch(
+          `${BASE_URL}/api.php?action=estado_pagos_socios`,
+          {
+            signal: ctrlSoc.signal,
+            cache: 'no-store',
+          }
+        );
+        const dataPag = await rPag.json();
+
+        // Se asume que el endpoint devuelve { exito: true, estados: [...] }
+        // con campos: id_socio, deuda_periodos (o similar), estado_pago: 'AL_DIA' | 'DEBE_1_2' | 'DEBE_3_MAS'
+        if (dataPag?.exito && Array.isArray(dataPag.estados)) {
+          for (const row of dataPag.estados) {
+            const id = String(row.id_socio);
+            const deuda = Number(row.deuda_periodos ?? row.deuda_meses ?? 0);
+            const estado = String(row.estado_pago ?? '').toUpperCase();
+            mapEstadosPagos.set(id, { deuda, estado });
+          }
+        }
+      } catch (err) {
+        console.error('Error obteniendo estado_pagos_socios', err);
+      }
+
       if (data?.exito) {
         const enriched = (data.socios || []).map((s) => {
           const _idStr = String(s?.id_socio ?? s?.id ?? '').trim();
@@ -704,27 +866,67 @@ const Socios = () => {
           const _estadoNum = Number(s?.id_estado ?? 0);
           const ingresoStr = s?.ingreso ? String(s.ingreso) : '';
           const _ingresoTs = parseDateToTs(ingresoStr);
-          return { ...s, _idStr, _name, _first, _dom, _isActive, _estadoNum, _ingresoTs };
+
+          // ===== NUEVO: deuda de meses/periodos y estado de pago desde el endpoint =====
+          let _deudaMeses = 0;
+          let _estadoPago = 'al-dia';
+
+          const info = mapEstadosPagos.get(String(s.id_socio));
+          if (info) {
+            _deudaMeses = Number(info.deuda) || 0;
+
+            if (info.estado === 'DEBE_1_2') {
+              _estadoPago = 'debe-1-2';
+            } else if (info.estado === 'DEBE_3_MAS') {
+              _estadoPago = 'debe-3+';
+            } else {
+              _estadoPago = 'al-dia';
+            }
+          } else {
+            // Fallback: por si el backend en el futuro manda deuda dentro de "socios"
+            const d = getDeudaMesesFromSocio(s);
+            _deudaMeses = d;
+            _estadoPago = getEstadoPago(d);
+          }
+
+          return {
+            ...s,
+            _idStr,
+            _name,
+            _first,
+            _dom,
+            _isActive,
+            _estadoNum,
+            _ingresoTs,
+            _deudaMeses,
+            _estadoPago,
+          };
         });
         setSocios(enriched);
       } else {
-        mostrarToast(`Error al obtener socios: ${data?.mensaje ?? 'desconocido'}`, 'error');
+        mostrarToast(
+          `Error al obtener socios: ${data?.mensaje ?? 'desconocido'}`,
+          'error'
+        );
         setSocios([]);
       }
 
+      // 3) LISTAS (categorías, cobradores, estados)
       try {
         const ctrlLis = new AbortController();
         fetchAbortRef.current.listas = ctrlLis;
 
-        const rLis = await fetch(`${BASE_URL}/api.php?action=listas`, { signal: ctrlLis.signal, cache: 'force-cache' });
+        const rLis = await fetch(`${BASE_URL}/api.php?action=listas`, {
+          signal: ctrlLis.signal,
+          cache: 'force-cache',
+        });
         const dataListas = await rLis.json();
 
-        // === NUEVO: guardamos categorías, cobradores y estados si vienen ===
         if (dataListas?.exito && dataListas?.listas) {
           const ls = dataListas.listas;
           setCategorias(Array.isArray(ls.categorias) ? ls.categorias : []);
-          setCobradores(Array.isArray(ls.cobradores) ? ls.cobradores : []); // NEW
-          setEstados(Array.isArray(ls.estados) ? ls.estados : []);           // NEW
+          setCobradores(Array.isArray(ls.cobradores) ? ls.cobradores : []);
+          setEstados(Array.isArray(ls.estados) ? ls.estados : []);
         } else {
           setCategorias([]);
           setCobradores([]);
@@ -780,42 +982,52 @@ const Socios = () => {
       const rawFilters = sessionStorage.getItem(SS_KEYS.FILTERS);
       if (rawFilters) {
         const parsed = JSON.parse(rawFilters);
-        setFiltros(prev => ({ ...prev, ...parsed }));
+        setFiltros((prev) => ({ ...prev, ...parsed }));
         setBusquedaInput(parsed.busqueda || '');
       }
 
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
-      const savedOffset = Number(sessionStorage.getItem(SS_KEYS.SCROLL) || '0');
+      const savedOffset = Number(
+        sessionStorage.getItem(SS_KEYS.SCROLL) || '0'
+      );
 
       const currentList = (() => {
-        let arr = socios.filter(s => s._isActive);
+        let arr = socios.filter((s) => s._isActive);
         const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
 
         if (parsed.showAll) return arr;
 
         if (parsed.busquedaId) {
-          const found = arr.find(s => String(s.id_socio) === String(parsed.busquedaId));
+          const found = arr.find(
+            (s) => String(s.id_socio) === String(parsed.busquedaId)
+          );
           arr = found ? [found] : [];
         }
         if (parsed.letraSeleccionada && parsed.letraSeleccionada !== 'TODOS') {
-          arr = arr.filter(s => s._first === parsed.letraSeleccionada);
+          arr = arr.filter((s) => s._first === parsed.letraSeleccionada);
         }
-        if (parsed.categoriaSeleccionada && parsed.categoriaSeleccionada !== 'OPCIONES') {
-          arr = arr.filter(s =>
-            String(s.id_categoria) === String(parsed.categoriaSeleccionada) &&
-            Number(s.id_estado) === 2
+        if (
+          parsed.categoriaSeleccionada &&
+          parsed.categoriaSeleccionada !== 'OPCIONES'
+        ) {
+          arr = arr.filter(
+            (s) =>
+              String(s.id_categoria) ===
+                String(parsed.categoriaSeleccionada) &&
+              Number(s.id_estado) === 2
           );
         }
         if (parsed.busqueda) {
           const q = String(parsed.busqueda).toLowerCase();
-          arr = arr.filter(s => s._name.includes(q));
+          arr = arr.filter((s) => s._name.includes(q));
         }
         // Rango fechas al restaurar
         if (parsed.fechaDesde || parsed.fechaHasta) {
           const tsDesde = parseDateToTs(parsed.fechaDesde);
           const tsHastaRaw = parseDateToTs(parsed.fechaHasta);
-          const tsHasta = tsHastaRaw != null ? (tsHastaRaw + 24 * 60 * 60 * 1000) : null;
-          arr = arr.filter(s => {
+          const tsHasta =
+            tsHastaRaw != null ? tsHastaRaw + 24 * 60 * 60 * 1000 : null;
+          arr = arr.filter((s) => {
             const t = s._ingresoTs;
             if (t == null) return false;
             if (tsDesde != null && t < tsDesde) return false;
@@ -827,7 +1039,9 @@ const Socios = () => {
       })();
 
       if (selId) {
-        const idx = currentList.findIndex(s => String(s.id_socio) === String(selId));
+        const idx = currentList.findIndex(
+          (s) => String(s.id_socio) === String(selId)
+        );
         if (idx >= 0) {
           setSocioSeleccionado(currentList[idx]);
           requestAnimationFrame(() => {
@@ -851,72 +1065,95 @@ const Socios = () => {
   /* ===== LOOKUPS para export ===== */
   const mapCategorias = useMemo(() => {
     const m = new Map();
-    for (const c of categorias) m.set(String(c.id ?? c.id_categoria ?? ''), String(c.descripcion ?? c.nombre ?? ''));
+    for (const c of categorias)
+      m.set(
+        String(c.id ?? c.id_categoria ?? ''),
+        String(c.descripcion ?? c.nombre ?? '')
+      );
     return m;
   }, [categorias]);
 
   const mapCobradores = useMemo(() => {
     const m = new Map();
-    for (const c of cobradores) m.set(String(c.id ?? c.id_cobrador ?? ''), String(c.nombre ?? ''));
+    for (const c of cobradores)
+      m.set(String(c.id ?? c.id_cobrador ?? ''), String(c.nombre ?? ''));
     return m;
   }, [cobradores]);
 
   const mapEstados = useMemo(() => {
     const m = new Map();
-    for (const e of estados) m.set(String(e.id ?? e.id_estado ?? ''), String(e.descripcion ?? e.nombre ?? ''));
+    for (const e of estados)
+      m.set(
+        String(e.id ?? e.id_estado ?? ''),
+        String(e.descripcion ?? e.nombre ?? '')
+      );
     return m;
   }, [estados]);
 
   /* ===== HANDLERS / EXPORTACIÓN ===== */
   const manejarSeleccion = useCallback((socio) => {
-    setSocioSeleccionado(prev => prev?._idStr !== socio._idStr ? socio : null);
+    setSocioSeleccionado((prev) =>
+      prev?._idStr !== socio._idStr ? socio : null
+    );
   }, []);
 
-  const eliminarSocio = useCallback(async (id) => {
-    try {
-      const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_socio: id }),
-      });
-      const data = await response.json();
-      if (data.exito) {
-        setSocios(prev => prev.filter((s) => s.id_socio !== id));
-        mostrarToast('Socio eliminado correctamente');
-        triggerCascade(300);
-      } else {
-        mostrarToast(`Error al eliminar: ${data.mensaje}`, 'error');
+  const eliminarSocio = useCallback(
+    async (id) => {
+      try {
+        const response = await fetch(
+          `${BASE_URL}/api.php?action=eliminar_socio`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_socio: id }),
+          }
+        );
+        const data = await response.json();
+        if (data.exito) {
+          setSocios((prev) => prev.filter((s) => s.id_socio !== id));
+          mostrarToast('Socio eliminado correctamente');
+          triggerCascade(300);
+        } else {
+          mostrarToast(`Error al eliminar: ${data.mensaje}`, 'error');
+        }
+      } catch {
+        mostrarToast('Error de red al intentar eliminar', 'error');
+      } finally {
+        setMostrarModalEliminar(false);
+        setSocioAEliminar(null);
       }
-    } catch {
-      mostrarToast('Error de red al intentar eliminar', 'error');
-    } finally {
-      setMostrarModalEliminar(false);
-      setSocioAEliminar(null);
-    }
-  }, [mostrarToast, triggerCascade]);
+    },
+    [mostrarToast, triggerCascade]
+  );
 
-  const darDeBajaSocio = useCallback(async (id, motivo) => {
-    try {
-      const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_socio: id, motivo }),
-      });
-      const data = await response.json();
-      if (data.exito) {
-        setSocios(prev => prev.filter((s) => s.id_socio !== id));
-        mostrarToast('Socio dado de baja correctamente');
-        triggerCascade(300);
-      } else {
-        mostrarToast(`Error: ${data.mensaje}`, 'error');
+  const darDeBajaSocio = useCallback(
+    async (id, motivo) => {
+      try {
+        const response = await fetch(
+          `${BASE_URL}/api.php?action=dar_baja_socio`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_socio: id, motivo }),
+          }
+        );
+        const data = await response.json();
+        if (data.exito) {
+          setSocios((prev) => prev.filter((s) => s.id_socio !== id));
+          mostrarToast('Socio dado de baja correctamente');
+          triggerCascade(300);
+        } else {
+          mostrarToast(`Error: ${data.mensaje}`, 'error');
+        }
+      } catch {
+        mostrarToast('Error de red al intentar dar de baja', 'error');
+      } finally {
+        setMostrarModalDarBaja(false);
+        setSocioDarBaja(null);
       }
-    } catch {
-      mostrarToast('Error de red al intentar dar de baja', 'error');
-    } finally {
-      setMostrarModalDarBaja(false);
-      setSocioDarBaja(null);
-    }
-  }, [mostrarToast, triggerCascade]);
+    },
+    [mostrarToast, triggerCascade]
+  );
 
   const exportarExcel = useCallback(() => {
     if (socios.length === 0) {
@@ -924,17 +1161,25 @@ const Socios = () => {
       return;
     }
     if (!showAll && activeFiltersCount === 0) {
-      mostrarToast('Aplicá al menos un filtro o "Mostrar todos" para exportar.', 'error');
+      mostrarToast(
+        'Aplicá al menos un filtro o "Mostrar todos" para exportar.',
+        'error'
+      );
       return;
     }
     if (sociosFiltrados.length === 0) {
-      mostrarToast('No hay socios que coincidan con los filtros actuales.', 'error');
+      mostrarToast(
+        'No hay socios que coincidan con los filtros actuales.',
+        'error'
+      );
       return;
     }
 
     const datos = sociosFiltrados.map((s) => {
-      const catTxt = mapCategorias.get(String(s.id_categoria)) ?? s.id_categoria;
-      const cobTxt = mapCobradores.get(String(s.id_cobrador)) ?? s.id_cobrador;
+      const catTxt =
+        mapCategorias.get(String(s.id_categoria)) ?? s.id_categoria;
+      const cobTxt =
+        mapCobradores.get(String(s.id_cobrador)) ?? s.id_cobrador;
       const estTxt = mapEstados.get(String(s.id_estado)) ?? s.id_estado;
 
       return {
@@ -950,20 +1195,33 @@ const Socios = () => {
         Comentario: s.comentario,
         Fecha_Nacimiento: s.nacimiento,
         Ingreso: s.ingreso,
-        Activo: s.activo
+        Activo: s.activo,
+        Deuda_meses: s._deudaMeses ?? 0,
       };
     });
 
     const ws = XLSX.utils.json_to_sheet(datos);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, showAll ? "Socios (todos activos)" : "Socios (filtrados)");
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      showAll ? 'Socios (todos activos)' : 'Socios (filtrados)'
+    );
 
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    const blob = new Blob([excelBuffer], {
+      type: 'application/octet-stream',
+    });
     saveAs(blob, 'Socios.xlsx');
   }, [
-    socios, sociosFiltrados, showAll, activeFiltersCount,
-    mostrarToast, mapCategorias, mapCobradores, mapEstados
+    socios,
+    sociosFiltrados,
+    showAll,
+    activeFiltersCount,
+    mostrarToast,
+    mapCategorias,
+    mapCobradores,
+    mapEstados,
   ]);
 
   /* ============================
@@ -976,6 +1234,17 @@ const Socios = () => {
     const shouldAnimate = animacionActiva && index < MAX_CASCADE;
     const animationDelay = shouldAnimate ? `${index * 0.035}s` : '0s';
 
+    // Clase según estado de pago
+    const estadoPago = socio._estadoPago; // 'al-dia', 'debe-1-2', 'debe-3+'
+    const estadoPagoClass =
+      estadoPago === 'al-dia'
+        ? 'soc-estado-al-dia'
+        : estadoPago === 'debe-1-2'
+        ? 'soc-estado-debe-1-2'
+        : estadoPago === 'debe-3+'
+        ? 'soc-estado-debe-3-mas'
+        : '';
+
     return (
       <div
         style={{
@@ -986,25 +1255,41 @@ const Socios = () => {
           animationDuration: shouldAnimate ? '.3s' : '0s',
           opacity: shouldAnimate ? 0 : 1,
         }}
-        className={`soc-tabla-fila ${esFilaPar ? 'soc-row-even' : 'soc-row-odd'} ${socioSeleccionado?._idStr === socio._idStr ? 'soc-fila-seleccionada' : ''}`}
+        className={`soc-tabla-fila ${
+          esFilaPar ? 'soc-row-even' : 'soc-row-odd'
+        } ${
+          socioSeleccionado?._idStr === socio._idStr
+            ? 'soc-fila-seleccionada'
+            : ''
+        } ${estadoPagoClass}`}
         onClick={() => manejarSeleccion(socio)}
       >
         <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
           {socio.id_socio}
         </div>
 
-        <div className="soc-col-nombre" data-label="Socio" title={socio.nombre}>
+        <div
+          className="soc-col-nombre"
+          data-label="Socio"
+          title={socio.nombre}
+        >
           {socio.nombre}
         </div>
 
-        <div className="soc-col-domicilio" data-label="Domicilio" title={socio._dom}>
+        <div
+          className="soc-col-domicilio"
+          data-label="Domicilio"
+          title={socio._dom}
+        >
           {socio._dom}
         </div>
 
         <div className="soc-col-comentario" data-label="Comentario">
           {socio.comentario ? (
             <span title={socio.comentario}>
-              {socio.comentario.length > 36 ? `${socio.comentario.substring(0, 36)}…` : socio.comentario}
+              {socio.comentario.length > 36
+                ? `${socio.comentario.substring(0, 36)}…`
+                : socio.comentario}
             </span>
           ) : null}
         </div>
@@ -1072,18 +1357,34 @@ const Socios = () => {
   /* ============================
           RENDER + ISLA
   ============================ */
-  const limpiarChip = useCallback((tipo) => {
-    setFiltros(prev => {
-      if (tipo === 'busqueda') return { ...prev, busqueda: '', showAll: prev.showAll };
-      if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
-      if (tipo === 'letra') return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
-      if (tipo === 'categoria') return { ...prev, categoriaSeleccionada: 'OPCIONES', showAll: false };
-      if (tipo === 'fecha') return { ...prev, fechaDesde: '', fechaHasta: '', showAll: false };
-      if (tipo === 'showAll') return { ...prev, showAll: false };
-      return prev;
-    });
-    if (tipo === 'busqueda') setBusquedaInput('');
-  }, [setFiltros]);
+  const limpiarChip = useCallback(
+    (tipo) => {
+      setFiltros((prev) => {
+        if (tipo === 'busqueda')
+          return { ...prev, busqueda: '', showAll: prev.showAll };
+        if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
+        if (tipo === 'letra')
+          return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
+        if (tipo === 'categoria')
+          return {
+            ...prev,
+            categoriaSeleccionada: 'OPCIONES',
+            showAll: false,
+          };
+        if (tipo === 'fecha')
+          return {
+            ...prev,
+            fechaDesde: '',
+            fechaHasta: '',
+            showAll: false,
+          };
+        if (tipo === 'showAll') return { ...prev, showAll: false };
+        return prev;
+      });
+      if (tipo === 'busqueda') setBusquedaInput('');
+    },
+    [setFiltros]
+  );
 
   const chips = useMemo(() => {
     const arr = [];
@@ -1101,17 +1402,36 @@ const Socios = () => {
       arr.push({ key: 'letra', label: `Letra: ${letraSeleccionada}` });
     }
     if (categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES') {
-      const found = categorias.find(c => String(c.id) === String(categoriaSeleccionada));
-      arr.push({ key: 'categoria', label: `Categoría: ${found ? found.descripcion : categoriaSeleccionada}` });
+      const found = categorias.find(
+        (c) => String(c.id) === String(categoriaSeleccionada)
+      );
+      arr.push({
+        key: 'categoria',
+        label: `Categoría: ${
+          found ? found.descripcion : categoriaSeleccionada
+        }`,
+      });
     }
     if (fechaDesde || fechaHasta) {
       const etiqueta =
-        (fechaDesde && fechaHasta) ? `Ingreso: ${fechaDesde} → ${fechaHasta}`
-        : (fechaDesde ? `Ingreso: desde ${fechaDesde}` : `Ingreso: hasta ${fechaHasta}`);
+        fechaDesde && fechaHasta
+          ? `Ingreso: ${fechaDesde} → ${fechaHasta}`
+          : fechaDesde
+          ? `Ingreso: desde ${fechaDesde}`
+          : `Ingreso: hasta ${fechaHasta}`;
       arr.push({ key: 'fecha', label: etiqueta });
     }
     return arr;
-  }, [showAll, busqueda, busquedaId, letraSeleccionada, categoriaSeleccionada, categorias, fechaDesde, fechaHasta]);
+  }, [
+    showAll,
+    busqueda,
+    busquedaId,
+    letraSeleccionada,
+    categoriaSeleccionada,
+    categorias,
+    fechaDesde,
+    fechaHasta,
+  ]);
 
   // ItemSize responsivo
   const dynamicItemSize = useResponsiveItemSize(!!socioSeleccionado);
@@ -1123,7 +1443,9 @@ const Socios = () => {
           <Toast
             tipo={toast.tipo}
             mensaje={toast.mensaje}
-            onClose={() => setToast({ mostrar: false, tipo: '', mensaje: '' })}
+            onClose={() =>
+              setToast({ mostrar: false, tipo: '', mensaje: '' })
+            }
             duracion={3000}
           />
         )}
@@ -1146,13 +1468,43 @@ const Socios = () => {
         />
 
         <div className="soc-tabla-container">
-          <div className="soc-tabla-header-container" style={{ position: 'relative' }}>
-            <div className="soc-contador" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            className="soc-tabla-header-container"
+            style={{ position: 'relative' }}
+          >
+            <div
+              className="soc-contador"
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
               <FaUsers className="soc-contador-icono" size={14} />
               {showAll
                 ? 'Total visibles:'
-                : (activeFiltersCount === 0 ? 'Filtrá para ver socios:' : 'Socios filtrados:')}
-              <strong>{showAll ? sociosFiltrados.length : (activeFiltersCount === 0 ? 0 : sociosFiltrados.length)}</strong>
+                : activeFiltersCount === 0
+                ? 'Filtrá para ver socios:'
+                : 'Socios filtrados:'}
+              <strong>
+                {showAll
+                  ? sociosFiltrados.length
+                  : activeFiltersCount === 0
+                  ? 0
+                  : sociosFiltrados.length}
+              </strong>
+            </div>
+
+            {/* Leyenda de estado de pago */}
+            <div className="soc-legenda-pagos">
+              <span className="soc-legenda-item">
+                <span className="soc-legenda-dot soc-legenda-dot--al-dia" />
+                Al día
+              </span>
+              <span className="soc-legenda-item">
+                <span className="soc-legenda-dot soc-legenda-dot--debe-1-2" />
+                Debe 1–2 periodos
+              </span>
+              <span className="soc-legenda-item">
+                <span className="soc-legenda-dot soc-legenda-dot--debe-3-mas" />
+                Debe 3+ periodos
+              </span>
             </div>
 
             {/* Isla de chips */}
@@ -1164,13 +1516,13 @@ const Socios = () => {
                 gap: '8px',
                 position: 'absolute',
                 right: '12px',
-                top: '4px',
+                top: '32px',
                 maxWidth: '55%',
                 alignItems: 'center',
-                justifyContent: 'flex-end'
+                justifyContent: 'flex-end',
               }}
             >
-              {chips.map(ch => (
+              {chips.map((ch) => (
                 <div
                   key={ch.key}
                   className="soc-chip"
@@ -1183,20 +1535,23 @@ const Socios = () => {
                     background: '#f1f5f9',
                     border: '1px solid #e2e8f0',
                     fontSize: 12,
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                   title={ch.label}
                 >
                   <span>{ch.label}</span>
                   <button
-                    onClick={(e) => { e.stopPropagation(); limpiarChip(ch.key); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      limpiarChip(ch.key);
+                    }}
                     className="soc-chip-close"
                     style={{
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       lineHeight: 1,
-                      padding: 0
+                      padding: 0,
                     }}
                     title="Quitar filtro"
                   >
@@ -1216,8 +1571,13 @@ const Socios = () => {
           </div>
 
           {/* Lista */}
-          <div className={`soc-list-container ${animacionActiva ? 'soc-cascade-animation' : ''}`} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {(!showAll && activeFiltersCount === 0) ? (
+          <div
+            className={`soc-list-container ${
+              animacionActiva ? 'soc-cascade-animation' : ''
+            }`}
+            style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+          >
+            {!showAll && activeFiltersCount === 0 ? (
               <div className="soc-boton-mostrar-container">
                 <div className="soc-mensaje-inicial">
                   Aplicá al menos un filtro para ver socios
@@ -1234,7 +1594,7 @@ const Socios = () => {
                         categoriaSeleccionada: 'OPCIONES',
                         fechaDesde: '',
                         fechaHasta: '',
-                        showAll: true
+                        showAll: true,
                       });
                     });
                     requestAnimationFrame(() => triggerCascade(320));
@@ -1270,7 +1630,9 @@ const Socios = () => {
                     overscanCount={4}
                     outerElementType={Outer}
                     itemKey={(index, data) => data[index]._idStr}
-                    onScroll={({ scrollOffset }) => (lastScrollOffsetRef.current = scrollOffset)}
+                    onScroll={({ scrollOffset }) =>
+                      (lastScrollOffsetRef.current = scrollOffset)
+                    }
                   >
                     {Row}
                   </List>
@@ -1282,14 +1644,20 @@ const Socios = () => {
 
         {/* Barra inferior */}
         <div className="soc-barra-inferior">
-          <button className="soc-boton soc-boton-volver" onClick={() => navigate('/panel')}>
+          <button
+            className="soc-boton soc-boton-volver"
+            onClick={() => navigate('/panel')}
+          >
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
 
           <div className="soc-botones-derecha">
             {/* Agregar Socio: solo ADMIN */}
             {isAdmin && (
-              <button className="soc-boton soc-boton-agregar" onClick={() => navigate('/socios/agregar')}>
+              <button
+                className="soc-boton soc-boton-agregar"
+                onClick={() => navigate('/socios/agregar')}
+              >
                 <FaUserPlus className="soc-boton-icono" /> Agregar Socio
               </button>
             )}
@@ -1297,17 +1665,28 @@ const Socios = () => {
             <button
               className="soc-boton soc-boton-exportar"
               onClick={exportarExcel}
-              disabled={cargando || sociosFiltrados.length === 0 || socios.length === 0 || (!showAll && activeFiltersCount === 0)}
+              disabled={
+                cargando ||
+                sociosFiltrados.length === 0 ||
+                socios.length === 0 ||
+                (!showAll && activeFiltersCount === 0)
+              }
             >
               <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
             </button>
 
-            <button className="soc-boton soc-boton-baja" onClick={() => navigate('/socios/baja')}>
+            <button
+              className="soc-boton soc-boton-baja"
+              onClick={() => navigate('/socios/baja')}
+            >
               <FaUserSlash className="soc-boton-icono" /> Dados de Baja
             </button>
 
             {/* 🔹 Nuevo: botón Familias */}
-            <button className="soc-boton soc-boton-Familia" onClick={() => navigate('/familias')}>
+            <button
+              className="soc-boton soc-boton-Familia"
+              onClick={() => navigate('/familias')}
+            >
               <FaUsers className="soc-boton-icono" /> Familias
             </button>
           </div>

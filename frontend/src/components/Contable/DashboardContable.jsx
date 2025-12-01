@@ -283,6 +283,143 @@ function buildYearIndexes(rawContable, rawListas) {
   };
 }
 
+/* === Utilidad para mapear cobrador -> MEDIO (TRANSFERENCIA / OFICINA / COBRADOR) === */
+const MEDIO_TRANSFERENCIA = "TRANSFERENCIA";
+const MEDIO_OFICINA = "OFICINA";
+const MEDIO_COBRADOR = "COBRADOR";
+
+const normalizarMedioDeCobrador = (nombre = "") => {
+  const n = String(nombre || "").toUpperCase().trim();
+
+  if (n === "OFICINA") return MEDIO_OFICINA;
+  if (n === "TRANSFERENCIA") return MEDIO_TRANSFERENCIA;
+
+  // Todo lo demás entra como COBRADOR (cobradores de calle)
+  return MEDIO_COBRADOR;
+};
+
+/**
+ * A partir de la respuesta de obtener_monto_objetivo.php
+ * arma los mapas que usa CobMesTable:
+ *
+ * - esperadosPorMes               { mes -> monto esperado TOTAL }
+ * - esperadosPorMesPorMedio       { MEDIO -> { mes -> monto } }
+ * - sociosPorMesPorMedio          { MEDIO -> { mes -> socios esperados } }
+ * - esperadosPorMesPorMedioEstado { MEDIO -> { ESTADO -> { mes -> monto } } }
+ * - sociosPorMesPorMedioEstado    { MEDIO -> { ESTADO -> { mes -> socios esperados } } }
+ */
+const buildEsperadosMaps = (objetivo) => {
+  const esperadosPorMes = {};
+  const esperadosPorMesPorMedio = {};
+  const sociosPorMesPorMedio = {};
+
+  const esperadosPorMesPorMedioEstado = {};
+  const sociosPorMesPorMedioEstado = {};
+
+  const MEDIOS = [MEDIO_TRANSFERENCIA, MEDIO_OFICINA, MEDIO_COBRADOR];
+  const ESTADOS = ["ACTIVO", "PASIVO"];
+
+  // Inicializar estructuras vacías
+  for (const medio of MEDIOS) {
+    esperadosPorMesPorMedio[medio] = {};
+    sociosPorMesPorMedio[medio] = {};
+
+    esperadosPorMesPorMedioEstado[medio] = {};
+    sociosPorMesPorMedioEstado[medio] = {};
+
+    for (const est of ESTADOS) {
+      esperadosPorMesPorMedioEstado[medio][est] = {};
+      sociosPorMesPorMedioEstado[medio][est] = {};
+    }
+  }
+
+  // ===== 1) Totales por cobrador y MES (sin estado) =====
+  const listaPM = objetivo?.esperado_por_cobrador_por_mes || [];
+  for (const row of listaPM) {
+    const medio = normalizarMedioDeCobrador(row.nombre);
+    const porMes = row?.por_mes || {};
+    const sociosCont = Number(row?.socios_contados || 0);
+
+    for (const [mesStr, montoVal] of Object.entries(porMes)) {
+      const mes = Number(mesStr);
+      const monto = Number(montoVal || 0);
+
+      // Global (todos los medios)
+      esperadosPorMes[mes] = (esperadosPorMes[mes] || 0) + monto;
+
+      // Por medio
+      esperadosPorMesPorMedio[medio][mes] =
+        (esperadosPorMesPorMedio[medio][mes] || 0) + monto;
+
+      // Socios: usamos socios_contados del cobrador
+      // Lo sumamos por medio y mes. Luego, en CobMesTable se usa MAX entre meses,
+      // así que no se duplica en el total de periodos.
+      sociosPorMesPorMedio[medio][mes] =
+        (sociosPorMesPorMedio[medio][mes] || 0) + sociosCont;
+    }
+  }
+
+  // ===== 2) Totales por cobrador, MES y ESTADO (ACTIVO / PASIVO) =====
+  const listaPME = objetivo?.esperado_por_cobrador_por_mes_estado || [];
+  for (const row of listaPME) {
+    const medio = normalizarMedioDeCobrador(row.nombre);
+    const estado = String(row?.estado || "").toUpperCase().trim();
+    if (estado !== "ACTIVO" && estado !== "PASIVO") continue;
+
+    const porMes = row?.por_mes || {};
+    const sociosCont = Number(row?.socios_contados || 0);
+
+    for (const [mesStr, montoVal] of Object.entries(porMes)) {
+      const mes = Number(mesStr);
+      const monto = Number(montoVal || 0);
+
+      // Monto esperado por MEDIO + ESTADO + MES
+      esperadosPorMesPorMedioEstado[medio][estado][mes] =
+        (esperadosPorMesPorMedioEstado[medio][estado][mes] || 0) + monto;
+
+      // Socios esperados por MEDIO + ESTADO + MES
+      sociosPorMesPorMedioEstado[medio][estado][mes] =
+        (sociosPorMesPorMedioEstado[medio][estado][mes] || 0) + sociosCont;
+    }
+  }
+
+  return {
+    esperadosPorMes,
+    esperadosPorMesPorMedio,
+    sociosPorMesPorMedio,
+    esperadosPorMesPorMedioEstado,
+    sociosPorMesPorMedioEstado,
+  };
+};
+
+/* ====== Skeleton rows ====== */
+function renderSkeletonRows() {
+  return Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
+    <div
+      className="gridtable-row skeleton-row"
+      role="row"
+      key={`sk-${idx}`}
+      aria-hidden="true"
+    >
+      <div className="gridtable-cell">
+        <span className="skeleton-bar w-80" />
+      </div>
+      <div className="gridtable-cell">
+        <span className="skeleton-bar w-40" />
+      </div>
+      <div className="gridtable-cell">
+        <span className="skeleton-bar w-60" />
+      </div>
+      <div className="gridtable-cell">
+        <span className="skeleton-bar w-50" />
+      </div>
+      <div className="gridtable-cell">
+        <span className="skeleton-bar w-70" />
+      </div>
+    </div>
+  ));
+}
+
 /* ===================== Componente ===================== */
 export default function DashboardContable() {
   const navigate = useNavigate();
@@ -325,6 +462,9 @@ export default function DashboardContable() {
   // Detalle Cobranza
   const [esperadosPorMes, setEsperadosPorMes] = useState({});
   const [esperadosPorMesPorMedio, setEsperadosPorMesPorMedio] = useState({});
+  const [sociosPorMesPorMedio, setSociosPorMesPorMedio] = useState({});
+  const [esperadosPorMesPorMedioEstado, setEsperadosPorMesPorMedioEstado] = useState({});
+  const [sociosPorMesPorMedioEstado, setSociosPorMesPorMedioEstado] = useState({});
   const [loadingResumen, setLoadingResumen] = useState(false);
 
   // Detalle Socios
@@ -363,6 +503,270 @@ export default function DashboardContable() {
     esperado: 0,
     diferencia: 0,
   });
+
+  /* ===== recomputeSync (usa refs actuales) ===== */
+  const recomputeSync = useCallback((periodLabel, monthSel, cobrador) => {
+    const all = curPagosAllSortedRef.current || [];
+    const byMonth = curPagosByMonthRef.current || [];
+    const byPeriod = curPeriodMergedMapRef.current || new Map();
+
+    const monthNum =
+      monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
+
+    let base;
+
+    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
+      base = all;
+    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
+      base = byMonth[monthNum] || [];
+    } else {
+      base = byPeriod.get(periodLabel) || [];
+      if (monthNum) {
+        base = base.filter((p) => p._month === monthNum);
+      }
+    }
+
+    if (cobrador !== "todos") {
+      base = base.filter((p) => p._cb === cobrador);
+    }
+
+    let total = 0;
+    const setCb = new Set();
+
+    for (let i = 0; i < base.length; i++) {
+      total += base[i]._precioNum;
+      if (base[i]._cb) setCb.add(base[i]._cb);
+    }
+
+    return {
+      registros: base,
+      total,
+      cobradoresUnicos: setCb.size,
+    };
+  }, []);
+
+  /* ===== helper mesesDisponibles ===== */
+  const mesesDisponibles = useMemo(() => {
+    if (!anioSeleccionado) return [];
+    if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo") {
+      return Array.from({ length: 12 }, (_, i) => i + 1);
+    }
+    const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
+    const ms =
+      opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
+    return ms && ms.length ? ms : [];
+  }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
+
+  // usar NOMBRE del cobrador en mayúsculas como key
+  const fetchEsperadoMes = useCallback(
+    async (mes) => {
+      const u = new URL(`${BASE_URL}/api.php`);
+      u.searchParams.set("action", "obtener_monto_objetivo");
+      u.searchParams.set("anio", String(anioSeleccionado));
+      u.searchParams.set("mes", String(mes));
+      u.searchParams.set("todos_cobradores", "1");
+
+      const res = await fetch(u.toString() + `&ts=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+
+      // Usar la nueva función buildEsperadosMaps
+      const mapsEsperados = buildEsperadosMaps(data);
+
+      return {
+        totalMes: mapsEsperados.esperadosPorMes[mes] || 0,
+        porMedio: Object.fromEntries(
+          Object.entries(mapsEsperados.esperadosPorMesPorMedio).map(([medio, meses]) => [
+            medio,
+            meses[mes] || 0
+          ])
+        ),
+        sociosPorMedio: Object.fromEntries(
+          Object.entries(mapsEsperados.sociosPorMesPorMedio).map(([medio, meses]) => [
+            medio,
+            meses[mes] || 0
+          ])
+        ),
+        mapsEsperados // Devolvemos todos los maps para uso posterior
+      };
+    },
+    [anioSeleccionado]
+  );
+
+  const mesesParaResumen = useMemo(() => {
+    if (!anioSeleccionado) return [];
+    if (mesSeleccionado !== "Todos los meses") {
+      return [parseInt(mesSeleccionado, 10)];
+    }
+    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
+      const ms =
+        opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
+      return ms && ms.length ? ms.slice().sort((a, b) => a - b) : [];
+    }
+    return Array.from({ length: 12 }, (_, i) => i + 1);
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, periodosOpts]);
+
+  const recomputeResumen = useCallback(async () => {
+    if (!anioSeleccionado || mesesParaResumen.length === 0) {
+      setEsperadosPorMes({});
+      setEsperadosPorMesPorMedio({});
+      setSociosPorMesPorMedio({});
+      setEsperadosPorMesPorMedioEstado({});
+      setSociosPorMesPorMedioEstado({});
+      return;
+    }
+    try {
+      setLoadingResumen(true);
+      const pairs = await Promise.all(
+        mesesParaResumen.map((m) => fetchEsperadoMes(m).then((val) => [m, val]))
+      );
+
+      const obj = {};
+      const porMedio = {};
+      const sociosMedioGlobal = {};
+      const porMedioEstado = {};
+      const sociosMedioEstadoGlobal = {};
+
+      // Inicializar estructuras
+      const MEDIOS = [MEDIO_TRANSFERENCIA, MEDIO_OFICINA, MEDIO_COBRADOR];
+      const ESTADOS = ["ACTIVO", "PASIVO"];
+
+      for (const medio of MEDIOS) {
+        porMedio[medio] = {};
+        sociosMedioGlobal[medio] = {};
+        porMedioEstado[medio] = {};
+        sociosMedioEstadoGlobal[medio] = {};
+        
+        for (const estado of ESTADOS) {
+          porMedioEstado[medio][estado] = {};
+          sociosMedioEstadoGlobal[medio][estado] = {};
+        }
+      }
+
+      for (const [m, { totalMes, porMedio: mapMedio, sociosPorMedio, mapsEsperados }] of pairs) {
+        obj[m] = totalMes;
+
+        // montos
+        for (const nombreKey of Object.keys(mapMedio)) {
+          if (!porMedio[nombreKey]) porMedio[nombreKey] = {};
+          porMedio[nombreKey][m] = (porMedio[nombreKey][m] ?? 0) + mapMedio[nombreKey];
+        }
+
+        // socios
+        for (const nombreKey of Object.keys(sociosPorMedio)) {
+          if (!sociosMedioGlobal[nombreKey]) sociosMedioGlobal[nombreKey] = {};
+          sociosMedioGlobal[nombreKey][m] =
+            (sociosMedioGlobal[nombreKey][m] ?? 0) + sociosPorMedio[nombreKey];
+        }
+
+        // Por medio y estado
+        for (const medio of MEDIOS) {
+          for (const estado of ESTADOS) {
+            const monto = mapsEsperados.esperadosPorMesPorMedioEstado[medio]?.[estado]?.[m] || 0;
+            const socios = mapsEsperados.sociosPorMesPorMedioEstado[medio]?.[estado]?.[m] || 0;
+            
+            porMedioEstado[medio][estado][m] = (porMedioEstado[medio][estado][m] || 0) + monto;
+            sociosMedioEstadoGlobal[medio][estado][m] = (sociosMedioEstadoGlobal[medio][estado][m] || 0) + socios;
+          }
+        }
+      }
+
+      setEsperadosPorMes(obj);
+      setEsperadosPorMesPorMedio(porMedio);
+      setSociosPorMesPorMedio(sociosMedioGlobal);
+      setEsperadosPorMesPorMedioEstado(porMedioEstado);
+      setSociosPorMesPorMedioEstado(sociosMedioEstadoGlobal);
+    } catch (e) {
+      console.error("Detalle de Cobranza: error obteniendo esperados por mes/medio", e);
+      setEsperadosPorMes({});
+      setEsperadosPorMesPorMedio({});
+      setSociosPorMesPorMedio({});
+      setEsperadosPorMesPorMedioEstado({});
+      setSociosPorMesPorMedioEstado({});
+    } finally {
+      setLoadingResumen(false);
+    }
+  }, [anioSeleccionado, mesesParaResumen, fetchEsperadoMes]);
+
+  const buildDetSocURL = useCallback(() => {
+    if (!anioSeleccionado) return null;
+    const u = new URL(`${BASE_URL}/api.php`);
+    u.searchParams.set("action", "contar_socios_por_cat_estado");
+    u.searchParams.set("anio", String(anioSeleccionado));
+
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const n = parseInt(mesSeleccionado, 10);
+      if (Number.isFinite(n)) {
+        u.searchParams.set("mes", String(n));
+      }
+    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      u.searchParams.set("periodo", periodoSeleccionado);
+    }
+
+    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+      u.searchParams.set("cobrador", cobradorSeleccionado);
+    }
+
+    return u.toString();
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
+
+  const fetchDetSoc = useCallback(async () => {
+    const url = buildDetSocURL();
+    if (!url) {
+      setDetSocRows([]);
+      setDetSocTotales({
+        ACTIVO: 0,
+        PASIVO: 0,
+      });
+      return;
+    }
+    try {
+      setLoadingDetSoc(true);
+      const res = await fetch(url + `&ts=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+      if (data && (data.exito === true || data.success === true)) {
+        const filas = Array.isArray(data.filas) ? data.filas : [];
+        const tot = { ACTIVO: 0, PASIVO: 0 };
+        for (const f of filas) {
+          if (f.servicio === "ACTIVO") tot.ACTIVO += Number(f.cantidad || 0);
+          if (f.servicio === "PASIVO") tot.PASIVO += Number(f.cantidad || 0);
+        }
+        setDetSocRows(filas);
+        setDetSocTotales(tot);
+      } else {
+        setDetSocRows([]);
+        setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+      }
+    } catch (e) {
+      console.error("contar_socios_por_cat_estado error:", e);
+      setDetSocRows([]);
+      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+    } finally {
+      setLoadingDetSoc(false);
+    }
+  }, [buildDetSocURL]);
+
+  const buildEsperadoURL = useCallback(() => {
+    if (!anioSeleccionado) return null;
+    const u = new URL(`${BASE_URL}/api.php`);
+    u.searchParams.set("action", "obtener_monto_objetivo");
+    u.searchParams.set("anio", String(anioSeleccionado));
+
+    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+      const n = parseInt(mesSeleccionado, 10);
+      if (Number.isFinite(n)) {
+        u.searchParams.set("mes", String(n));
+      }
+    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+      u.searchParams.set("periodo", periodoSeleccionado);
+    }
+
+    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+      u.searchParams.set("cobrador", cobradorSeleccionado);
+    }
+
+    return u.toString();
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
 
   /* ===== carga inicial años + listas ===== */
   useEffect(() => {
@@ -468,59 +872,6 @@ export default function DashboardContable() {
 
   const needsYearData = useMemo(() => Boolean(anioSeleccionado), [anioSeleccionado]);
 
-  /* ===== recomputeSync (usa refs actuales) ===== */
-  const recomputeSync = useCallback((periodLabel, monthSel, cobrador) => {
-    const all = curPagosAllSortedRef.current || [];
-    const byMonth = curPagosByMonthRef.current || [];
-    const byPeriod = curPeriodMergedMapRef.current || new Map();
-
-    const monthNum =
-      monthSel && monthSel !== "Todos los meses" ? parseInt(monthSel, 10) : 0;
-
-    let base;
-
-    if ((!periodLabel || periodLabel === "Selecciona un periodo") && !monthNum) {
-      base = all;
-    } else if ((periodLabel === "Selecciona un periodo" || !periodLabel) && monthNum) {
-      base = byMonth[monthNum] || [];
-    } else {
-      base = byPeriod.get(periodLabel) || [];
-      if (monthNum) {
-        base = base.filter((p) => p._month === monthNum);
-      }
-    }
-
-    if (cobrador !== "todos") {
-      base = base.filter((p) => p._cb === cobrador);
-    }
-
-    let total = 0;
-    const setCb = new Set();
-
-    for (let i = 0; i < base.length; i++) {
-      total += base[i]._precioNum;
-      if (base[i]._cb) setCb.add(base[i]._cb);
-    }
-
-    return {
-      registros: base,
-      total,
-      cobradoresUnicos: setCb.size,
-    };
-  }, []);
-
-  /* ===== helper mesesDisponibles ===== */
-  const mesesDisponibles = useMemo(() => {
-    if (!anioSeleccionado) return [];
-    if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo") {
-      return Array.from({ length: 12 }, (_, i) => i + 1);
-    }
-    const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
-    const ms =
-      opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
-    return ms && ms.length ? ms : [];
-  }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
-
   useEffect(() => {
     if (mesSeleccionado !== "Todos los meses") {
       const n = parseInt(mesSeleccionado, 10);
@@ -539,6 +890,7 @@ export default function DashboardContable() {
       try {
         const key = String(anioSeleccionado);
 
+        // 🔹 Si ya está en caché, lo usamos
         if (yearCacheRef.current[key]) {
           const { built, datosMeses } = yearCacheRef.current[key];
 
@@ -566,6 +918,7 @@ export default function DashboardContable() {
           return;
         }
 
+        // 🔹 Si no está en caché, lo pedimos al backend
         setLoadingPagos(true);
         setIsLoadingTable(true);
 
@@ -639,172 +992,10 @@ export default function DashboardContable() {
     periodoSeleccionado,
     mesSeleccionado,
     cobradorSeleccionado,
+    recomputeSync,
+    recomputeResumen,
+    fetchDetSoc,
   ]);
-
-  /* ===== helpers esperado / detsoc ===== */
-
-  const buildEsperadoURL = useCallback(() => {
-    if (!anioSeleccionado) return null;
-    const u = new URL(`${BASE_URL}/api.php`);
-    u.searchParams.set("action", "obtener_monto_objetivo");
-    u.searchParams.set("anio", String(anioSeleccionado));
-
-    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
-      const n = parseInt(mesSeleccionado, 10);
-      if (Number.isFinite(n)) {
-        u.searchParams.set("mes", String(n));
-      }
-    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
-      u.searchParams.set("periodo", periodoSeleccionado);
-    }
-
-    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
-      u.searchParams.set("cobrador", cobradorSeleccionado);
-    }
-
-    return u.toString();
-  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
-
-  // usar NOMBRE del cobrador en mayúsculas como key
-  const fetchEsperadoMes = useCallback(
-    async (mes) => {
-      const u = new URL(`${BASE_URL}/api.php`);
-      u.searchParams.set("action", "obtener_monto_objetivo");
-      u.searchParams.set("anio", String(anioSeleccionado));
-      u.searchParams.set("mes", String(mes));
-      u.searchParams.set("todos_cobradores", "1");
-
-      const res = await fetch(u.toString() + `&ts=${Date.now()}`);
-      const data = await res.json().catch(() => ({}));
-
-      let totalMes = 0;
-      const porMedio = {}; // { NOMBRE_MAYUS => valor }
-
-      if (data && (data.exito === true || data.success === true)) {
-        totalMes = Number(data.total_esperado || 0);
-
-        const lista = Array.isArray(data.esperado_por_cobrador_por_mes)
-          ? data.esperado_por_cobrador_por_mes
-          : [];
-
-        for (const item of lista) {
-          const nombre = String(item?.nombre ?? item?.id_cobrador ?? "").toUpperCase().trim();
-          const v = Number(item?.por_mes?.[mes] || 0);
-          if (!porMedio[nombre]) porMedio[nombre] = 0;
-          porMedio[nombre] += v;
-        }
-      }
-
-      return { totalMes, porMedio };
-    },
-    [anioSeleccionado]
-  );
-
-  const mesesParaResumen = useMemo(() => {
-    if (!anioSeleccionado) return [];
-    if (mesSeleccionado !== "Todos los meses") {
-      return [parseInt(mesSeleccionado, 10)];
-    }
-    if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
-      const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
-      const ms =
-        opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
-      return ms && ms.length ? ms.slice().sort((a, b) => a - b) : [];
-    }
-    return Array.from({ length: 12 }, (_, i) => i + 1);
-  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, periodosOpts]);
-
-  const recomputeResumen = useCallback(async () => {
-    if (!anioSeleccionado || mesesParaResumen.length === 0) {
-      setEsperadosPorMes({});
-      setEsperadosPorMesPorMedio({});
-      return;
-    }
-    try {
-      setLoadingResumen(true);
-      const pairs = await Promise.all(
-        mesesParaResumen.map((m) => fetchEsperadoMes(m).then((val) => [m, val]))
-      );
-
-      const obj = {};
-      const porMedio = {};
-
-      for (const [m, { totalMes, porMedio: mapMedio }] of pairs) {
-        obj[m] = totalMes;
-        for (const nombreKey of Object.keys(mapMedio)) {
-          if (!porMedio[nombreKey]) porMedio[nombreKey] = {};
-          porMedio[nombreKey][m] = (porMedio[nombreKey][m] ?? 0) + mapMedio[nombreKey];
-        }
-      }
-
-      setEsperadosPorMes(obj);
-      setEsperadosPorMesPorMedio(porMedio);
-    } catch (e) {
-      console.error("Detalle de Cobranza: error obteniendo esperados por mes/medio", e);
-      setEsperadosPorMes({});
-      setEsperadosPorMesPorMedio({});
-    } finally {
-      setLoadingResumen(false);
-    }
-  }, [anioSeleccionado, mesesParaResumen, fetchEsperadoMes]);
-
-  const buildDetSocURL = useCallback(() => {
-    if (!anioSeleccionado) return null;
-    const u = new URL(`${BASE_URL}/api.php`);
-    u.searchParams.set("action", "contar_socios_por_cat_estado");
-    u.searchParams.set("anio", String(anioSeleccionado));
-
-    if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
-      const n = parseInt(mesSeleccionado, 10);
-      if (Number.isFinite(n)) {
-        u.searchParams.set("mes", String(n));
-      }
-    } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
-      u.searchParams.set("periodo", periodoSeleccionado);
-    }
-
-    if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
-      u.searchParams.set("cobrador", cobradorSeleccionado);
-    }
-
-    return u.toString();
-  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
-
-  const fetchDetSoc = useCallback(async () => {
-    const url = buildDetSocURL();
-    if (!url) {
-      setDetSocRows([]);
-      setDetSocTotales({
-        ACTIVO: 0,
-        PASIVO: 0,
-      });
-      return;
-    }
-    try {
-      setLoadingDetSoc(true);
-      const res = await fetch(url + `&ts=${Date.now()}`);
-      const data = await res.json().catch(() => ({}));
-      if (data && (data.exito === true || data.success === true)) {
-        const filas = Array.isArray(data.filas) ? data.filas : [];
-        const tot = { ACTIVO: 0, PASIVO: 0 };
-        for (const f of filas) {
-          if (f.servicio === "ACTIVO") tot.ACTIVO += Number(f.cantidad || 0);
-          if (f.servicio === "PASIVO") tot.PASIVO += Number(f.cantidad || 0);
-        }
-        setDetSocRows(filas);
-        setDetSocTotales(tot);
-      } else {
-        setDetSocRows([]);
-        setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
-      }
-    } catch (e) {
-      console.error("contar_socios_por_cat_estado error:", e);
-      setDetSocRows([]);
-      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
-    } finally {
-      setLoadingDetSoc(false);
-    }
-  }, [buildDetSocURL]);
 
   /* ===== efecto: esperado total ===== */
   useEffect(() => {
@@ -940,6 +1131,9 @@ export default function DashboardContable() {
     });
     setEsperadosPorMes({});
     setEsperadosPorMesPorMedio({});
+    setSociosPorMesPorMedio({});
+    setEsperadosPorMesPorMedioEstado({});
+    setSociosPorMesPorMedioEstado({});
     setDetSocRows([]);
     setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
   }, []);
@@ -1146,7 +1340,7 @@ export default function DashboardContable() {
     }
 
     rows.push({
-      PERÍODO: "TOTAL AÑO",
+      PERÍODO: "TOTAL",
       ESPERADO: totalEsperadoAnual,
       RECAUDADO: totalRecaudadoAnual,
       "DIFERENCIA (ESP-REC)": totalEsperadoAnual - totalRecaudadoAnual,
@@ -1249,7 +1443,6 @@ export default function DashboardContable() {
         }
       }
 
-      const diferencia = totalEsperadoAnual + esperado - (totalRecaudadoAnual + recaudado); // no afecta visual
       rows.push({
         periodo: label,
         esperado,
@@ -1262,7 +1455,7 @@ export default function DashboardContable() {
     }
 
     rows.push({
-      periodo: "TOTAL AÑO",
+      periodo: "TOTAL",
       esperado: totalEsperadoAnual,
       recaudado: totalRecaudadoAnual,
       diferencia: totalEsperadoAnual - totalRecaudadoAnual,
@@ -1331,9 +1524,10 @@ export default function DashboardContable() {
       const esperado = Number(derived.esperado || 0);
       const recaudado = Number(derived.total || 0);
       const diferencia = Number(esperado - recaudado); // esperado – recaudado
-      const diffTxt = `${diferencia >= 0 ? "$" : "-$"}${nfPesos.format(Math.abs(diferencia))}`;
-      // 🔴 rojo si falta (esperado > recaudado), 🟢 verde si superávit
-      const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a";
+
+      // siempre sin signo, solo color (verde = superávit, rojo = faltante)
+      const diffTxt = `$${nfPesos.format(Math.abs(diferencia))}`;
+      const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a"; // rojo si falta, verde si sobra
 
       return (
         <div style={box.wrap} aria-label="Resumen global (montos)">
@@ -1649,6 +1843,9 @@ export default function DashboardContable() {
               periodosVisibles={periodosVisibles}
               esperadosPorMes={esperadosPorMes}
               esperadosPorMesPorMedio={esperadosPorMesPorMedio}
+              sociosPorMesPorMedio={sociosPorMesPorMedio}
+              esperadosPorMesPorMedioEstado={esperadosPorMesPorMedioEstado}
+              sociosPorMesPorMedioEstado={sociosPorMesPorMedioEstado}
               getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
               cobradorSeleccionado={cobradorSeleccionado}
               mesSeleccionado={mesSeleccionado}
@@ -1709,32 +1906,4 @@ export default function DashboardContable() {
       )}
     </div>
   );
-}
-
-/* ====== Skeleton rows ====== */
-function renderSkeletonRows() {
-  return Array.from({ length: SKELETON_ROWS }).map((_, idx) => (
-    <div
-      className="gridtable-row skeleton-row"
-      role="row"
-      key={`sk-${idx}`}
-      aria-hidden="true"
-    >
-      <div className="gridtable-cell">
-        <span className="skeleton-bar w-80" />
-      </div>
-      <div className="gridtable-cell">
-        <span className="skeleton-bar w-40" />
-      </div>
-      <div className="gridtable-cell">
-        <span className="skeleton-bar w-60" />
-      </div>
-      <div className="gridtable-cell">
-        <span className="skeleton-bar w-50" />
-      </div>
-      <div className="gridtable-cell">
-        <span className="skeleton-bar w-70" />
-      </div>
-    </div>
-  ));
 }

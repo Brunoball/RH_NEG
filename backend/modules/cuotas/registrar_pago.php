@@ -7,9 +7,9 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header('Content-Type: application/json');
 
-const ID_CONTADO_ANUAL = 7;
+const ID_CONTADO_ANUAL     = 7;
 const PERIODOS_BIMESTRALES = [1,2,3,4,5,6];
-const MESES_ANIO = 6;
+const MESES_ANIO           = 6;
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -27,7 +27,7 @@ function dec_str($val) {
   $s = preg_replace('/[^0-9,\.\-]/', '', (string)$val);
   if ($s === '' || $s === '-' || $s === '.' || $s === '-.') return null;
   if (strpos($s, ',') !== false && strpos($s, '.') !== false) {
-    $s = str_replace(',', '', $s);     // "1.234,56" -> "1234,56"  (raro)
+    $s = str_replace(',', '', $s);     // "1.234,56" -> "1234,56"
     $s = str_replace(',', '.', $s);    // por si quedó
   } else {
     $s = str_replace(',', '.', $s);    // "1234,56" -> "1234.56"
@@ -35,10 +35,9 @@ function dec_str($val) {
   return number_format((float)$s, 2, '.', '');
 }
 
-/* === Obtención “oficial” de montos desde la DB por socio ===
-   Ajustá nombres de tabla/columnas si difieren en tu esquema. */
+/* === Obtención montos desde la DB por socio === */
 function obtener_montos_por_socio(PDO $pdo, int $id_socio): array {
-  // Intenta via id_cat_monto (esquema nuevo)
+  // Esquema nuevo: categoria_monto
   $sql = "
     SELECT cm.monto_mensual AS mensual, cm.monto_anual AS anual
     FROM socios s
@@ -50,7 +49,7 @@ function obtener_montos_por_socio(PDO $pdo, int $id_socio): array {
   $st->execute([$id_socio]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
 
-  // Fallback: tabla categorias con precio/monto (por compatibilidad)
+  // Fallback: tabla categorias
   if (!$row || ($row['mensual'] === null && $row['anual'] === null)) {
     $sql2 = "
       SELECT c.monto AS mensual, c.monto_anual AS anual
@@ -78,6 +77,9 @@ $condonar  = !empty($in['condonar']);
 $monto           = $in['monto'] ?? null;             // total (anual o barras)
 $montoPorPeriodo = $in['monto_por_periodo'] ?? null; // unitario (bimestres)
 
+/* medio_pago llega como TEXTO (TRANSFERENCIA, EFECTIVO, etc.) */
+$medioPagoNombre = isset($in['medio_pago']) ? trim((string)$in['medio_pago']) : '';
+
 $anioSel   = isset($in['anio']) ? (int)$in['anio'] : (int)date('Y');
 if ($anioSel < 2000 || $anioSel > 2100) { $anioSel = (int)date('Y'); }
 
@@ -101,13 +103,25 @@ $estadoNuevo = $condonar ? 'condonado' : 'pagado';
 $monto           = dec_str($monto);
 $montoPorPeriodo = dec_str($montoPorPeriodo);
 
-/* ===== Si NO es condonación, NUNCA aceptar 0 o null:
-         calculamos del lado servidor según categoría ===== */
+/* ===== Resolver id_medio_pago (solo si no es condonación) ===== */
+$id_medio_pago = null;
+if (!$condonar && $medioPagoNombre !== '') {
+  // Busca en rh_neg.medios_pago por nombre exacto
+  $sqlMP = "SELECT id_medio_pago FROM medios_pago WHERE nombre = ? LIMIT 1";
+  $stMP  = $pdo->prepare($sqlMP);
+  $stMP->execute([$medioPagoNombre]);
+  $rowMP = $stMP->fetch(PDO::FETCH_ASSOC);
+  if ($rowMP) {
+    $id_medio_pago = (int)$rowMP['id_medio_pago'];
+  }
+}
+
+/* ===== Si NO es condonación, calcular montos del lado servidor ===== */
 if (!$condonar) {
   $montos = obtener_montos_por_socio($pdo, $id_socio);
 
   if ($incluyeAnual || $soloBimestresDelAnio) {
-    // Si no vino total válido, intentar anual o 6 * mensual
+    // anual
     if ($monto === null || (float)$monto <= 0) {
       if ($montos['anual'] !== null && (float)$montos['anual'] > 0) {
         $monto = $montos['anual'];
@@ -119,7 +133,7 @@ if (!$condonar) {
       echo json_encode(['exito'=>false,'mensaje'=>'No se pudo determinar el monto anual.']); exit;
     }
   } else {
-    // Bimestres: si no vino unitario válido, usar mensual; si tampoco, error
+    // bimestres
     if ($montoPorPeriodo === null || (float)$montoPorPeriodo <= 0) {
       if ($montos['mensual'] !== null && (float)$montos['mensual'] > 0) {
         $montoPorPeriodo = $montos['mensual'];
@@ -131,10 +145,11 @@ if (!$condonar) {
   }
 }
 
-/* Si condona, montos = 0 */
+/* Si condona, montos = 0 e id_medio_pago en NULL */
 if ($condonar) {
-  $monto = dec_str(0);
+  $monto           = dec_str(0);
   $montoPorPeriodo = dec_str(0);
+  $id_medio_pago   = null;
 }
 
 try {
@@ -151,22 +166,28 @@ try {
 
   /* ===== ANUAL ===== */
   if ($incluyeAnual || $soloBimestresDelAnio) {
+    // borrar bimestres del mismo año
     $delBims = $pdo->prepare("
       DELETE FROM pagos
       WHERE id_socio = ? AND id_periodo IN (1,2,3,4,5,6) AND YEAR(fecha_pago) = ?
     ");
     $delBims->execute([$id_socio, $anioSel]);
 
-    // Garantía extra
     if ($monto === null || (float)$monto <= 0) { $monto = dec_str(0); }
 
     if ($rowAnual) {
-      $upd = $pdo->prepare("UPDATE pagos SET estado=?, fecha_pago=?, monto=? WHERE id_pago=?");
-      $upd->execute([$estadoNuevo, $fechaPago, $monto, (int)$rowAnual['id_pago']]);
+      $upd = $pdo->prepare("
+        UPDATE pagos
+        SET estado = ?, fecha_pago = ?, monto = ?, id_medio_pago = ?
+        WHERE id_pago = ?
+      ");
+      $upd->execute([$estadoNuevo, $fechaPago, $monto, $id_medio_pago, (int)$rowAnual['id_pago']]);
     } else {
-      $ins = $pdo->prepare("INSERT INTO pagos (id_socio, id_periodo, fecha_pago, estado, monto)
-                            VALUES (?,?,?,?,?)");
-      $ins->execute([$id_socio, ID_CONTADO_ANUAL, $fechaPago, $estadoNuevo, $monto]);
+      $ins = $pdo->prepare("
+        INSERT INTO pagos (id_socio, id_periodo, fecha_pago, estado, monto, id_medio_pago)
+        VALUES (?,?,?,?,?,?)
+      ");
+      $ins->execute([$id_socio, ID_CONTADO_ANUAL, $fechaPago, $estadoNuevo, $monto, $id_medio_pago]);
     }
 
     $pdo->commit();
@@ -185,17 +206,22 @@ try {
   }
 
   if ($montoPorPeriodo === null || (float)$montoPorPeriodo <= 0) {
-    $montoPorPeriodo = dec_str(0); // (defensa; ya no debería ocurrir)
+    $montoPorPeriodo = dec_str(0);
   }
 
-  $ins = $pdo->prepare("INSERT INTO pagos (id_socio, id_periodo, fecha_pago, estado, monto)
-                        VALUES (?,?,?,?,?)");
+  $ins = $pdo->prepare("
+    INSERT INTO pagos (id_socio, id_periodo, fecha_pago, estado, monto, id_medio_pago)
+    VALUES (?,?,?,?,?,?)
+  ");
   $sel = $pdo->prepare("
     SELECT id_pago FROM pagos
-    WHERE id_socio=? AND id_periodo=? AND YEAR(fecha_pago)=? LIMIT 1
+    WHERE id_socio = ? AND id_periodo = ? AND YEAR(fecha_pago) = ?
+    LIMIT 1
   ");
 
-  $insertados = []; $ya = []; $errores = [];
+  $insertados = [];
+  $ya         = [];
+  $errores    = [];
 
   foreach ($set as $p) {
     if (!in_array($p, PERIODOS_BIMESTRALES, true)) continue;
@@ -204,19 +230,21 @@ try {
     if ($sel->fetch()) { $ya[] = $p; continue; }
 
     try {
-      $ins->execute([$id_socio, $p, $fechaPago, $estadoNuevo, $montoPorPeriodo]);
+      $ins->execute([$id_socio, $p, $fechaPago, $estadoNuevo, $montoPorPeriodo, $id_medio_pago]);
       $insertados[] = $p;
     } catch (Throwable $e) {
-      $errores[] = ['periodo'=>$p,'mensaje'=>$e->getMessage()];
+      $errores[] = ['periodo'=>$p, 'mensaje'=>$e->getMessage()];
     }
   }
 
   $pdo->commit();
   $ok = !empty($insertados) && empty($errores);
   echo json_encode([
-    'exito'=>$ok,
-    'mensaje'=>$ok ? "Pago(s) registrados para $anioSel." : "Hubo problemas en algunos períodos.",
-    'insertados'=>$insertados, 'ya_registrados'=>$ya, 'errores'=>$errores
+    'exito'        => $ok,
+    'mensaje'      => $ok ? "Pago(s) registrados para $anioSel." : "Hubo problemas en algunos períodos.",
+    'insertados'   => $insertados,
+    'ya_registrados' => $ya,
+    'errores'      => $errores
   ]);
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) $pdo->rollBack();

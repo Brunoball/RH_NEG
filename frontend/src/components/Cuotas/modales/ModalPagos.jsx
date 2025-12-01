@@ -59,10 +59,14 @@ const ModalPagos = ({ socio, onClose }) => {
   // Montos desde DB (depende de la categoría del socio)
   const [montoMensual, setMontoMensual] = useState(0);
   const [montoAnual, setMontoAnual] = useState(0);
-  const [montosListos, setMontosListos] = useState(false); // NUEVO
+  const [montosListos, setMontosListos] = useState(false);
 
   // condonar
   const [condonar, setCondonar] = useState(false);
+
+  // Medios de pago desde la lista global (TRANSFERENCIA/EFECTIVO)
+  const [mediosPago, setMediosPago] = useState([]);
+  const [medioPagoSeleccionado, setMedioPagoSeleccionado] = useState('');
 
   // Año de trabajo + selector
   const [anioTrabajo, setAnioTrabajo] = useState(Math.max(nowYear, MIN_YEAR));
@@ -72,9 +76,45 @@ const ModalPagos = ({ socio, onClose }) => {
   // Nuevo: modo de salida en la vista de éxito
   const [modoSalida, setModoSalida] = useState('imprimir'); // 'imprimir' | 'pdf'
 
+  // Determinar si el socio tiene cobrador = "oficina"
+  const esOficina = useMemo(() => {
+    const cobrador = socio?.cobrador || socio?.medio_pago || '';
+    return String(cobrador).toLowerCase() === 'oficina';
+  }, [socio]);
+
   const mostrarToast = (tipo, mensaje, duracion = 3000) => {
     setToast({ tipo, mensaje, duracion });
   };
+
+  // ===== Cargar medios de pago desde la lista global =====
+  useEffect(() => {
+    const fetchMediosPago = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api.php?action=listas`);
+        const data = await res.json();
+        if (data?.exito && data?.listas?.medios_pago) {
+          // Obtener solo los nombres de los medios de pago (TRANSFERENCIA, EFECTIVO)
+          const medios = data.listas.medios_pago.map(m => m.nombre);
+          setMediosPago(medios);
+          // 🔹 Ya NO se selecciona automáticamente ninguno, queda en "" (placeholder)
+        } else if (data?.exito && data?.listas?.cobradores) {
+          // Fallback: si no existen medios_pago, usar cobradores
+          const medios = data.listas.cobradores.map(c => c.nombre);
+          setMediosPago(medios);
+          // 🔹 También sin selección automática
+        }
+      } catch (error) {
+        console.error('Error al cargar medios de pago:', error);
+      }
+    };
+
+    if (esOficina) {
+      // Solo tiene sentido cargar medios si es oficina
+      fetchMediosPago();
+      // Asegurar que arranque siempre vacío
+      setMedioPagoSeleccionado('');
+    }
+  }, [esOficina]);
 
   // ===== helpers para (re)consultar montos exactos al instante =====
   const buildMontosQS = () => {
@@ -290,6 +330,7 @@ const ModalPagos = ({ socio, onClose }) => {
         : (periodoTextoFinal || ''),
       importe_total: importe,
       anio: anioTrabajo,
+      medio_pago: esOficina ? medioPagoSeleccionado : socio.medio_pago || socio.cobrador,
     };
   };
 
@@ -297,6 +338,12 @@ const ModalPagos = ({ socio, onClose }) => {
   const confirmar = async () => {
     if (seleccionados.length === 0) {
       mostrarToast('advertencia', 'Seleccioná al menos un período');
+      return;
+    }
+
+    // Validación para socios con cobrador = "oficina"
+    if (esOficina && !medioPagoSeleccionado) {
+      mostrarToast('advertencia', 'Debés seleccionar un medio de pago');
       return;
     }
 
@@ -329,6 +376,7 @@ const ModalPagos = ({ socio, onClose }) => {
         anio: anioTrabajo,
         monto: Number(total) || 0, // TOTAL visible en la UI
         monto_por_periodo: esAnual ? 0 : (Number(montoMensual) || 0), // unitario (bimestres)
+        medio_pago: esOficina ? medioPagoSeleccionado : socio.medio_pago || socio.cobrador,
       };
 
       const res = await fetch(`${BASE_URL}/api.php?action=registrar_pago`, {
@@ -506,6 +554,13 @@ const ModalPagos = ({ socio, onClose }) => {
       (aplicaAnualPorSeleccion ? Number(montoAnual) <= 0 : Number(montoMensual) <= 0)
     );
 
+  // También deshabilitar si es oficina y no se seleccionó medio de pago
+  const deshabilitarConfirmar = 
+    seleccionados.length === 0 || 
+    cargando || 
+    bloquearPorMontos ||
+    (esOficina && !medioPagoSeleccionado);
+
   return (
     <>
       {toast && (
@@ -594,6 +649,35 @@ const ModalPagos = ({ socio, onClose }) => {
               </div>
             </div>
 
+            {/* Selector de medio de pago para socios con cobrador = "oficina" */}
+            {esOficina && (
+              <div className="medio-pago-section">
+                <div className="section-header">
+                  <h4 className="section-title">Medio de Pago*</h4>
+                  <span className="required-badge">Requerido</span>
+                </div>
+                <div className="medio-pago-selector">
+                  <select
+                    value={medioPagoSeleccionado}
+                    onChange={(e) => setMedioPagoSeleccionado(e.target.value)}
+                    className="medio-pago-select"
+                    disabled={cargando}
+                    required
+                  >
+                    <option value="">Seleccionar medio de pago</option>
+                    {mediosPago.map((medio, index) => (
+                      <option key={index} value={medio}>
+                        {medio}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="medio-pago-hint">
+                    Campo obligatorio para registrar el pago
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="periodos-section">
               <div className="section-header">
                 <h4 className="section-title">Períodos Disponibles</h4>
@@ -671,6 +755,11 @@ const ModalPagos = ({ socio, onClose }) => {
               <span className={`total-badge ${condonar ? 'total-badge-warning' : ''}`}>
                 Total: {formatearARS(total)}
               </span>
+              {esOficina && medioPagoSeleccionado && (
+                <span className="medio-pago-badge">
+                  Medio: {medioPagoSeleccionado}
+                </span>
+              )}
             </div>
 
             <div className="footer-actions">
@@ -684,8 +773,11 @@ const ModalPagos = ({ socio, onClose }) => {
               <button
                 className={`btn ${condonar ? 'btn-warnings' : 'btn-primary'}`}
                 onClick={confirmar}
-                disabled={seleccionados.length === 0 || cargando || bloquearPorMontos}
-                title={bloquearPorMontos ? 'Cargando montos…' : undefined}
+                disabled={deshabilitarConfirmar}
+                title={deshabilitarConfirmar ? 
+                  (esOficina && !medioPagoSeleccionado ? 'Seleccioná un medio de pago' : 
+                   bloquearPorMontos ? 'Cargando montos…' : 
+                   'Seleccioná al menos un período') : undefined}
               >
                 {cargando ? (
                   <>

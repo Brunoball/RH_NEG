@@ -16,6 +16,7 @@ try {
         'estados'          => [],
         'periodos'         => [],
         'categorias_monto' => [],
+        'medios_pago'      => [],   // 👈 NUEVA LISTA
     ];
 
     /* ===== Categorías (id + descripción) ===== */
@@ -65,6 +66,15 @@ try {
             'id_cat_monto'     => (int)$row['id_cat_monto'],
             'nombre_categoria' => $row['nombre_categoria'],
             'monto_mensual'    => (int)$row['monto_mensual'],
+        ];
+    }
+
+    /* ===== Medios de pago (TRANSFERENCIA / EFECTIVO) ===== */
+    $stmt = $pdo->query("SELECT id_medio_pago, nombre FROM medios_pago ORDER BY nombre");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $listas['medios_pago'][] = [
+            'id'     => (int)$row['id_medio_pago'],
+            'nombre' => $row['nombre'],
         ];
     }
 

@@ -127,7 +127,7 @@ html, body {
   padding: 2rem 0 0;
   margin-top: auto;      /* 🔹 Empuja los botones al fondo de la sidebar */
 }
-.side-block{display: flex; flex-direction: column; height: 85%;}
+.side-block{display: flex; flex-direction: column; height: 100%;}
 .btn-dark{
   width:100%; display:flex; align-items:center; justify-content:center; gap:5px;
   padding:10px 7px; border:none; cursor:pointer; border-radius:999px;
@@ -344,10 +344,26 @@ html, body {
 .detsoc-section .detsoc-total { font-weight: bold; }
 .detsoc-section .detsoc-total-activo { background: rgba(16, 185, 129, 0.08); }
 .detsoc-section .detsoc-total-pasivo { background: rgba(234, 179, 8, 0.08); }
-.detsoc-header,.detsoctable-row,.detsoc-total{grid-template-columns:1fr 1fr 1fr !important;}
-.cobmes-header,.cobmes-total,.cobmestable-row,.subrow{grid-template-columns:1fr 1fr 1fr 1fr !important;}
 
+/* ====== Columnas específicas para DetSoc y CobMes ====== */
+/* Detalle de Socios: 3 columnas alineadas */
+.detsoc-header,
+.detsoctable-row,
+.detsoc-total {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
 
+/* Detalle de Cobranza por medio: 4 columnas alineadas */
+.cobmes-header,
+.cobmes-total,
+.cobmestable-row,
+.subrow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+
+/* Altura fija de los botones de acción */
 .btn-dark {
   max-height: 37px;
   min-height: 37px;

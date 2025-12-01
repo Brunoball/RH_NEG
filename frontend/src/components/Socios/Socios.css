@@ -920,3 +920,25 @@
   background-color: var(--princ-dark);
   color: white;
 }
+
+
+/* ===== ESTADOS DE PAGO (con prioridad alta) ===== */
+
+.soc-tabla-fila.soc-estado-al-dia {
+  background-color: #d5f7d5 !important; /* verde suave */
+}
+
+.soc-tabla-fila.soc-estado-debe-1-2 {
+  background-color: #fff4cc !important; /* amarillo suave */
+}
+
+.soc-tabla-fila.soc-estado-debe-3-mas {
+  background-color: #ffd6d6 !important; /* rojo suave */
+}
+
+/* Si la fila usa grid, garantizar que toda la fila tome el color */
+.soc-tabla-fila.soc-estado-al-dia > *,
+.soc-tabla-fila.soc-estado-debe-1-2 > *,
+.soc-tabla-fila.soc-estado-debe-3-mas > * {
+  background-color: inherit !important;
+}
