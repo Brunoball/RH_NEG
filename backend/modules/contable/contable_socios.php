@@ -77,22 +77,25 @@ try {
             p.fecha_pago,
             p.estado,
             p.monto,
-            s.nombre                AS socio_nombre,
-            s.id_cobrador           AS socio_id_cobrador,
-            s.id_cat_monto          AS socio_id_cat_monto,
-            s.id_estado             AS socio_estado_id,
-            e.descripcion           AS socio_estado_desc,
-            cb.nombre               AS cobrador_nombre,
-            per.nombre              AS periodo_nombre,
-            cm.nombre_categoria     AS nombre_categoria,
-            cm.monto_mensual        AS monto_base_m,
-            cm.monto_anual          AS monto_base_a
+            p.id_medio_pago,
+            mp.nombre              AS medio_pago_nombre,
+            s.nombre               AS socio_nombre,
+            s.id_cobrador          AS socio_id_cobrador,
+            s.id_cat_monto         AS socio_id_cat_monto,
+            s.id_estado            AS socio_estado_id,
+            e.descripcion          AS socio_estado_desc,
+            cb.nombre              AS cobrador_nombre,
+            per.nombre             AS periodo_nombre,
+            cm.nombre_categoria    AS nombre_categoria,
+            cm.monto_mensual       AS monto_base_m,
+            cm.monto_anual         AS monto_base_a
         FROM pagos p
         INNER JOIN socios           s   ON s.id_socio     = p.id_socio
         INNER JOIN periodo          per ON per.id_periodo = p.id_periodo
         LEFT  JOIN cobrador         cb  ON cb.id_cobrador = s.id_cobrador
         LEFT  JOIN categoria_monto  cm  ON cm.id_cat_monto = s.id_cat_monto
         LEFT  JOIN estado           e   ON e.id_estado     = s.id_estado
+        LEFT  JOIN medios_pago      mp  ON mp.id_medio_pago = p.id_medio_pago
         WHERE p.estado = 'pagado'
           AND YEAR(p.fecha_pago) = :anio
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
@@ -111,22 +114,25 @@ try {
             p.fecha_pago,
             p.estado,
             p.monto,
-            s.nombre                AS socio_nombre,
-            s.id_cobrador           AS socio_id_cobrador,
-            s.id_cat_monto          AS socio_id_cat_monto,
-            s.id_estado             AS socio_estado_id,
-            e.descripcion           AS socio_estado_desc,
-            cb.nombre               AS cobrador_nombre,
-            per.nombre              AS periodo_nombre,
-            cm.nombre_categoria     AS nombre_categoria,
-            cm.monto_mensual        AS monto_base_m,
-            cm.monto_anual          AS monto_base_a
+            p.id_medio_pago,
+            mp.nombre              AS medio_pago_nombre,
+            s.nombre               AS socio_nombre,
+            s.id_cobrador          AS socio_id_cobrador,
+            s.id_cat_monto         AS socio_id_cat_monto,
+            s.id_estado            AS socio_estado_id,
+            e.descripcion          AS socio_estado_desc,
+            cb.nombre              AS cobrador_nombre,
+            per.nombre             AS periodo_nombre,
+            cm.nombre_categoria    AS nombre_categoria,
+            cm.monto_mensual       AS monto_base_m,
+            cm.monto_anual         AS monto_base_a
         FROM pagos p
         INNER JOIN socios           s   ON s.id_socio     = p.id_socio
         INNER JOIN periodo          per ON per.id_periodo = p.id_periodo
         LEFT  JOIN cobrador         cb  ON cb.id_cobrador = s.id_cobrador
         LEFT  JOIN categoria_monto  cm  ON cm.id_cat_monto = s.id_cat_monto
         LEFT  JOIN estado           e   ON e.id_estado     = s.id_estado
+        LEFT  JOIN medios_pago      mp  ON mp.id_medio_pago = p.id_medio_pago
         WHERE p.estado = 'condonado'
           AND YEAR(p.fecha_pago) = :anio
         ORDER BY p.fecha_pago ASC, p.id_pago ASC
@@ -150,21 +156,24 @@ try {
         }
 
         $porPeriodo[$periodoNombre]['pagos'][] = [
-            'ID_Socio'         => (int)$r['id_socio'],
-            'Socio'            => (string)$r['socio_nombre'],
-            'Precio'           => (float)($r['monto'] ?? 0),               // usa pagos.monto
-            'Tipo_Precio'      => ((int)$r['id_periodo'] === 7 ? 'A' : 'M'),
-            'Categoria_Id'     => (int)($r['socio_id_cat_monto'] ?? 0),
-            'Nombre_Categoria' => (string)($r['nombre_categoria'] ?? ''),
-            'Monto_Base_M'     => (float)($r['monto_base_m'] ?? 0),
-            'Monto_Base_A'     => (float)($r['monto_base_a'] ?? 0),
-            'Cobrador'         => (string)($r['cobrador_nombre'] ?? ''),
-            'fechaPago'        => (string)($r['fecha_pago'] ?? ''),
-            'Mes_Pagado'       => $periodoNombre,
-            'Estado'           => (string)$r['estado'],
+            'ID_Socio'           => (int)$r['id_socio'],
+            'Socio'              => (string)$r['socio_nombre'],
+            'Precio'             => (float)($r['monto'] ?? 0),               // usa pagos.monto
+            'Tipo_Precio'        => ((int)$r['id_periodo'] === 7 ? 'A' : 'M'),
+            'Categoria_Id'       => (int)($r['socio_id_cat_monto'] ?? 0),
+            'Nombre_Categoria'   => (string)($r['nombre_categoria'] ?? ''),
+            'Monto_Base_M'       => (float)($r['monto_base_m'] ?? 0),
+            'Monto_Base_A'       => (float)($r['monto_base_a'] ?? 0),
+            'Cobrador'           => (string)($r['cobrador_nombre'] ?? ''),
+            'fechaPago'          => (string)($r['fecha_pago'] ?? ''),
+            'Mes_Pagado'         => $periodoNombre,
+            'Estado'             => (string)$r['estado'],
             // NUEVO: estado del socio para poder desglosar ACTIVO / PASIVO en el frontend
-            'Estado_Socio'     => (string)($r['socio_estado_desc'] ?? ''),
-            'Estado_Socio_Id'  => (int)($r['socio_estado_id'] ?? 0),
+            'Estado_Socio'       => (string)($r['socio_estado_desc'] ?? ''),
+            'Estado_Socio_Id'    => (int)($r['socio_estado_id'] ?? 0),
+            // NUEVO: medio de pago (para desglosar OFICINA -> transf / efectivo)
+            'Medio_Pago_Id'      => (int)($r['id_medio_pago'] ?? 0),
+            'Medio_Pago'         => (string)($r['medio_pago_nombre'] ?? ''),
         ];
     }
 

@@ -7,41 +7,42 @@ import {
   faSpinner,
   faCreditCard,        // TRANSFERENCIA
   faBuilding,          // OFICINA
-  faHandHoldingDollar, // COBRADOR
+  faHandHoldingDollar, // COBRADOR / EFECTIVO
 } from "@fortawesome/free-solid-svg-icons";
 import "../dashboard.css";
 
 const sumMoneda = (arr) =>
   arr.reduce((acc, p) => acc + (Number(p?._precioNum) || 0), 0);
 
-// Grupos fijos solicitados
-const TARGETS = ["TRANSFERENCIA", "OFICINA", "COBRADOR"];
-
-// Mapeo de íconos por medio
+// Mapeo de íconos por cobrador (usar nombres exactos de la base de datos)
 const ICONS = {
   TRANSFERENCIA: faCreditCard,
   OFICINA: faBuilding,
   COBRADOR: faHandHoldingDollar,
+  // Agregar más íconos si hay otros cobradores
 };
 
 // Estados de socio a desglosar
 const ESTADOS_SOCIO = ["ACTIVO", "PASIVO"];
 
+// Medios de pago que queremos mostrar debajo de ACTIVO / PASIVO para OFICINA
+const MEDIOS_OFICINA = ["TRANSFERENCIA", "EFECTIVO"];
+
 export default function CobMesTable({
   loadingResumen,
   periodosVisibles,
-  esperadosPorMes,          // { mes -> esperado TOTAL }
-  esperadosPorMesPorMedio,  // { MEDIO -> { mes -> esperado } }
-  sociosPorMesPorMedio,     // { MEDIO -> { mes -> socios } }
+  esperadosPorMes,                // { mes -> esperado TOTAL }
+  esperadosPorMesPorCobrador,    // { COBRADOR -> { mes -> esperado } }
+  sociosPorMesPorCobrador,       // { COBRADOR -> { mes -> socios } }
   getPagosByMonth,
   cobradorSeleccionado,
   mesSeleccionado,
   nfPesos,
-  // NUEVO: esperado y socios por MEDIO y ESTADO
-  // Forma esperadosPorMesPorMedioEstado[MEDIO][ESTADO][mes] = monto
-  esperadosPorMesPorMedioEstado,
-  // Forma sociosPorMesPorMedioEstado[MEDIO][ESTADO][mes] = cant socios
-  sociosPorMesPorMedioEstado,
+  // NUEVO: esperado y socios por COBRADOR y ESTADO
+  // Forma esperadosPorMesPorCobradorEstado[COBRADOR][ESTADO][mes] = monto
+  esperadosPorMesPorCobradorEstado,
+  // Forma sociosPorMesPorCobradorEstado[COBRADOR][ESTADO][mes] = cant socios
+  sociosPorMesPorCobradorEstado,
 }) {
   const upper = (s) => String(s || "").toUpperCase().trim();
 
@@ -50,8 +51,32 @@ export default function CobMesTable({
       ? upper(cobradorSeleccionado)
       : null;
 
-  // Lista de medios a mostrar: todos o solo el seleccionado
-  const mediosAListar = selectedKey ? [selectedKey] : TARGETS;
+  // Obtener todos los cobradores únicos de los datos
+  const getAllCobradores = () => {
+    const cobradoresSet = new Set();
+
+    // Agregar cobradores del esperado
+    if (esperadosPorMesPorCobrador) {
+      Object.keys(esperadosPorMesPorCobrador).forEach((cob) => {
+        cobradoresSet.add(cob);
+      });
+    }
+
+    // Agregar cobradores de los pagos reales
+    const allMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    allMonths.forEach((m) => {
+      const pagosMes = getPagosByMonth(m) || [];
+      pagosMes.forEach((p) => {
+        if (p._cb) cobradoresSet.add(upper(p._cb));
+      });
+    });
+
+    // Ordenar alfabéticamente
+    return Array.from(cobradoresSet).sort((a, b) => a.localeCompare(b, "es"));
+  };
+
+  // Lista de cobradores a mostrar: todos o solo el seleccionado
+  const cobradoresAListar = selectedKey ? [selectedKey] : getAllCobradores();
 
   const buildRows = () => {
     return (periodosVisibles || []).map((p) => {
@@ -73,7 +98,7 @@ export default function CobMesTable({
       let esperadoPeriodo = 0;
 
       monthsToUse.forEach((m) => {
-        // Recaudado del período (todos los medios)
+        // Recaudado del período (todos los cobradores)
         const pagosMes = (getPagosByMonth(m) || []).filter((pg) =>
           !selectedKey
             ? true
@@ -85,15 +110,15 @@ export default function CobMesTable({
         // Esperado del período
         if (selectedKey) {
           esperadoPeriodo += Number(
-            esperadosPorMesPorMedio?.[selectedKey]?.[m] || 0
+            esperadosPorMesPorCobrador?.[selectedKey]?.[m] || 0
           );
         } else {
           esperadoPeriodo += Number(esperadosPorMes?.[m] || 0);
         }
       });
 
-      // Subfilas: TODOS o SOLO el medio seleccionado
-      const mediosListado = mediosAListar.map((nombre) => {
+      // Subfilas: TODOS o SOLO el cobrador seleccionado
+      const cobradoresListado = cobradoresAListar.map((nombre) => {
         const key = upper(nombre);
         let esperado = 0;
         let recaudado = 0;
@@ -101,21 +126,21 @@ export default function CobMesTable({
         const sociosMeses = []; // para deduplicar cuando el período tiene 2 meses
 
         for (const m of monthsToUse) {
-          // esperado por grupo
-          esperado += Number(esperadosPorMesPorMedio?.[key]?.[m] || 0);
+          // esperado por cobrador
+          esperado += Number(esperadosPorMesPorCobrador?.[key]?.[m] || 0);
 
-          // recaudado por grupo
+          // recaudado por cobrador
           const pagosMes = (getPagosByMonth(m) || []).filter(
             (pg) => upper(pg._cb) === key
           );
           recaudado += sumMoneda(pagosMes);
 
-          // socios del grupo en ese mes (esperados, vienen del backend)
-          const sociosMes = Number(sociosPorMesPorMedio?.[key]?.[m] || 0);
+          // socios del cobrador en ese mes (esperados, vienen del backend)
+          const sociosMes = Number(sociosPorMesPorCobrador?.[key]?.[m] || 0);
           sociosMeses.push(sociosMes);
         }
 
-        // Socios del medio en el PERÍODO
+        // Socios del cobrador en el PERÍODO
         let socios = 0;
         if (monthsToUse.length <= 1) {
           socios = sociosMeses.reduce((a, b) => a + b, 0);
@@ -130,12 +155,13 @@ export default function CobMesTable({
           let esperadoE = 0;
           let recaudadoE = 0;
           const sociosEArr = [];
+          const porMedio = {}; // NUEVO: por medio de pago dentro del estado
 
           for (const m of monthsToUse) {
             // Esperado por estado (viene desde el backend)
-            if (esperadosPorMesPorMedioEstado?.[key]?.[est]) {
+            if (esperadosPorMesPorCobradorEstado?.[key]?.[est]) {
               esperadoE += Number(
-                esperadosPorMesPorMedioEstado[key][est]?.[m] || 0
+                esperadosPorMesPorCobradorEstado[key][est]?.[m] || 0
               );
             }
 
@@ -162,12 +188,33 @@ export default function CobMesTable({
 
             recaudadoE += sumMoneda(pagosMesEstado);
 
+            // ===== NUEVO: desglosar por MEDIO DE PAGO dentro del estado =====
+            // Solo tiene sentido para OFICINA, pero lo calculamos siempre
+            pagosMesEstado.forEach((pg) => {
+              const medioRaw =
+                pg.Medio_Pago ||
+                pg.medio_pago_nombre ||
+                pg.medio_pago ||
+                "";
+              const medio = upper(medioRaw);
+              if (!medio) return;
+
+              if (!porMedio[medio]) {
+                porMedio[medio] = {
+                  recaudado: 0,
+                  socios: 0, // acá interpretamos "cant soc" = cantidad de pagos
+                };
+              }
+              porMedio[medio].recaudado += Number(pg._precioNum) || 0;
+              porMedio[medio].socios += 1;
+            });
+
             // Socios por estado en ese mes (esperados, desde backend si está)
             let sociosMesE = 0;
 
-            if (sociosPorMesPorMedioEstado?.[key]?.[est]) {
+            if (sociosPorMesPorCobradorEstado?.[key]?.[est]) {
               sociosMesE = Number(
-                sociosPorMesPorMedioEstado[key][est]?.[m] || 0
+                sociosPorMesPorCobradorEstado[key][est]?.[m] || 0
               );
             } else {
               // fallback: contamos IDs de socio distintos en los pagos de ese mes
@@ -191,15 +238,28 @@ export default function CobMesTable({
             esperado: esperadoE,
             recaudado: recaudadoE,
             socios: sociosE,
+            porMedio, // NUEVO
           };
         }
 
-        return { nombre: key, esperado, recaudado, socios, porEstado };
+        return {
+          nombre: key,
+          esperado,
+          recaudado,
+          socios,
+          porEstado,
+          icon: ICONS[key] || faHandHoldingDollar,
+        };
       });
 
-      // Socios del PERÍODO = suma de los socios de cada medio
-      const sociosPeriodo = mediosListado.reduce(
-        (acc, m) => acc + (m.socios || 0),
+      // Filtrar cobradores que tienen datos (esperado o recaudado > 0)
+      const cobradoresConDatos = cobradoresListado.filter(
+        (c) => c.esperado > 0 || c.recaudado > 0 || c.socios > 0
+      );
+
+      // Socios del PERÍODO = suma de los socios de cada cobrador
+      const sociosPeriodo = cobradoresConDatos.reduce(
+        (acc, c) => acc + (c.socios || 0),
         0
       );
 
@@ -211,7 +271,7 @@ export default function CobMesTable({
         recaudado: recaudadoPeriodo,
         diferencia: diferenciaPeriodo,
         sociosPeriodo,
-        mediosListado,
+        cobradoresListado: cobradoresConDatos,
       };
     });
   };
@@ -245,7 +305,11 @@ export default function CobMesTable({
       className="resumen-wrap cobmes-section"
       aria-label="Cobros por mes/período"
     >
-      <div className={`contable-tablewrap ${loadingResumen ? "is-loading" : ""}`}>
+      <div
+        className={`contable-tablewrap ${
+          loadingResumen ? "is-loading" : ""
+        }`}
+      >
         <div className="gridtable-header cobmes-header" role="row">
           <div className="gridtable-cell" role="columnheader">
             Período
@@ -319,99 +383,249 @@ export default function CobMesTable({
                     </div>
                   </div>
 
-                  {/* Subfilas por medio de pago y por estado */}
-                  <div className="gridtable-subrows">
-                    {r.mediosListado.map((m, idx) => {
-                      const icon = ICONS[m.nombre] || faCreditCard;
-
-                      return (
-                        <React.Fragment key={`cm-${i}-m-${idx}`}>
-                          {/* Fila del MEDIO (TRANSFERENCIA / OFICINA / COBRADOR) */}
+                  {/* Subfilas por cobrador y por estado */}
+                  {r.cobradoresListado.length > 0 && (
+                    <div className="gridtable-subrows">
+                      {r.cobradoresListado.map((cob, idx) => (
+                        <React.Fragment key={`cm-${i}-c-${idx}`}>
+                          {/* Fila del COBRADOR */}
                           <div className="gridtable-row subrow" role="row">
                             <div className="gridtable-cell" role="cell">
                               <span className="pill pill-light">
-                                <FontAwesomeIcon icon={icon} /> {m.nombre}
+                                <FontAwesomeIcon icon={cob.icon} />{" "}
+                                {cob.nombre}
                               </span>
-                            </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.esperado)}
-                            </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.recaudado)}
-                            </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmtSocios(m.socios)}
                             </div>
                             <div
                               className="gridtable-cell centers"
                               role="cell"
-                              style={difStyle(m.esperado - m.recaudado)}
                             >
-                              {fmtDif(m.esperado - m.recaudado)}
+                              {fmt(cob.esperado)}
+                            </div>
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmt(cob.recaudado)}
+                            </div>
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmtSocios(cob.socios)}
+                            </div>
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                              style={difStyle(cob.esperado - cob.recaudado)}
+                            >
+                              {fmtDif(cob.esperado - cob.recaudado)}
                             </div>
                           </div>
 
                           {/* Fila ACTIVO */}
-                          <div className="gridtable-row subrow subrow-estado" role="row">
+                          <div
+                            className="gridtable-row subrow subrow-estado"
+                            role="row"
+                          >
                             <div className="gridtable-cell" role="cell">
                               <span className="pill pill-soft">ACTIVO</span>
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.porEstado.ACTIVO?.esperado || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmt(cob.porEstado.ACTIVO?.esperado || 0)}
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.porEstado.ACTIVO?.recaudado || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmt(cob.porEstado.ACTIVO?.recaudado || 0)}
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmtSocios(m.porEstado.ACTIVO?.socios || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmtSocios(cob.porEstado.ACTIVO?.socios || 0)}
                             </div>
                             <div
                               className="gridtable-cell centers"
                               role="cell"
                               style={difStyle(
-                                (m.porEstado.ACTIVO?.esperado || 0) -
-                                  (m.porEstado.ACTIVO?.recaudado || 0)
+                                (cob.porEstado.ACTIVO?.esperado || 0) -
+                                  (cob.porEstado.ACTIVO?.recaudado || 0)
                               )}
                             >
                               {fmtDif(
-                                (m.porEstado.ACTIVO?.esperado || 0) -
-                                  (m.porEstado.ACTIVO?.recaudado || 0)
+                                (cob.porEstado.ACTIVO?.esperado || 0) -
+                                  (cob.porEstado.ACTIVO?.recaudado || 0)
                               )}
                             </div>
                           </div>
 
+                          {/* SUBSUBFILAS: ACTIVO -> medios de pago (solo OFICINA) */}
+                          {cob.nombre === "OFICINA" &&
+                            MEDIOS_OFICINA.map((medio) => {
+                              const info =
+                                cob.porEstado.ACTIVO?.porMedio?.[medio] || {
+                                  recaudado: 0,
+                                  socios: 0,
+                                };
+                              if (
+                                info.recaudado === 0 &&
+                                info.socios === 0
+                              ) {
+                                return null;
+                              }
+                              return (
+                                <div
+                                  className="gridtable-row subrow subrow-estado subrow-medio"
+                                  role="row"
+                                  key={`cm-${i}-c-${idx}-A-${medio}`}
+                                >
+                                  <div
+                                    className="gridtable-cell"
+                                    role="cell"
+                                  >
+                                    <span className="pill pill-soft pill-mini">
+                                      {medio}
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {/* Esperado vacío */}
+                                    <span className="muted">—</span>
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {fmt(info.recaudado)}
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {fmtSocios(info.socios)}
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                    style={difStyle(0)}
+                                  >
+                                    {fmtDif(0)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
                           {/* Fila PASIVO */}
-                          <div className="gridtable-row subrow subrow-estado" role="row">
+                          <div
+                            className="gridtable-row subrow subrow-estado"
+                            role="row"
+                          >
                             <div className="gridtable-cell" role="cell">
-                              <span className="pill pill-soft pill-warn">PASIVO</span>
+                              <span className="pill pill-soft pill-warn">
+                                PASIVO
+                              </span>
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.porEstado.PASIVO?.esperado || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmt(cob.porEstado.PASIVO?.esperado || 0)}
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmt(m.porEstado.PASIVO?.recaudado || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmt(cob.porEstado.PASIVO?.recaudado || 0)}
                             </div>
-                            <div className="gridtable-cell centers" role="cell">
-                              {fmtSocios(m.porEstado.PASIVO?.socios || 0)}
+                            <div
+                              className="gridtable-cell centers"
+                              role="cell"
+                            >
+                              {fmtSocios(cob.porEstado.PASIVO?.socios || 0)}
                             </div>
                             <div
                               className="gridtable-cell centers"
                               role="cell"
                               style={difStyle(
-                                (m.porEstado.PASIVO?.esperado || 0) -
-                                  (m.porEstado.PASIVO?.recaudado || 0)
+                                (cob.porEstado.PASIVO?.esperado || 0) -
+                                  (cob.porEstado.PASIVO?.recaudado || 0)
                               )}
                             >
                               {fmtDif(
-                                (m.porEstado.PASIVO?.esperado || 0) -
-                                  (m.porEstado.PASIVO?.recaudado || 0)
+                                (cob.porEstado.PASIVO?.esperado || 0) -
+                                  (cob.porEstado.PASIVO?.recaudado || 0)
                               )}
                             </div>
                           </div>
+
+                          {/* SUBSUBFILAS: PASIVO -> medios de pago (solo OFICINA) */}
+                          {cob.nombre === "OFICINA" &&
+                            MEDIOS_OFICINA.map((medio) => {
+                              const info =
+                                cob.porEstado.PASIVO?.porMedio?.[medio] || {
+                                  recaudado: 0,
+                                  socios: 0,
+                                };
+                              if (
+                                info.recaudado === 0 &&
+                                info.socios === 0
+                              ) {
+                                return null;
+                              }
+                              return (
+                                <div
+                                  className="gridtable-row subrow subrow-estado subrow-medio"
+                                  role="row"
+                                  key={`cm-${i}-c-${idx}-P-${medio}`}
+                                >
+                                  <div
+                                    className="gridtable-cell"
+                                    role="cell"
+                                  >
+                                    <span className="pill pill-soft pill-mini">
+                                      {medio}
+                                    </span>
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {/* Esperado vacío */}
+                                    <span className="muted">—</span>
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {fmt(info.recaudado)}
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                  >
+                                    {fmtSocios(info.socios)}
+                                  </div>
+                                  <div
+                                    className="gridtable-cell centers"
+                                    role="cell"
+                                    style={difStyle(0)}
+                                  >
+                                    {fmtDif(0)}
+                                  </div>
+                                </div>
+                              );
+                            })}
                         </React.Fragment>
-                      );
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </React.Fragment>
               ))}
 

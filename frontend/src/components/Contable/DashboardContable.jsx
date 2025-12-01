@@ -283,60 +283,28 @@ function buildYearIndexes(rawContable, rawListas) {
   };
 }
 
-/* === Utilidad para mapear cobrador -> MEDIO (TRANSFERENCIA / OFICINA / COBRADOR) === */
-const MEDIO_TRANSFERENCIA = "TRANSFERENCIA";
-const MEDIO_OFICINA = "OFICINA";
-const MEDIO_COBRADOR = "COBRADOR";
-
-const normalizarMedioDeCobrador = (nombre = "") => {
-  const n = String(nombre || "").toUpperCase().trim();
-
-  if (n === "OFICINA") return MEDIO_OFICINA;
-  if (n === "TRANSFERENCIA") return MEDIO_TRANSFERENCIA;
-
-  // Todo lo demás entra como COBRADOR (cobradores de calle)
-  return MEDIO_COBRADOR;
-};
-
 /**
  * A partir de la respuesta de obtener_monto_objetivo.php
  * arma los mapas que usa CobMesTable:
  *
  * - esperadosPorMes               { mes -> monto esperado TOTAL }
- * - esperadosPorMesPorMedio       { MEDIO -> { mes -> monto } }
- * - sociosPorMesPorMedio          { MEDIO -> { mes -> socios esperados } }
- * - esperadosPorMesPorMedioEstado { MEDIO -> { ESTADO -> { mes -> monto } } }
- * - sociosPorMesPorMedioEstado    { MEDIO -> { ESTADO -> { mes -> socios esperados } } }
+ * - esperadosPorMesPorCobrador    { cobrador -> { mes -> monto } }
+ * - sociosPorMesPorCobrador       { cobrador -> { mes -> socios esperados } }
+ * - esperadosPorMesPorCobradorEstado { cobrador -> { ESTADO -> { mes -> monto } } }
+ * - sociosPorMesPorCobradorEstado { cobrador -> { ESTADO -> { mes -> socios esperados } } }
  */
 const buildEsperadosMaps = (objetivo) => {
   const esperadosPorMes = {};
-  const esperadosPorMesPorMedio = {};
-  const sociosPorMesPorMedio = {};
+  const esperadosPorMesPorCobrador = {};
+  const sociosPorMesPorCobrador = {};
 
-  const esperadosPorMesPorMedioEstado = {};
-  const sociosPorMesPorMedioEstado = {};
-
-  const MEDIOS = [MEDIO_TRANSFERENCIA, MEDIO_OFICINA, MEDIO_COBRADOR];
-  const ESTADOS = ["ACTIVO", "PASIVO"];
-
-  // Inicializar estructuras vacías
-  for (const medio of MEDIOS) {
-    esperadosPorMesPorMedio[medio] = {};
-    sociosPorMesPorMedio[medio] = {};
-
-    esperadosPorMesPorMedioEstado[medio] = {};
-    sociosPorMesPorMedioEstado[medio] = {};
-
-    for (const est of ESTADOS) {
-      esperadosPorMesPorMedioEstado[medio][est] = {};
-      sociosPorMesPorMedioEstado[medio][est] = {};
-    }
-  }
+  const esperadosPorMesPorCobradorEstado = {};
+  const sociosPorMesPorCobradorEstado = {};
 
   // ===== 1) Totales por cobrador y MES (sin estado) =====
   const listaPM = objetivo?.esperado_por_cobrador_por_mes || [];
   for (const row of listaPM) {
-    const medio = normalizarMedioDeCobrador(row.nombre);
+    const cobradorNombre = String(row.nombre || "").trim();
     const porMes = row?.por_mes || {};
     const sociosCont = Number(row?.socios_contados || 0);
 
@@ -344,25 +312,29 @@ const buildEsperadosMaps = (objetivo) => {
       const mes = Number(mesStr);
       const monto = Number(montoVal || 0);
 
-      // Global (todos los medios)
+      // Global (todos los cobradores)
       esperadosPorMes[mes] = (esperadosPorMes[mes] || 0) + monto;
 
-      // Por medio
-      esperadosPorMesPorMedio[medio][mes] =
-        (esperadosPorMesPorMedio[medio][mes] || 0) + monto;
+      // Por cobrador
+      if (!esperadosPorMesPorCobrador[cobradorNombre]) {
+        esperadosPorMesPorCobrador[cobradorNombre] = {};
+      }
+      esperadosPorMesPorCobrador[cobradorNombre][mes] =
+        (esperadosPorMesPorCobrador[cobradorNombre][mes] || 0) + monto;
 
       // Socios: usamos socios_contados del cobrador
-      // Lo sumamos por medio y mes. Luego, en CobMesTable se usa MAX entre meses,
-      // así que no se duplica en el total de periodos.
-      sociosPorMesPorMedio[medio][mes] =
-        (sociosPorMesPorMedio[medio][mes] || 0) + sociosCont;
+      if (!sociosPorMesPorCobrador[cobradorNombre]) {
+        sociosPorMesPorCobrador[cobradorNombre] = {};
+      }
+      sociosPorMesPorCobrador[cobradorNombre][mes] =
+        (sociosPorMesPorCobrador[cobradorNombre][mes] || 0) + sociosCont;
     }
   }
 
   // ===== 2) Totales por cobrador, MES y ESTADO (ACTIVO / PASIVO) =====
   const listaPME = objetivo?.esperado_por_cobrador_por_mes_estado || [];
   for (const row of listaPME) {
-    const medio = normalizarMedioDeCobrador(row.nombre);
+    const cobradorNombre = String(row.nombre || "").trim();
     const estado = String(row?.estado || "").toUpperCase().trim();
     if (estado !== "ACTIVO" && estado !== "PASIVO") continue;
 
@@ -373,22 +345,37 @@ const buildEsperadosMaps = (objetivo) => {
       const mes = Number(mesStr);
       const monto = Number(montoVal || 0);
 
-      // Monto esperado por MEDIO + ESTADO + MES
-      esperadosPorMesPorMedioEstado[medio][estado][mes] =
-        (esperadosPorMesPorMedioEstado[medio][estado][mes] || 0) + monto;
+      // Inicializar estructuras si no existen
+      if (!esperadosPorMesPorCobradorEstado[cobradorNombre]) {
+        esperadosPorMesPorCobradorEstado[cobradorNombre] = {};
+      }
+      if (!esperadosPorMesPorCobradorEstado[cobradorNombre][estado]) {
+        esperadosPorMesPorCobradorEstado[cobradorNombre][estado] = {};
+      }
 
-      // Socios esperados por MEDIO + ESTADO + MES
-      sociosPorMesPorMedioEstado[medio][estado][mes] =
-        (sociosPorMesPorMedioEstado[medio][estado][mes] || 0) + sociosCont;
+      if (!sociosPorMesPorCobradorEstado[cobradorNombre]) {
+        sociosPorMesPorCobradorEstado[cobradorNombre] = {};
+      }
+      if (!sociosPorMesPorCobradorEstado[cobradorNombre][estado]) {
+        sociosPorMesPorCobradorEstado[cobradorNombre][estado] = {};
+      }
+
+      // Monto esperado por COBRADOR + ESTADO + MES
+      esperadosPorMesPorCobradorEstado[cobradorNombre][estado][mes] =
+        (esperadosPorMesPorCobradorEstado[cobradorNombre][estado][mes] || 0) + monto;
+
+      // Socios esperados por COBRADOR + ESTADO + MES
+      sociosPorMesPorCobradorEstado[cobradorNombre][estado][mes] =
+        (sociosPorMesPorCobradorEstado[cobradorNombre][estado][mes] || 0) + sociosCont;
     }
   }
 
   return {
     esperadosPorMes,
-    esperadosPorMesPorMedio,
-    sociosPorMesPorMedio,
-    esperadosPorMesPorMedioEstado,
-    sociosPorMesPorMedioEstado,
+    esperadosPorMesPorCobrador,
+    sociosPorMesPorCobrador,
+    esperadosPorMesPorCobradorEstado,
+    sociosPorMesPorCobradorEstado,
   };
 };
 
@@ -461,10 +448,10 @@ export default function DashboardContable() {
 
   // Detalle Cobranza
   const [esperadosPorMes, setEsperadosPorMes] = useState({});
-  const [esperadosPorMesPorMedio, setEsperadosPorMesPorMedio] = useState({});
-  const [sociosPorMesPorMedio, setSociosPorMesPorMedio] = useState({});
-  const [esperadosPorMesPorMedioEstado, setEsperadosPorMesPorMedioEstado] = useState({});
-  const [sociosPorMesPorMedioEstado, setSociosPorMesPorMedioEstado] = useState({});
+  const [esperadosPorMesPorCobrador, setEsperadosPorMesPorCobrador] = useState({});
+  const [sociosPorMesPorCobrador, setSociosPorMesPorCobrador] = useState({});
+  const [esperadosPorMesPorCobradorEstado, setEsperadosPorMesPorCobradorEstado] = useState({});
+  const [sociosPorMesPorCobradorEstado, setSociosPorMesPorCobradorEstado] = useState({});
   const [loadingResumen, setLoadingResumen] = useState(false);
 
   // Detalle Socios
@@ -557,7 +544,7 @@ export default function DashboardContable() {
     return ms && ms.length ? ms : [];
   }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
 
-  // usar NOMBRE del cobrador en mayúsculas como key
+  // usar NOMBRE del cobrador como key
   const fetchEsperadoMes = useCallback(
     async (mes) => {
       const u = new URL(`${BASE_URL}/api.php`);
@@ -574,19 +561,19 @@ export default function DashboardContable() {
 
       return {
         totalMes: mapsEsperados.esperadosPorMes[mes] || 0,
-        porMedio: Object.fromEntries(
-          Object.entries(mapsEsperados.esperadosPorMesPorMedio).map(([medio, meses]) => [
-            medio,
-            meses[mes] || 0
+        porCobrador: Object.fromEntries(
+          Object.entries(mapsEsperados.esperadosPorMesPorCobrador).map(([cobrador, meses]) => [
+            cobrador,
+            meses[mes] || 0,
           ])
         ),
-        sociosPorMedio: Object.fromEntries(
-          Object.entries(mapsEsperados.sociosPorMesPorMedio).map(([medio, meses]) => [
-            medio,
-            meses[mes] || 0
+        sociosPorCobrador: Object.fromEntries(
+          Object.entries(mapsEsperados.sociosPorMesPorCobrador).map(([cobrador, meses]) => [
+            cobrador,
+            meses[mes] || 0,
           ])
         ),
-        mapsEsperados // Devolvemos todos los maps para uso posterior
+        mapsEsperados, // Devolvemos todos los maps para uso posterior
       };
     },
     [anioSeleccionado]
@@ -609,10 +596,10 @@ export default function DashboardContable() {
   const recomputeResumen = useCallback(async () => {
     if (!anioSeleccionado || mesesParaResumen.length === 0) {
       setEsperadosPorMes({});
-      setEsperadosPorMesPorMedio({});
-      setSociosPorMesPorMedio({});
-      setEsperadosPorMesPorMedioEstado({});
-      setSociosPorMesPorMedioEstado({});
+      setEsperadosPorMesPorCobrador({});
+      setSociosPorMesPorCobrador({});
+      setEsperadosPorMesPorCobradorEstado({});
+      setSociosPorMesPorCobradorEstado({});
       return;
     }
     try {
@@ -622,67 +609,66 @@ export default function DashboardContable() {
       );
 
       const obj = {};
-      const porMedio = {};
-      const sociosMedioGlobal = {};
-      const porMedioEstado = {};
-      const sociosMedioEstadoGlobal = {};
+      const porCobrador = {};
+      const sociosCobradorGlobal = {};
+      const porCobradorEstado = {};
+      const sociosCobradorEstadoGlobal = {};
 
-      // Inicializar estructuras
-      const MEDIOS = [MEDIO_TRANSFERENCIA, MEDIO_OFICINA, MEDIO_COBRADOR];
-      const ESTADOS = ["ACTIVO", "PASIVO"];
-
-      for (const medio of MEDIOS) {
-        porMedio[medio] = {};
-        sociosMedioGlobal[medio] = {};
-        porMedioEstado[medio] = {};
-        sociosMedioEstadoGlobal[medio] = {};
-        
-        for (const estado of ESTADOS) {
-          porMedioEstado[medio][estado] = {};
-          sociosMedioEstadoGlobal[medio][estado] = {};
-        }
-      }
-
-      for (const [m, { totalMes, porMedio: mapMedio, sociosPorMedio, mapsEsperados }] of pairs) {
+      for (const [
+        m,
+        { totalMes, porCobrador: mapCobrador, sociosPorCobrador, mapsEsperados },
+      ] of pairs) {
         obj[m] = totalMes;
 
-        // montos
-        for (const nombreKey of Object.keys(mapMedio)) {
-          if (!porMedio[nombreKey]) porMedio[nombreKey] = {};
-          porMedio[nombreKey][m] = (porMedio[nombreKey][m] ?? 0) + mapMedio[nombreKey];
+        // montos por cobrador
+        for (const nombreKey of Object.keys(mapCobrador)) {
+          if (!porCobrador[nombreKey]) porCobrador[nombreKey] = {};
+          porCobrador[nombreKey][m] =
+            (porCobrador[nombreKey][m] ?? 0) + mapCobrador[nombreKey];
         }
 
-        // socios
-        for (const nombreKey of Object.keys(sociosPorMedio)) {
-          if (!sociosMedioGlobal[nombreKey]) sociosMedioGlobal[nombreKey] = {};
-          sociosMedioGlobal[nombreKey][m] =
-            (sociosMedioGlobal[nombreKey][m] ?? 0) + sociosPorMedio[nombreKey];
+        // socios por cobrador
+        for (const nombreKey of Object.keys(sociosPorCobrador)) {
+          if (!sociosCobradorGlobal[nombreKey]) sociosCobradorGlobal[nombreKey] = {};
+          sociosCobradorGlobal[nombreKey][m] =
+            (sociosCobradorGlobal[nombreKey][m] ?? 0) + sociosPorCobrador[nombreKey];
         }
 
-        // Por medio y estado
-        for (const medio of MEDIOS) {
-          for (const estado of ESTADOS) {
-            const monto = mapsEsperados.esperadosPorMesPorMedioEstado[medio]?.[estado]?.[m] || 0;
-            const socios = mapsEsperados.sociosPorMesPorMedioEstado[medio]?.[estado]?.[m] || 0;
-            
-            porMedioEstado[medio][estado][m] = (porMedioEstado[medio][estado][m] || 0) + monto;
-            sociosMedioEstadoGlobal[medio][estado][m] = (sociosMedioEstadoGlobal[medio][estado][m] || 0) + socios;
+        // Por cobrador y estado
+        for (const [cobrador, estados] of Object.entries(
+          mapsEsperados.esperadosPorMesPorCobradorEstado || {}
+        )) {
+          for (const [estado, meses] of Object.entries(estados)) {
+            const monto = meses[m] || 0;
+            const socios =
+              mapsEsperados.sociosPorMesPorCobradorEstado?.[cobrador]?.[estado]?.[m] || 0;
+
+            if (!porCobradorEstado[cobrador]) porCobradorEstado[cobrador] = {};
+            if (!porCobradorEstado[cobrador][estado]) porCobradorEstado[cobrador][estado] = {};
+            porCobradorEstado[cobrador][estado][m] =
+              (porCobradorEstado[cobrador][estado][m] || 0) + monto;
+
+            if (!sociosCobradorEstadoGlobal[cobrador]) sociosCobradorEstadoGlobal[cobrador] = {};
+            if (!sociosCobradorEstadoGlobal[cobrador][estado])
+              sociosCobradorEstadoGlobal[cobrador][estado] = {};
+            sociosCobradorEstadoGlobal[cobrador][estado][m] =
+              (sociosCobradorEstadoGlobal[cobrador][estado][m] || 0) + socios;
           }
         }
       }
 
       setEsperadosPorMes(obj);
-      setEsperadosPorMesPorMedio(porMedio);
-      setSociosPorMesPorMedio(sociosMedioGlobal);
-      setEsperadosPorMesPorMedioEstado(porMedioEstado);
-      setSociosPorMesPorMedioEstado(sociosMedioEstadoGlobal);
+      setEsperadosPorMesPorCobrador(porCobrador);
+      setSociosPorMesPorCobrador(sociosCobradorGlobal);
+      setEsperadosPorMesPorCobradorEstado(porCobradorEstado);
+      setSociosPorMesPorCobradorEstado(sociosCobradorEstadoGlobal);
     } catch (e) {
-      console.error("Detalle de Cobranza: error obteniendo esperados por mes/medio", e);
+      console.error("Detalle de Cobranza: error obteniendo esperados por mes/cobrador", e);
       setEsperadosPorMes({});
-      setEsperadosPorMesPorMedio({});
-      setSociosPorMesPorMedio({});
-      setEsperadosPorMesPorMedioEstado({});
-      setSociosPorMesPorMedioEstado({});
+      setEsperadosPorMesPorCobrador({});
+      setSociosPorMesPorCobrador({});
+      setEsperadosPorMesPorCobradorEstado({});
+      setSociosPorMesPorCobradorEstado({});
     } finally {
       setLoadingResumen(false);
     }
@@ -1064,7 +1050,14 @@ export default function DashboardContable() {
       cancelAnimationFrame(computeRAF1.current);
       cancelAnimationFrame(computeRAF2.current);
     };
-  }, [periodoSeleccionado, mesSeleccionado, cobradorSeleccionado, startTransition, recomputeResumen, fetchDetSoc]);
+  }, [
+    periodoSeleccionado,
+    mesSeleccionado,
+    cobradorSeleccionado,
+    startTransition,
+    recomputeResumen,
+    fetchDetSoc,
+  ]);
 
   /* ===== periodos visibles ===== */
   const periodosVisibles = useMemo(() => {
@@ -1130,10 +1123,10 @@ export default function DashboardContable() {
       diferencia: 0,
     });
     setEsperadosPorMes({});
-    setEsperadosPorMesPorMedio({});
-    setSociosPorMesPorMedio({});
-    setEsperadosPorMesPorMedioEstado({});
-    setSociosPorMesPorMedioEstado({});
+    setEsperadosPorMesPorCobrador({});
+    setSociosPorMesPorCobrador({});
+    setEsperadosPorMesPorCobradorEstado({});
+    setSociosPorMesPorCobradorEstado({});
     setDetSocRows([]);
     setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
   }, []);
@@ -1287,7 +1280,7 @@ export default function DashboardContable() {
       return;
     }
 
-    // Detalle de Cobranza
+    // Detalle de Cobranza (Excel)
     if (periodosVisibles.length === 0) {
       setShowNoDataToast(true);
       return;
@@ -1309,21 +1302,40 @@ export default function DashboardContable() {
         let pagosMes = curPagosByMonthRef.current[mesNum] || [];
         if (cobradorSeleccionado !== "todos") {
           pagosMes = pagosMes.filter(
-            (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+            (pg) =>
+              pg._cb === cobradorSeleccionado ||
+              (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
           );
         }
         recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-        esperado = Number(esperadosPorMes[mesNum] || 0);
+
+        // Esperado:
+        if (cobradorSeleccionado === "todos") {
+          esperado = Number(esperadosPorMes[mesNum] || 0);
+        } else {
+          esperado = Number(
+            esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[mesNum] || 0
+          );
+        }
       } else {
         for (const m of months) {
           let pagosMes = curPagosByMonthRef.current[m] || [];
           if (cobradorSeleccionado !== "todos") {
             pagosMes = pagosMes.filter(
-              (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
+              (pg) =>
+                pg._cb === cobradorSeleccionado ||
+                (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
             );
           }
           recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-          esperado += Number(esperadosPorMes[m] || 0);
+
+          if (cobradorSeleccionado === "todos") {
+            esperado += Number(esperadosPorMes[m] || 0);
+          } else {
+            esperado += Number(
+              esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[m] || 0
+            );
+          }
         }
       }
 
@@ -1340,7 +1352,7 @@ export default function DashboardContable() {
     }
 
     rows.push({
-      PERÍODO: "TOTAL",
+      PERÍODO: "TOTAL AÑO",
       ESPERADO: totalEsperadoAnual,
       RECAUDADO: totalRecaudadoAnual,
       "DIFERENCIA (ESP-REC)": totalEsperadoAnual - totalRecaudadoAnual,
@@ -1370,6 +1382,7 @@ export default function DashboardContable() {
     registrosFiltradosPorBusqueda,
     periodosVisibles,
     esperadosPorMes,
+    esperadosPorMesPorCobrador,
     cobradorSeleccionado,
     anioSeleccionado,
     periodoSeleccionado,
@@ -1379,12 +1392,15 @@ export default function DashboardContable() {
   ]);
 
   /* ===== EXPORTAR PDF ===== */
+  /* ===== EXPORTAR PDF ===== */
   const exportarPDF = useCallback(() => {
+    // 1) Vista DETALLE: no hay PDF
     if (mainView === "detalle") {
       setShowNoDataToast(true);
       return;
     }
 
+    // 2) Vista DETALLE DE SOCIOS
     if (mainView === "detsoc") {
       if (!detSocRows.length) {
         setShowNoDataToast(true);
@@ -1404,73 +1420,32 @@ export default function DashboardContable() {
       return;
     }
 
+    // 3) Vista DETALLE DE COBRANZA - Exportar tabla COMPLETA
     if (periodosVisibles.length === 0) {
       setShowNoDataToast(true);
       return;
     }
 
-    const rows = [];
-    let totalEsperadoAnual = 0;
-    let totalRecaudadoAnual = 0;
-
-    for (const p of periodosVisibles) {
-      const label = p.value;
-      const months = p.months || extractMonthsFromPeriodLabel(label);
-
-      let recaudado = 0;
-      let esperado = 0;
-
-      if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
-        const mesNum = parseInt(mesSeleccionado, 10);
-        let pagosMes = curPagosByMonthRef.current[mesNum] || [];
-        if (cobradorSeleccionado !== "todos") {
-          pagosMes = pagosMes.filter(
-            (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
-          );
-        }
-        recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-        esperado = Number(esperadosPorMes[mesNum] || 0);
-      } else {
-        for (const m of months) {
-          let pagosMes = curPagosByMonthRef.current[m] || [];
-          if (cobradorSeleccionado !== "todos") {
-            pagosMes = pagosMes.filter(
-              (pg) => pg._cb === cobradorSeleccionado || (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
-            );
-          }
-          recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-          esperado += Number(esperadosPorMes[m] || 0);
-        }
-      }
-
-      rows.push({
-        periodo: label,
-        esperado,
-        recaudado,
-        diferencia: esperado - recaudado,
-      });
-
-      totalEsperadoAnual += esperado;
-      totalRecaudadoAnual += recaudado;
-    }
-
-    rows.push({
-      periodo: "TOTAL",
-      esperado: totalEsperadoAnual,
-      recaudado: totalRecaudadoAnual,
-      diferencia: totalEsperadoAnual - totalRecaudadoAnual,
-    });
-
+    // Exportar tabla completa con jerarquía
     exportCobranzaPDF({
-      rows,
+      rows: [], // No se usa directamente
+      periodosVisibles,
+      esperadosPorMes,
+      esperadosPorMesPorCobrador,
+      sociosPorMesPorCobrador,
+      getPagosByMonth: (m) => curPagosByMonthRef.current[m] || [],
+      cobradorSeleccionado,
+      mesSeleccionado,
+      nfPesos,
+      esperadosPorMesPorCobradorEstado,
+      sociosPorMesPorCobradorEstado,
       fecha: hoyStr(),
       lineaPeriodo: periodoLinea(),
       anio: anioSeleccionado,
       periodo: periodoSeleccionado,
-      mes: mesSeleccionado,
       cobrador: cobradorSeleccionado,
-      nf: nfPesos,
     });
+    
     setShowSuccessToast(true);
   }, [
     mainView,
@@ -1478,6 +1453,10 @@ export default function DashboardContable() {
     detSocTotales,
     periodosVisibles,
     esperadosPorMes,
+    esperadosPorMesPorCobrador,
+    sociosPorMesPorCobrador,
+    esperadosPorMesPorCobradorEstado,
+    sociosPorMesPorCobradorEstado,
     anioSeleccionado,
     periodoSeleccionado,
     mesSeleccionado,
@@ -1842,10 +1821,10 @@ export default function DashboardContable() {
               loadingResumen={loadingResumen}
               periodosVisibles={periodosVisibles}
               esperadosPorMes={esperadosPorMes}
-              esperadosPorMesPorMedio={esperadosPorMesPorMedio}
-              sociosPorMesPorMedio={sociosPorMesPorMedio}
-              esperadosPorMesPorMedioEstado={esperadosPorMesPorMedioEstado}
-              sociosPorMesPorMedioEstado={sociosPorMesPorMedioEstado}
+              esperadosPorMesPorCobrador={esperadosPorMesPorCobrador}
+              sociosPorMesPorCobrador={sociosPorMesPorCobrador}
+              esperadosPorMesPorCobradorEstado={esperadosPorMesPorCobradorEstado}
+              sociosPorMesPorCobradorEstado={sociosPorMesPorCobradorEstado}
               getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
               cobradorSeleccionado={cobradorSeleccionado}
               mesSeleccionado={mesSeleccionado}
