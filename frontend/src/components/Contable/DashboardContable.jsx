@@ -1497,6 +1497,7 @@ export default function DashboardContable() {
       anio: anioSeleccionado,
       periodo: periodoSeleccionado,
       cobrador: cobradorSeleccionado,
+      categoriasMonto,
     });
     
     setShowSuccessToast(true);
@@ -1515,6 +1516,7 @@ export default function DashboardContable() {
     mesSeleccionado,
     cobradorSeleccionado,
     nfPesos,
+      categoriasMonto, // 🔹 NUEVO
   ]);
 
   const haveData = (curPagosAllSortedRef.current?.length || 0) > 0;
@@ -1532,7 +1534,7 @@ export default function DashboardContable() {
       card: {
         border: "1px dashed rgba(0,0,0,.12)",
         borderRadius: "12px",
-        padding: "14px 16px",
+        padding: "10px 16px",
         background: "#fff",
       },
       title: {
@@ -1624,7 +1626,6 @@ export default function DashboardContable() {
     return (
       <div className="categorias-monto-section">
         <div className="section-header">
-          <FontAwesomeIcon icon={faTag} />
           <span>Categorías de Monto</span>
           {loadingCategorias && (
             <FontAwesomeIcon icon={faSpinner} spin style={{ marginLeft: 8 }} />

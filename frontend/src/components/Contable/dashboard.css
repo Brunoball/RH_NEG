@@ -495,3 +495,137 @@ html, body {
   color:#334155;
   border-color: rgba(148,163,184,0.5);
 }
+/* ========================
+   Categorías de monto (chips)
+   ======================== */
+
+.categorias-monto-section {
+  padding: 6px 16px 2px;
+  background: transparent;
+  border-bottom: none;
+}
+
+/* Header de la sección (icono + título + spinner) */
+.categorias-monto-section .section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.categorias-monto-section .section-header svg {
+  font-size: 0.85rem;
+  color: var(--princ-primary);
+}
+
+/* Contenedor de chips: flex con wrap */
+.categorias-monto-section .cards-row {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Chip base */
+.categorias-monto-section .card-resumen {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: none;
+  min-height: auto;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Nombre de la categoría */
+.categorias-monto-section .card-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0;
+}
+
+/* Monto principal (mensual) */
+.categorias-monto-section .card-value {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* Subtexto: anual / cantidad de socios */
+.categorias-monto-section .card-sub {
+  font-size: 0.7rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* Separador visual entre partes (solo si hay más de una sub-línea) */
+.categorias-monto-section .card-sub + .card-sub::before {
+  content: "·";
+  margin: 0 4px 0 2px;
+  color: #9ca3af;
+}
+
+/* Mensaje cuando no hay categorías */
+.categorias-monto-section .no-categorias {
+  font-size: 0.8rem;
+  color: #64748b;
+  padding: 4px 0 2px;
+}
+
+/* ===== Skeleton de carga en formato chip ===== */
+.categorias-monto-section .card-resumen.skeleton {
+  background: rgba(241, 245, 249, 0.9);
+  border-style: dashed;
+}
+
+.categorias-monto-section .card-resumen.skeleton .card-title,
+.categorias-monto-section .card-resumen.skeleton .card-value,
+.categorias-monto-section .card-resumen.skeleton .card-sub {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.20) 25%,
+    rgba(148, 163, 184, 0.45) 37%,
+    rgba(148, 163, 184, 0.20) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+
+.categorias-monto-section .card-resumen.skeleton .card-title {
+  width: 60px;
+}
+
+.categorias-monto-section .card-resumen.skeleton .card-value {
+  width: 50px;
+}
+
+.categorias-monto-section .card-resumen.skeleton .card-sub {
+  width: 70px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 920px) {
+  .categorias-monto-section {
+    padding: 6px 10px 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  .categorias-monto-section .cards-row {
+    gap: 5px;
+  }
+}

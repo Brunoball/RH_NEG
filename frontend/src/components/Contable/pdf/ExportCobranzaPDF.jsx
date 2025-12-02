@@ -23,6 +23,7 @@ import logo from "../../../imagenes/Logo_rh.jpeg";
  * @param {string|number} opts.anio - Año seleccionado
  * @param {string} opts.periodo - Período seleccionado
  * @param {string} opts.cobrador - Cobrador seleccionado
+ * @param {Array} opts.categoriasMonto - Categorías con montos (monto por período)
  */
 export function exportCobranzaPDF({
   rows = [],
@@ -41,6 +42,9 @@ export function exportCobranzaPDF({
   anio,
   periodo,
   cobrador,
+
+  // 🔹 NUEVO: montos por categoría
+  categoriasMonto = [],
 }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -97,6 +101,39 @@ export function exportCobranzaPDF({
   if (cobrador && cobrador !== "todos") {
     doc.text(`Cobrador: ${cobrador}`, marginX, y);
     y += 22;
+  }
+
+  /* ========= MONTOS POR CATEGORÍA (MONTO POR PERÍODO) ========= */
+  if (categoriasMonto && categoriasMonto.length) {
+    // Título del bloque
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(20);
+    doc.text("Montos por categoría (monto por período):", marginX, y);
+    y += 14;
+
+    // Detalle de cada categoría
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(40);
+
+    categoriasMonto.forEach((cat) => {
+      const nombre = cat.nombre_categoria || "-";
+
+      const montoNum = Number(cat.monto_mensual || 0);
+      const montoTxt =
+        cat.monto_mensual_fmt ||
+        (nfPesos ? `$${nfPesos.format(montoNum)}` : String(montoNum ?? 0));
+
+      const sociosTxt = cat.cant_socios
+        ? ` (${cat.cant_socios} socios)`
+        : "";
+
+      doc.text(`• ${nombre}: ${montoTxt}${sociosTxt}`, marginX + 8, y);
+      y += 12;
+    });
+
+    y += 8; // pequeño espacio antes de la tabla principal
   }
 
   /* ========= CONSTRUIR DATOS DE LA TABLA JERÁRQUICA ========= */
@@ -379,7 +416,7 @@ export function exportCobranzaPDF({
             const info = activo.porMedio[medio];
             if (info && (info.recaudado > 0 || info.socios > 0)) {
               body.push([
-                `        └ ${medio}`,   // <<< SIN % AQUÍ
+                `        └ ${medio}`,
                 "—",
                 fmtMoney(info.recaudado),
                 fmtInt(info.socios),
@@ -412,7 +449,7 @@ export function exportCobranzaPDF({
             const info = pasivo.porMedio[medio];
             if (info && (info.recaudado > 0 || info.socios > 0)) {
               body.push([
-                `        └ ${medio}`,   // <<< SIN % AQUÍ TAMPOCO
+                `        └ ${medio}`,
                 "—",
                 fmtMoney(info.recaudado),
                 fmtInt(info.socios),
