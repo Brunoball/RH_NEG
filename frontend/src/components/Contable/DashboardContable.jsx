@@ -26,6 +26,7 @@ import {
   faLayerGroup,
   faUsers,
   faFilePdf,
+  faTag,
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
 
@@ -414,7 +415,7 @@ export default function DashboardContable() {
   // filtros
   const [anioSeleccionado, setAnioSeleccionado] = useState("");
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("Selecciona un periodo");
-  const [mesSeleccionado, setMesSeleccionado] = useState("Todos los meses"); // mes sin selección inicial
+  const [mesSeleccionado, setMesSeleccionado] = useState("Todos los meses");
   const [cobradorSeleccionado, setCobradorSeleccionado] = useState("todos");
   const [searchText, setSearchText] = useState("");
   const searchDeferred = useDeferredValue(searchText);
@@ -435,6 +436,10 @@ export default function DashboardContable() {
   const [condonados, setCondonados] = useState([]);
   const [datosMeses, setDatosMeses] = useState([]);
   const [datosEmpresas, setDatosEmpresas] = useState([]);
+
+  // NUEVO: Estado para categorías de monto
+  const [categoriasMonto, setCategoriasMonto] = useState([]);
+  const [loadingCategorias, setLoadingCategorias] = useState(false);
 
   const [error, setError] = useState(null);
   const [mostrarModalGraficos, setMostrarModalGraficos] = useState(false);
@@ -754,6 +759,49 @@ export default function DashboardContable() {
     return u.toString();
   }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
 
+  /* ===== NUEVO: Función para cargar categorías de monto ===== */
+  const fetchCategoriasMonto = useCallback(async () => {
+    if (!anioSeleccionado) {
+      setCategoriasMonto([]);
+      return;
+    }
+    
+    try {
+      setLoadingCategorias(true);
+      const url = new URL(`${BASE_URL}/api.php`);
+      url.searchParams.set("action", "categorias_monto_cards");
+      url.searchParams.set("anio", String(anioSeleccionado));
+      
+      // Aplicar filtros si existen
+      if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
+        const n = parseInt(mesSeleccionado, 10);
+        if (Number.isFinite(n)) {
+          url.searchParams.set("mes", String(n));
+        }
+      } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
+        url.searchParams.set("periodo", periodoSeleccionado);
+      }
+      
+      if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
+        url.searchParams.set("cobrador", cobradorSeleccionado);
+      }
+      
+      const res = await fetch(url.toString() + `&ts=${Date.now()}`);
+      const data = await res.json();
+      
+      if (data?.exito) {
+        setCategoriasMonto(data.categorias || []);
+      } else {
+        setCategoriasMonto([]);
+      }
+    } catch (e) {
+      console.error('Error cargando categorías de monto', e);
+      setCategoriasMonto([]);
+    } finally {
+      setLoadingCategorias(false);
+    }
+  }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
+
   /* ===== carga inicial años + listas ===== */
   useEffect(() => {
     const ctrl = new AbortController();
@@ -901,6 +949,7 @@ export default function DashboardContable() {
 
           await recomputeResumen();
           await fetchDetSoc();
+          await fetchCategoriasMonto(); // 🔹 NUEVO: cargar categorías
           return;
         }
 
@@ -950,6 +999,7 @@ export default function DashboardContable() {
 
         await recomputeResumen();
         await fetchDetSoc();
+        await fetchCategoriasMonto(); // 🔹 NUEVO: cargar categorías
       } catch (err) {
         if (err.name !== "AbortError") {
           console.error("Error al cargar pagos del año:", err);
@@ -981,6 +1031,7 @@ export default function DashboardContable() {
     recomputeSync,
     recomputeResumen,
     fetchDetSoc,
+    fetchCategoriasMonto, // 🔹 NUEVO: añadido a las dependencias
   ]);
 
   /* ===== efecto: esperado total ===== */
@@ -1018,7 +1069,7 @@ export default function DashboardContable() {
     return () => ctrl.abort();
   }, [buildEsperadoURL]);
 
-  /* ===== efecto: recompute + resumen + det/soc ===== */
+  /* ===== efecto: recompute + resumen + det/soc + categorías ===== */
   useEffect(() => {
     const haveData = (curPagosAllSortedRef.current?.length || 0) > 0;
     setIsLoadingTable(!haveData);
@@ -1045,6 +1096,7 @@ export default function DashboardContable() {
 
     recomputeResumen();
     fetchDetSoc();
+    fetchCategoriasMonto(); // 🔹 NUEVO: actualizar categorías cuando cambien filtros
 
     return () => {
       cancelAnimationFrame(computeRAF1.current);
@@ -1057,6 +1109,7 @@ export default function DashboardContable() {
     startTransition,
     recomputeResumen,
     fetchDetSoc,
+    fetchCategoriasMonto, // 🔹 NUEVO: añadido a las dependencias
   ]);
 
   /* ===== periodos visibles ===== */
@@ -1129,6 +1182,7 @@ export default function DashboardContable() {
     setSociosPorMesPorCobradorEstado({});
     setDetSocRows([]);
     setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
+    setCategoriasMonto([]); // 🔹 NUEVO: limpiar categorías
   }, []);
 
   const handleSearch = useCallback((e) => {
@@ -1392,7 +1446,6 @@ export default function DashboardContable() {
   ]);
 
   /* ===== EXPORTAR PDF ===== */
-  /* ===== EXPORTAR PDF ===== */
   const exportarPDF = useCallback(() => {
     // 1) Vista DETALLE: no hay PDF
     if (mainView === "detalle") {
@@ -1559,6 +1612,50 @@ export default function DashboardContable() {
           <div style={{ ...box.title, color: "#2563eb" }}>TOTAL GENERAL</div>
           <div style={box.num}>{totalGen}</div>
           <div style={box.foot}>= Activo + Pasivo</div>
+        </div>
+      </div>
+    );
+  };
+
+  /* ===== NUEVO: Componente para mostrar las cajas de categorías de monto ===== */
+  const CategoriasMontoCards = () => {
+    if (mainView !== "cobmes") return null;
+    
+    return (
+      <div className="categorias-monto-section">
+        <div className="section-header">
+          <FontAwesomeIcon icon={faTag} />
+          <span>Categorías de Monto</span>
+          {loadingCategorias && (
+            <FontAwesomeIcon icon={faSpinner} spin style={{ marginLeft: 8 }} />
+          )}
+        </div>
+        
+        <div className="cards-row">
+          {loadingCategorias ? (
+            <div className="card-resumen skeleton">
+              <div className="card-title"></div>
+              <div className="card-value"></div>
+              <div className="card-sub"></div>
+            </div>
+          ) : categoriasMonto.length === 0 ? (
+            <div className="no-categorias">
+              No hay datos de categorías para los filtros aplicados.
+            </div>
+          ) : (
+            categoriasMonto.map(cat => (
+              <div key={cat.id_cat_monto || cat.nombre_categoria} className="card-resumen">
+                <div className="card-title">{cat.nombre_categoria}</div>
+                <div className="card-value">{cat.monto_mensual_fmt || `$${nfPesos.format(cat.monto_mensual || 0)}`}</div>
+                {cat.monto_anual_fmt && (
+                  <div className="card-sub">Anual: {cat.monto_anual_fmt}</div>
+                )}
+                <div className="card-sub">
+                  {cat.cant_socios ? `${cat.cant_socios} socios` : 'Monto por período'}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     );
@@ -1802,6 +1899,9 @@ export default function DashboardContable() {
             </div>
           </div>
 
+          {/* 🔹 NUEVO: Categorías de Monto (solo en vista Detalle de Cobranza) */}
+          {mainView === "cobmes" && <CategoriasMontoCards />}
+
           {/* Cards resumen */}
           {(mainView === "cobmes" || mainView === "detsoc") && <CardsResumen />}
 
@@ -1817,19 +1917,23 @@ export default function DashboardContable() {
           )}
 
           {mainView === "cobmes" && (
-            <CobMesTable
-              loadingResumen={loadingResumen}
-              periodosVisibles={periodosVisibles}
-              esperadosPorMes={esperadosPorMes}
-              esperadosPorMesPorCobrador={esperadosPorMesPorCobrador}
-              sociosPorMesPorCobrador={sociosPorMesPorCobrador}
-              esperadosPorMesPorCobradorEstado={esperadosPorMesPorCobradorEstado}
-              sociosPorMesPorCobradorEstado={sociosPorMesPorCobradorEstado}
-              getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
-              cobradorSeleccionado={cobradorSeleccionado}
-              mesSeleccionado={mesSeleccionado}
-              nfPesos={nfPesos}
-            />
+            <>
+              {/* 🔹 NUEVO: Las cajas de categorías ahora van arriba de la tabla */}
+              {/* La tabla Detalle de Cobranza se mostrará debajo */}
+              <CobMesTable
+                loadingResumen={loadingResumen}
+                periodosVisibles={periodosVisibles}
+                esperadosPorMes={esperadosPorMes}
+                esperadosPorMesPorCobrador={esperadosPorMesPorCobrador}
+                sociosPorMesPorCobrador={sociosPorMesPorCobrador}
+                esperadosPorMesPorCobradorEstado={esperadosPorMesPorCobradorEstado}
+                sociosPorMesPorCobradorEstado={sociosPorMesPorCobradorEstado}
+                getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
+                cobradorSeleccionado={cobradorSeleccionado}
+                mesSeleccionado={mesSeleccionado}
+                nfPesos={nfPesos}
+              />
+            </>
           )}
 
           {mainView === "detsoc" && (

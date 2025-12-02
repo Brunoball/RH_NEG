@@ -37,7 +37,7 @@ try {
     // ==========================
     $socStmt = $pdo->query("
         SELECT id_socio, ingreso
-        FROM rh_neg.socios
+        FROM socios
         WHERE activo = 1
     ");
     $socios = $socStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -52,7 +52,7 @@ try {
     // ==========================
     $pagosStmt = $pdo->prepare("
         SELECT id_periodo, fecha_pago
-        FROM rh_neg.pagos
+        FROM pagos
         WHERE id_socio = :id_socio
           AND estado = 'pagado'
           AND fecha_pago IS NOT NULL

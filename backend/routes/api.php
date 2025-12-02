@@ -202,6 +202,9 @@ try {
             require_once __DIR__ . '/../modules/contable/contar_socios_por_cat_estado.php';
             exit;
 
+        case 'categorias_monto_cards':
+            require_once __DIR__ . '/../modules/contable/categorias_monto_cards.php';
+            exit;
 
         /* =========================
                DEFAULT / 404

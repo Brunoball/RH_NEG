@@ -96,15 +96,13 @@ const ModalPagos = ({ socio, onClose }) => {
         const res = await fetch(`${BASE_URL}/api.php?action=listas`);
         const data = await res.json();
         if (data?.exito && data?.listas?.medios_pago) {
-          // Obtener solo los nombres de los medios de pago (TRANSFERENCIA, EFECTIVO)
           const medios = data.listas.medios_pago.map(m => m.nombre);
           setMediosPago(medios);
-          // 🔹 Ya NO se selecciona automáticamente ninguno, queda en "" (placeholder)
+          setMedioPagoSeleccionado('');
         } else if (data?.exito && data?.listas?.cobradores) {
-          // Fallback: si no existen medios_pago, usar cobradores
           const medios = data.listas.cobradores.map(c => c.nombre);
           setMediosPago(medios);
-          // 🔹 También sin selección automática
+          setMedioPagoSeleccionado('');
         }
       } catch (error) {
         console.error('Error al cargar medios de pago:', error);
@@ -112,9 +110,7 @@ const ModalPagos = ({ socio, onClose }) => {
     };
 
     if (esOficina) {
-      // Solo tiene sentido cargar medios si es oficina
       fetchMediosPago();
-      // Asegurar que arranque siempre vacío
       setMedioPagoSeleccionado('');
     }
   }, [esOficina]);
@@ -200,17 +196,29 @@ const ModalPagos = ({ socio, onClose }) => {
   }, [socio, anioTrabajo]);
 
   // ---- Helpers de selección ----
+  // *** CORREGIDO: ahora incluye el bimestre en el que entra el socio (7-8 si entra en mes 8) ***
   const filtrarPeriodosPorIngreso = () => {
     if (!fechaIngreso) return periodos;
 
     const fecha = new Date(fechaIngreso);
-    const mesIngreso = fecha.getMonth() + 1;
+    const mesIngreso = fecha.getMonth() + 1;       // 1..12
     const anioIngreso = fecha.getFullYear();
 
     return periodos.filter((p) => {
-      if (p.id === ID_CONTADO_ANUAL) return true; // (visibilidad se controla más abajo)
-      const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
-      return (anioIngreso < anioTrabajo) || (anioIngreso === anioTrabajo && primerMes >= mesIngreso);
+      if (p.id === ID_CONTADO_ANUAL) return true;  // el anual se controla aparte
+
+      const primerMes = obtenerPrimerMesDesdeNombre(p.nombre); // 1,3,5,7,9,11
+      const segundoMes = primerMes + 1;                         // 2,4,6,8,10,12
+
+      // Si el año de trabajo es posterior al año de ingreso → mostrar todos
+      if (anioIngreso < anioTrabajo) return true;
+      // Si es anterior, no debería ocurrir, pero por las dudas:
+      if (anioIngreso > anioTrabajo) return false;
+
+      // Mismo año: mostrar períodos cuyo rango [primerMes, segundoMes]
+      // incluya el mes de ingreso o sean posteriores.
+      // Ej: ingreso mes 8 → se muestran 7-8, 9-10, 11-12.
+      return mesIngreso <= segundoMes;
     });
   };
 
@@ -344,18 +352,15 @@ const ModalPagos = ({ socio, onClose }) => {
       return;
     }
 
-    // Validación para socios con cobrador = "oficina"
     if (esOficina && !medioPagoSeleccionado) {
       mostrarToast('advertencia', 'Debés seleccionar un medio de pago');
       return;
     }
 
-    // Si aplica anual, asegurar montos frescos
     if (aplicaAnualPorSeleccion) {
       await refrescarMontosActuales();
     }
 
-    // DEFENSAS: no permitir pagar con montos no listos o 0 (salvo condonación)
     const montosValidos = aplicaAnualPorSeleccion
       ? Number(montoAnual) > 0
       : Number(montoMensual) > 0;
@@ -377,8 +382,8 @@ const ModalPagos = ({ socio, onClose }) => {
         periodos: seleccionados,
         condonar,
         anio: anioTrabajo,
-        monto: Number(total) || 0, // TOTAL visible en la UI
-        monto_por_periodo: esAnual ? 0 : (Number(montoMensual) || 0), // unitario (bimestres)
+        monto: Number(total) || 0,
+        monto_por_periodo: esAnual ? 0 : (Number(montoMensual) || 0),
         medio_pago: esOficina ? medioPagoSeleccionado : socio.medio_pago || socio.cobrador,
       };
 
@@ -490,7 +495,6 @@ const ModalPagos = ({ socio, onClose }) => {
                 <h3 className="success-title">{tituloExito}</h3>
                 <p className="success-sub">{subExito}</p>
 
-                {/* Selector de modo de salida (pills) */}
                 <div className="output-mode">
                   <label className={`mode-option ${modoSalida === 'imprimir' ? 'active' : ''}`}>
                     <input
@@ -550,21 +554,18 @@ const ModalPagos = ({ socio, onClose }) => {
   // ======= VISTA NORMAL =======
   const cantidadSeleccionados = seleccionados.length;
 
-  // Deshabilitar pagar si no hay montos listos y no es condonación
   const bloquearPorMontos =
     !condonar && (
       !montosListos ||
       (aplicaAnualPorSeleccion ? Number(montoAnual) <= 0 : Number(montoMensual) <= 0)
     );
 
-  // También deshabilitar si es oficina y no se seleccionó medio de pago
   const deshabilitarConfirmar = 
     seleccionados.length === 0 || 
     cargando || 
     bloquearPorMontos ||
     (esOficina && !medioPagoSeleccionado);
 
-  // Handlers para el modal de confirmación
   const handleAbrirConfirmacion = () => {
     if (deshabilitarConfirmar) return;
     setShowConfirm(true);
@@ -615,7 +616,6 @@ const ModalPagos = ({ socio, onClose }) => {
               </div>
             </div>
 
-            {/* Caja condonar + selector de AÑO */}
             <div className={`condonar-box ${condonar ? 'is-active' : ''}`}>
               <label className="condonar-check">
                 <input
@@ -663,7 +663,6 @@ const ModalPagos = ({ socio, onClose }) => {
               </div>
             </div>
 
-            {/* Selector de medio de pago para socios con cobrador = "oficina" */}
             {esOficina && (
               <div className="medio-pago-section">
                 <div className="section-header">
@@ -716,7 +715,7 @@ const ModalPagos = ({ socio, onClose }) => {
                   <div className="periodos-grid-container">
                     <div className="periodos-grid">
                       {periodosDisponibles.map((periodo) => {
-                        const estadoExacto = estadosPorPeriodo[periodo.id];  // 'pagado' | 'condonado' | undefined
+                        const estadoExacto = estadosPorPeriodo[periodo.id];
                         const yaMarcado = !!estadoExacto;
                         const checked = seleccionados.includes(periodo.id);
                         const disabled = yaMarcado || cargando;
@@ -805,7 +804,6 @@ const ModalPagos = ({ socio, onClose }) => {
           </div>
         </div>
 
-        {/* MODAL DE CONFIRMACIÓN DE PAGO / CONDONACIÓN */}
         {showConfirm && (
           <div className="confirm-pago-overlay">
             <div className="confirm-pago-card">
