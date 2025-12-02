@@ -217,7 +217,6 @@
   align-items: center !important;
   justify-content: flex-end !important;
   max-width: 60% !important;
-  margin-top: .5rem;
 }
 
 .soc-chip {
@@ -369,7 +368,7 @@
 }
 .soc-row-odd  { background: rgba(255,255,255,.95); }
 .soc-row-even { background: rgba(179,180,181,.47); }
-.soc-fila-seleccionada{ background: rgba(210,218,235,.7) !important; box-shadow: inset 3px 0 0 var(--soc-primary); }
+
 
 @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
 @keyframes soc-slideInUp { from { transform: translateY(20px);} to { transform: translateY(0);} }
@@ -658,10 +657,7 @@
     background: transparent !important;
   }
 
-  .soc-fila-seleccionada{
-    border-color: var(--soc-primary);
-    box-shadow: 0 8px 24px rgba(37,99,235,.15);
-  }
+
 
   .soc-tabla-fila > .soc-col-id,
   .soc-tabla-fila > .soc-col-nombre,
@@ -921,24 +917,159 @@
   color: white;
 }
 
+/* ===== ESTADOS DE PAGO: borde izquierdo por estado ===== */
 
-/* ===== ESTADOS DE PAGO (con prioridad alta) ===== */
+/* De base, todas las filas tienen un borde izquierdo transparente */
+.soc-tabla-fila {
+  border-left: 4px solid transparent;
+}
 
+/* Verde: al día */
 .soc-tabla-fila.soc-estado-al-dia {
-  background-color: #d5f7d5 !important; /* verde suave */
+  border-left-color: #16a34a;
 }
 
+/* Amarillo: debe 1–2 meses */
 .soc-tabla-fila.soc-estado-debe-1-2 {
-  background-color: #fff4cc !important; /* amarillo suave */
+  border-left-color: #f59e0b;
 }
 
+/* Rojo: debe 3+ meses */
 .soc-tabla-fila.soc-estado-debe-3-mas {
-  background-color: #ffd6d6 !important; /* rojo suave */
+  border-left-color: #ef4444;
 }
 
-/* Si la fila usa grid, garantizar que toda la fila tome el color */
+/* No pintamos el fondo por estado, dejamos el de filas pares/impares */
+.soc-tabla-fila.soc-estado-al-dia,
+.soc-tabla-fila.soc-estado-debe-1-2,
+.soc-tabla-fila.soc-estado-debe-3-mas {
+  background-color: inherit !important;
+}
+
+/* Y las celdas no fuerzan ningún color de fondo extra */
 .soc-tabla-fila.soc-estado-al-dia > *,
 .soc-tabla-fila.soc-estado-debe-1-2 > *,
 .soc-tabla-fila.soc-estado-debe-3-mas > * {
-  background-color: inherit !important;
+  background-color: transparent !important;
+}
+
+/* Leyenda estado de pago (chips arriba de la tabla) */
+.soc-legenda-pagos {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.soc-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--soc-dark);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.soc-legenda-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+/* Colores de los puntitos */
+.soc-legenda-dot--al-dia {
+  background-color: #16a34a; /* verde */
+}
+
+.soc-legenda-dot--debe-1-2 {
+  background-color: #f59e0b; /* amarillo */
+}
+
+.soc-legenda-dot--debe-3-mas {
+  background-color: #ef4444; /* rojo */
+}
+
+/* Ajustes para mobile */
+@media (max-width: 768px) {
+  .soc-legenda-pagos {
+    margin-left: 0;
+    margin-top: 4px;
+    padding: 4px 6px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .soc-legenda-item {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+  }
+}
+/* Wrapper para contador + indicadores + chips */
+.soc-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 2px;
+}
+
+/* Contenedor derecho: indicadores + chips */
+.soc-header-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+/* Ajuste: el contador ya no necesita border-bottom tan largo */
+.soc-contador {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--soc-gray-600);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: none;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+/* La isla de chips ya no necesita posición absoluta */
+.soc-filters-island {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 60%;
+}
+
+/* Mobile: apilamos todo bonito */
+@media (max-width: 768px) {
+  .soc-header-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .soc-header-meta-right {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .soc-filters-island {
+    max-width: 100%;
+    justify-content: flex-start;
+  }
 }

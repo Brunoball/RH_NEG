@@ -7,12 +7,12 @@ import React, {
   useCallback,
   useTransition,
   useDeferredValue,
-} from 'react';
-import ReactDOM from 'react-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { FixedSizeList as List, areEqual } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
-import BASE_URL from '../../config/config';
+} from "react";
+import ReactDOM from "react-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { FixedSizeList as List, areEqual } from "react-window";
+import AutoSizer from "react-virtualized-auto-sizer";
+import BASE_URL from "../../config/config";
 import {
   FaInfoCircle,
   FaEdit,
@@ -28,15 +28,15 @@ import {
   FaFilter,
   FaChevronDown,
   FaCalendarAlt,
-} from 'react-icons/fa';
-import './Socios.css';
-import ModalEliminarSocio from './modales/ModalEliminarSocio';
-import ModalInfoSocio from './modales/ModalInfoSocio';
-import ModalDarBajaSocio from './modales/ModalDarBajaSocio';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
-import Toast from '../Global/Toast';
-import '../Global/roots.css';
+} from "react-icons/fa";
+import "./Socios.css";
+import ModalEliminarSocio from "./modales/ModalEliminarSocio";
+import ModalInfoSocio from "./modales/ModalInfoSocio";
+import ModalDarBajaSocio from "./modales/ModalDarBajaSocio";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+import Toast from "../Global/Toast";
+import "../Global/roots.css";
 
 /* ============================
    CONSTANTES / PERFORMANCE
@@ -53,7 +53,7 @@ const MOBILE_ITEM_SIZE_SELECTED = 270;
 function useResponsiveItemSize(hasSelected) {
   const [size, setSize] = useState(ITEM_SIZE);
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
+    const mq = window.matchMedia("(max-width: 768px)");
     const update = () => {
       if (mq.matches) {
         setSize(hasSelected ? MOBILE_ITEM_SIZE_SELECTED : MOBILE_ITEM_SIZE);
@@ -62,10 +62,10 @@ function useResponsiveItemSize(hasSelected) {
       }
     };
     update();
-    mq.addEventListener?.('change', update);
+    mq.addEventListener?.("change", update);
     mq.addListener?.(update);
     return () => {
-      mq.removeEventListener?.( 'change', update);
+      mq.removeEventListener?.("change", update);
       mq.removeListener?.(update);
     };
   }, [hasSelected]);
@@ -76,30 +76,30 @@ function useResponsiveItemSize(hasSelected) {
    STORAGE KEYS
 ============================ */
 const SS_KEYS = {
-  SEL_ID: 'socios_last_sel_id',
-  SCROLL: 'socios_last_scroll',
-  TS: 'socios_last_ts',
-  FILTERS: 'socios_last_filters',
+  SEL_ID: "socios_last_sel_id",
+  SCROLL: "socios_last_scroll",
+  TS: "socios_last_ts",
+  FILTERS: "socios_last_filters",
 };
-const LS_FILTERS = 'filtros_socios_v2'; // nueva versión (con showAll)
+const LS_FILTERS = "filtros_socios_v2"; // nueva versión (con showAll)
 
 /* ============================
    HELPERS
 ============================ */
 const buildAddress = (domicilio, numero) => {
-  const calle = String(domicilio ?? '').trim();
-  const num = String(numero ?? '').trim();
-  if (!calle && !num) return '';
+  const calle = String(domicilio ?? "").trim();
+  const num = String(numero ?? "").trim();
+  if (!calle && !num) return "";
   if (calle && num && calle.includes(num)) return calle;
   return `${calle} ${num}`.trim();
 };
 const getFirstLetter = (name) => {
-  const s = String(name ?? '').trim();
-  return s ? s[0].toUpperCase() : '';
+  const s = String(name ?? "").trim();
+  return s ? s[0].toUpperCase() : "";
 };
 const parseDateToTs = (d) => {
   if (!d) return null;
-  const parts = String(d).split('-');
+  const parts = String(d).split("-");
   if (parts.length === 3) {
     const [yy, mm, dd] = parts.map(Number);
     const ts = new Date(yy, mm - 1, dd).getTime();
@@ -129,9 +129,9 @@ const getDeudaMesesFromSocio = (s) => {
 //  - 'debe-3+'      => 3 o más
 const getEstadoPago = (deudaMeses) => {
   const d = Number(deudaMeses);
-  if (!Number.isFinite(d) || d <= 0) return 'al-dia';
-  if (d <= 2) return 'debe-1-2';
-  return 'debe-3+';
+  if (!Number.isFinite(d) || d <= 0) return "al-dia";
+  if (d <= 2) return "debe-1-2";
+  return "debe-3+";
 };
 
 /* ============================
@@ -161,9 +161,9 @@ const BarraSuperior = React.memo(
     const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
 
     const toggleSubmenu = useCallback((cual) => {
-      setMostrarSubmenuAlfabetico(cual === 'alfabetico' ? (v) => !v : false);
-      setMostrarSubmenuCategoria(cual === 'categoria' ? (v) => !v : false);
-      setMostrarSubmenuFecha(cual === 'fecha' ? (v) => !v : false);
+      setMostrarSubmenuAlfabetico(cual === "alfabetico" ? (v) => !v : false);
+      setMostrarSubmenuCategoria(cual === "categoria" ? (v) => !v : false);
+      setMostrarSubmenuFecha(cual === "fecha" ? (v) => !v : false);
     }, []);
 
     const handleLetraClick = useCallback(
@@ -200,15 +200,15 @@ const BarraSuperior = React.memo(
       startTransition(() => {
         setFiltros((prev) => ({
           ...prev,
-          busqueda: '',
-          busquedaId: '',
-          letraSeleccionada: 'TODOS',
-          categoriaSeleccionada: 'OPCIONES',
-          fechaDesde: '',
-          fechaHasta: '',
+          busqueda: "",
+          busquedaId: "",
+          letraSeleccionada: "TODOS",
+          categoriaSeleccionada: "OPCIONES",
+          fechaDesde: "",
+          fechaHasta: "",
           showAll: true,
         }));
-        setBusquedaInput('');
+        setBusquedaInput("");
       });
       setMostrarSubmenuAlfabetico(false);
       setMostrarSubmenuCategoria(false);
@@ -245,9 +245,9 @@ const BarraSuperior = React.memo(
                 <FaTimes
                   className="soc-buscador-icono"
                   onClick={() => {
-                    setBusquedaInput('');
+                    setBusquedaInput("");
                     startTransition(() => {
-                      setFiltros((prev) => ({ ...prev, busqueda: '' }));
+                      setFiltros((prev) => ({ ...prev, busqueda: "" }));
                     });
                   }}
                 />
@@ -266,7 +266,7 @@ const BarraSuperior = React.memo(
               placeholder="ID"
               value={busquedaId}
               onChange={(e) => {
-                const onlyNums = e.target.value.replace(/\D/g, '');
+                const onlyNums = e.target.value.replace(/\D/g, "");
                 startTransition(() => {
                   setFiltros((prev) => ({
                     ...prev,
@@ -287,7 +287,7 @@ const BarraSuperior = React.memo(
                   startTransition(() => {
                     setFiltros((prev) => ({
                       ...prev,
-                      busquedaId: '',
+                      busquedaId: "",
                       showAll: false,
                     }));
                   });
@@ -318,7 +318,7 @@ const BarraSuperior = React.memo(
             <span>Aplicar Filtros</span>
             <FaChevronDown
               className={`soc-chevron-icon ${
-                mostrarFiltros ? 'soc-rotate' : ''
+                mostrarFiltros ? "soc-rotate" : ""
               }`}
             />
           </button>
@@ -331,23 +331,23 @@ const BarraSuperior = React.memo(
               {/* LETRAS */}
               <div
                 className="soc-filtros-menu-item"
-                onClick={() => toggleSubmenu('alfabetico')}
+                onClick={() => toggleSubmenu("alfabetico")}
               >
                 <span>Filtrar de la A a la Z</span>
                 <FaChevronDown
                   className={`soc-chevron-icon ${
-                    mostrarSubmenuAlfabetico ? 'soc-rotate' : ''
+                    mostrarSubmenuAlfabetico ? "soc-rotate" : ""
                   }`}
                 />
               </div>
               {mostrarSubmenuAlfabetico && (
                 <div className="soc-filtros-submenu">
                   <div className="soc-alfabeto-filtros">
-                    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letra) => (
+                    {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letra) => (
                       <button
                         key={letra}
                         className={`soc-letra-filtro ${
-                          letraSeleccionada === letra ? 'active' : ''
+                          letraSeleccionada === letra ? "active" : ""
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -365,12 +365,12 @@ const BarraSuperior = React.memo(
               {/* CATEGORÍAS */}
               <div
                 className="soc-filtros-menu-item"
-                onClick={() => toggleSubmenu('categoria')}
+                onClick={() => toggleSubmenu("categoria")}
               >
                 <span>Tipo de sangre</span>
                 <FaChevronDown
                   className={`soc-chevron-icon ${
-                    mostrarSubmenuCategoria ? 'soc-rotate' : ''
+                    mostrarSubmenuCategoria ? "soc-rotate" : ""
                   }`}
                 />
               </div>
@@ -384,7 +384,7 @@ const BarraSuperior = React.memo(
                         <div
                           key={cat.id}
                           className={`soc-filtros-submenu-item ${
-                            active ? 'active' : ''
+                            active ? "active" : ""
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -403,12 +403,12 @@ const BarraSuperior = React.memo(
               {/* FECHA DE INGRESO */}
               <div
                 className="soc-filtros-menu-item"
-                onClick={() => toggleSubmenu('fecha')}
+                onClick={() => toggleSubmenu("fecha")}
               >
                 <span>Fecha de ingreso</span>
                 <FaChevronDown
                   className={`soc-chevron-icon ${
-                    mostrarSubmenuFecha ? 'soc-rotate' : ''
+                    mostrarSubmenuFecha ? "soc-rotate" : ""
                   }`}
                 />
               </div>
@@ -420,7 +420,7 @@ const BarraSuperior = React.memo(
                       <label>Desde</label>
                       <input
                         type="date"
-                        value={fechaDesde || ''}
+                        value={fechaDesde || ""}
                         onClick={openPickerOnEvent}
                         onFocus={openPickerOnEvent}
                         onChange={(e) => {
@@ -440,7 +440,7 @@ const BarraSuperior = React.memo(
                       <label>Hasta</label>
                       <input
                         type="date"
-                        value={fechaHasta || ''}
+                        value={fechaHasta || ""}
                         onClick={openPickerOnEvent}
                         onFocus={openPickerOnEvent}
                         onChange={(e) => {
@@ -462,8 +462,8 @@ const BarraSuperior = React.memo(
                           startTransition(() => {
                             setFiltros((prev) => ({
                               ...prev,
-                              fechaDesde: '',
-                              fechaHasta: '',
+                              fechaDesde: "",
+                              fechaHasta: "",
                               showAll: false,
                             }));
                           });
@@ -511,13 +511,13 @@ const Socios = () => {
   // === ROL DEL USUARIO (admin/vista) ===
   const usuario = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('usuario'));
+      return JSON.parse(localStorage.getItem("usuario"));
     } catch {
       return null;
     }
   }, []);
-  const rol = (usuario?.rol || 'vista').toLowerCase();
-  const isAdmin = rol === 'admin';
+  const rol = (usuario?.rol || "vista").toLowerCase();
+  const isAdmin = rol === "admin";
 
   // === NUEVO: también guardamos cobradores y estados (si vienen del backend) ===
   const [categorias, setCategorias] = useState([]);
@@ -547,8 +547,8 @@ const Socios = () => {
 
   const [toast, setToast] = useState({
     mostrar: false,
-    tipo: '',
-    mensaje: '',
+    tipo: "",
+    mensaje: "",
   });
 
   // Filtros
@@ -558,22 +558,22 @@ const Socios = () => {
       return saved
         ? JSON.parse(saved)
         : {
-            busqueda: '',
-            busquedaId: '',
-            letraSeleccionada: 'TODOS',
-            categoriaSeleccionada: 'OPCIONES',
-            fechaDesde: '',
-            fechaHasta: '',
+            busqueda: "",
+            busquedaId: "",
+            letraSeleccionada: "TODOS",
+            categoriaSeleccionada: "OPCIONES",
+            fechaDesde: "",
+            fechaHasta: "",
             showAll: false,
           };
     } catch {
       return {
-        busqueda: '',
-        busquedaId: '',
-        letraSeleccionada: 'TODOS',
-        categoriaSeleccionada: 'OPCIONES',
-        fechaDesde: '',
-        fechaHasta: '',
+        busqueda: "",
+        busquedaId: "",
+        letraSeleccionada: "TODOS",
+        categoriaSeleccionada: "OPCIONES",
+        fechaDesde: "",
+        fechaHasta: "",
         showAll: false,
       };
     }
@@ -589,7 +589,7 @@ const Socios = () => {
   } = filtros;
 
   // Input controlado + debounce
-  const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || '');
+  const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || "");
   const deferredBusqueda = useDeferredValue(busquedaInput);
 
   useEffect(() => {
@@ -597,7 +597,7 @@ const Socios = () => {
       startTransition(() => {
         setFiltros((prev) => ({
           ...prev,
-          busqueda: busquedaInput || '',
+          busqueda: busquedaInput || "",
           showAll:
             busquedaInput && busquedaInput.trim().length > 0
               ? false
@@ -623,13 +623,13 @@ const Socios = () => {
       if (raw) {
         const parsed = JSON.parse(raw);
         setFiltros((prev) => ({ ...prev, ...parsed }));
-        setBusquedaInput(parsed.busqueda || '');
+        setBusquedaInput(parsed.busqueda || "");
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mostrarToast = useCallback((mensaje, tipo = 'exito') => {
+  const mostrarToast = useCallback((mensaje, tipo = "exito") => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
 
@@ -645,9 +645,9 @@ const Socios = () => {
     () => ({
       byId: !!busquedaId,
       bySearch: !!(deferredBusqueda && deferredBusqueda.trim()),
-      byLetter: letraSeleccionada && letraSeleccionada !== 'TODOS',
+      byLetter: letraSeleccionada && letraSeleccionada !== "TODOS",
       byCategory:
-        categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES',
+        categoriaSeleccionada && categoriaSeleccionada !== "OPCIONES",
       byDate: !!(fechaDesde || fechaHasta),
     }),
     [
@@ -754,15 +754,15 @@ const Socios = () => {
       }
     };
     const handleClickOutsideTable = (event) => {
-      if (!event.target.closest('.soc-tabla-fila')) {
+      if (!event.target.closest(".soc-tabla-fila")) {
         setSocioSeleccionado(null);
       }
     };
-    document.addEventListener('mousedown', handleClickOutsideFiltros);
-    document.addEventListener('click', handleClickOutsideTable);
+    document.addEventListener("mousedown", handleClickOutsideFiltros);
+    document.addEventListener("click", handleClickOutsideTable);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutsideFiltros);
-      document.removeEventListener('click', handleClickOutsideTable);
+      document.removeEventListener("mousedown", handleClickOutsideFiltros);
+      document.removeEventListener("click", handleClickOutsideTable);
     };
   }, []);
 
@@ -786,7 +786,7 @@ const Socios = () => {
         state: { refresh: true, socio },
       });
     },
-    [navigate, filtros]
+    [navigate]
   );
 
   const locationRef = useRef(location);
@@ -826,7 +826,7 @@ const Socios = () => {
       // 1) SOCIOS
       const rSoc = await fetch(`${BASE_URL}/api.php?action=socios`, {
         signal: ctrlSoc.signal,
-        cache: 'no-store',
+        cache: "no-store",
       });
       const data = await rSoc.json();
 
@@ -837,7 +837,7 @@ const Socios = () => {
           `${BASE_URL}/api.php?action=estado_pagos_socios`,
           {
             signal: ctrlSoc.signal,
-            cache: 'no-store',
+            cache: "no-store",
           }
         );
         const dataPag = await rPag.json();
@@ -848,39 +848,39 @@ const Socios = () => {
           for (const row of dataPag.estados) {
             const id = String(row.id_socio);
             const deuda = Number(row.deuda_periodos ?? row.deuda_meses ?? 0);
-            const estado = String(row.estado_pago ?? '').toUpperCase();
+            const estado = String(row.estado_pago ?? "").toUpperCase();
             mapEstadosPagos.set(id, { deuda, estado });
           }
         }
       } catch (err) {
-        console.error('Error obteniendo estado_pagos_socios', err);
+        console.error("Error obteniendo estado_pagos_socios", err);
       }
 
       if (data?.exito) {
         const enriched = (data.socios || []).map((s) => {
-          const _idStr = String(s?.id_socio ?? s?.id ?? '').trim();
-          const _name = String(s?.nombre ?? '').toLowerCase();
+          const _idStr = String(s?.id_socio ?? s?.id ?? "").trim();
+          const _name = String(s?.nombre ?? "").toLowerCase();
           const _first = getFirstLetter(s?.nombre);
           const _dom = buildAddress(s?.domicilio, s?.numero);
           const _isActive = Number(s?.activo) === 1;
           const _estadoNum = Number(s?.id_estado ?? 0);
-          const ingresoStr = s?.ingreso ? String(s.ingreso) : '';
+          const ingresoStr = s?.ingreso ? String(s.ingreso) : "";
           const _ingresoTs = parseDateToTs(ingresoStr);
 
           // ===== NUEVO: deuda de meses/periodos y estado de pago desde el endpoint =====
           let _deudaMeses = 0;
-          let _estadoPago = 'al-dia';
+          let _estadoPago = "al-dia";
 
           const info = mapEstadosPagos.get(String(s.id_socio));
           if (info) {
             _deudaMeses = Number(info.deuda) || 0;
 
-            if (info.estado === 'DEBE_1_2') {
-              _estadoPago = 'debe-1-2';
-            } else if (info.estado === 'DEBE_3_MAS') {
-              _estadoPago = 'debe-3+';
+            if (info.estado === "DEBE_1_2") {
+              _estadoPago = "debe-1-2";
+            } else if (info.estado === "DEBE_3_MAS") {
+              _estadoPago = "debe-3+";
             } else {
-              _estadoPago = 'al-dia';
+              _estadoPago = "al-dia";
             }
           } else {
             // Fallback: por si el backend en el futuro manda deuda dentro de "socios"
@@ -905,8 +905,8 @@ const Socios = () => {
         setSocios(enriched);
       } else {
         mostrarToast(
-          `Error al obtener socios: ${data?.mensaje ?? 'desconocido'}`,
-          'error'
+          `Error al obtener socios: ${data?.mensaje ?? "desconocido"}`,
+          "error"
         );
         setSocios([]);
       }
@@ -918,7 +918,7 @@ const Socios = () => {
 
         const rLis = await fetch(`${BASE_URL}/api.php?action=listas`, {
           signal: ctrlLis.signal,
-          cache: 'force-cache',
+          cache: "force-cache",
         });
         const dataListas = await rLis.json();
 
@@ -945,8 +945,8 @@ const Socios = () => {
         triggerCascade(360);
       }, waitMore);
     } catch (error) {
-      if (error?.name !== 'AbortError') {
-        mostrarToast('Error de red al obtener datos', 'error');
+      if (error?.name !== "AbortError") {
+        mostrarToast("Error de red al obtener datos", "error");
         setSocios([]);
         setCategorias([]);
         setCobradores([]);
@@ -983,12 +983,12 @@ const Socios = () => {
       if (rawFilters) {
         const parsed = JSON.parse(rawFilters);
         setFiltros((prev) => ({ ...prev, ...parsed }));
-        setBusquedaInput(parsed.busqueda || '');
+        setBusquedaInput(parsed.busqueda || "");
       }
 
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
       const savedOffset = Number(
-        sessionStorage.getItem(SS_KEYS.SCROLL) || '0'
+        sessionStorage.getItem(SS_KEYS.SCROLL) || "0"
       );
 
       const currentList = (() => {
@@ -1003,12 +1003,12 @@ const Socios = () => {
           );
           arr = found ? [found] : [];
         }
-        if (parsed.letraSeleccionada && parsed.letraSeleccionada !== 'TODOS') {
+        if (parsed.letraSeleccionada && parsed.letraSeleccionada !== "TODOS") {
           arr = arr.filter((s) => s._first === parsed.letraSeleccionada);
         }
         if (
           parsed.categoriaSeleccionada &&
-          parsed.categoriaSeleccionada !== 'OPCIONES'
+          parsed.categoriaSeleccionada !== "OPCIONES"
         ) {
           arr = arr.filter(
             (s) =>
@@ -1045,7 +1045,7 @@ const Socios = () => {
         if (idx >= 0) {
           setSocioSeleccionado(currentList[idx]);
           requestAnimationFrame(() => {
-            listRef.current?.scrollToItem?.(idx, 'smart');
+            listRef.current?.scrollToItem?.(idx, "smart");
           });
         } else {
           requestAnimationFrame(() => {
@@ -1067,8 +1067,8 @@ const Socios = () => {
     const m = new Map();
     for (const c of categorias)
       m.set(
-        String(c.id ?? c.id_categoria ?? ''),
-        String(c.descripcion ?? c.nombre ?? '')
+        String(c.id ?? c.id_categoria ?? ""),
+        String(c.descripcion ?? c.nombre ?? "")
       );
     return m;
   }, [categorias]);
@@ -1076,7 +1076,7 @@ const Socios = () => {
   const mapCobradores = useMemo(() => {
     const m = new Map();
     for (const c of cobradores)
-      m.set(String(c.id ?? c.id_cobrador ?? ''), String(c.nombre ?? ''));
+      m.set(String(c.id ?? c.id_cobrador ?? ""), String(c.nombre ?? ""));
     return m;
   }, [cobradores]);
 
@@ -1084,8 +1084,8 @@ const Socios = () => {
     const m = new Map();
     for (const e of estados)
       m.set(
-        String(e.id ?? e.id_estado ?? ''),
-        String(e.descripcion ?? e.nombre ?? '')
+        String(e.id ?? e.id_estado ?? ""),
+        String(e.descripcion ?? e.nombre ?? "")
       );
     return m;
   }, [estados]);
@@ -1103,21 +1103,21 @@ const Socios = () => {
         const response = await fetch(
           `${BASE_URL}/api.php?action=eliminar_socio`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id_socio: id }),
           }
         );
         const data = await response.json();
         if (data.exito) {
           setSocios((prev) => prev.filter((s) => s.id_socio !== id));
-          mostrarToast('Socio eliminado correctamente');
+          mostrarToast("Socio eliminado correctamente");
           triggerCascade(300);
         } else {
-          mostrarToast(`Error al eliminar: ${data.mensaje}`, 'error');
+          mostrarToast(`Error al eliminar: ${data.mensaje}`, "error");
         }
       } catch {
-        mostrarToast('Error de red al intentar eliminar', 'error');
+        mostrarToast("Error de red al intentar eliminar", "error");
       } finally {
         setMostrarModalEliminar(false);
         setSocioAEliminar(null);
@@ -1132,21 +1132,21 @@ const Socios = () => {
         const response = await fetch(
           `${BASE_URL}/api.php?action=dar_baja_socio`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id_socio: id, motivo }),
           }
         );
         const data = await response.json();
         if (data.exito) {
           setSocios((prev) => prev.filter((s) => s.id_socio !== id));
-          mostrarToast('Socio dado de baja correctamente');
+          mostrarToast("Socio dado de baja correctamente");
           triggerCascade(300);
         } else {
-          mostrarToast(`Error: ${data.mensaje}`, 'error');
+          mostrarToast(`Error: ${data.mensaje}`, "error");
         }
       } catch {
-        mostrarToast('Error de red al intentar dar de baja', 'error');
+        mostrarToast("Error de red al intentar dar de baja", "error");
       } finally {
         setMostrarModalDarBaja(false);
         setSocioDarBaja(null);
@@ -1157,20 +1157,20 @@ const Socios = () => {
 
   const exportarExcel = useCallback(() => {
     if (socios.length === 0) {
-      mostrarToast('No hay socios registrados para exportar.', 'error');
+      mostrarToast("No hay socios registrados para exportar.", "error");
       return;
     }
     if (!showAll && activeFiltersCount === 0) {
       mostrarToast(
         'Aplicá al menos un filtro o "Mostrar todos" para exportar.',
-        'error'
+        "error"
       );
       return;
     }
     if (sociosFiltrados.length === 0) {
       mostrarToast(
-        'No hay socios que coincidan con los filtros actuales.',
-        'error'
+        "No hay socios que coincidan con los filtros actuales.",
+        "error"
       );
       return;
     }
@@ -1205,14 +1205,14 @@ const Socios = () => {
     XLSX.utils.book_append_sheet(
       wb,
       ws,
-      showAll ? 'Socios (todos activos)' : 'Socios (filtrados)'
+      showAll ? "Socios (todos activos)" : "Socios (filtrados)"
     );
 
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], {
-      type: 'application/octet-stream',
+      type: "application/octet-stream",
     });
-    saveAs(blob, 'Socios.xlsx');
+    saveAs(blob, "Socios.xlsx");
   }, [
     socios,
     sociosFiltrados,
@@ -1232,35 +1232,35 @@ const Socios = () => {
     const esFilaPar = (index & 1) === 0;
 
     const shouldAnimate = animacionActiva && index < MAX_CASCADE;
-    const animationDelay = shouldAnimate ? `${index * 0.035}s` : '0s';
+    const animationDelay = shouldAnimate ? `${index * 0.035}s` : "0s";
 
     // Clase según estado de pago
     const estadoPago = socio._estadoPago; // 'al-dia', 'debe-1-2', 'debe-3+'
     const estadoPagoClass =
-      estadoPago === 'al-dia'
-        ? 'soc-estado-al-dia'
-        : estadoPago === 'debe-1-2'
-        ? 'soc-estado-debe-1-2'
-        : estadoPago === 'debe-3+'
-        ? 'soc-estado-debe-3-mas'
-        : '';
+      estadoPago === "al-dia"
+        ? "soc-estado-al-dia"
+        : estadoPago === "debe-1-2"
+        ? "soc-estado-debe-1-2"
+        : estadoPago === "debe-3+"
+        ? "soc-estado-debe-3-mas"
+        : "";
 
     return (
       <div
         style={{
           ...style,
           animationDelay,
-          animationName: shouldAnimate ? 'fadeIn' : 'none',
-          animationFillMode: 'forwards',
-          animationDuration: shouldAnimate ? '.3s' : '0s',
+          animationName: shouldAnimate ? "fadeIn" : "none",
+          animationFillMode: "forwards",
+          animationDuration: shouldAnimate ? ".3s" : "0s",
           opacity: shouldAnimate ? 0 : 1,
         }}
         className={`soc-tabla-fila ${
-          esFilaPar ? 'soc-row-even' : 'soc-row-odd'
+          esFilaPar ? "soc-row-even" : "soc-row-odd"
         } ${
           socioSeleccionado?._idStr === socio._idStr
-            ? 'soc-fila-seleccionada'
-            : ''
+            ? "soc-fila-seleccionada"
+            : ""
         } ${estadoPagoClass}`}
         onClick={() => manejarSeleccion(socio)}
       >
@@ -1350,7 +1350,7 @@ const Socios = () => {
 
   const Outer = useMemo(() => {
     return React.forwardRef((props, ref) => (
-      <div ref={ref} {...props} style={{ ...props.style, overflowX: 'hidden' }} />
+      <div ref={ref} {...props} style={{ ...props.style, overflowX: "hidden" }} />
     ));
   }, []);
 
@@ -1360,28 +1360,28 @@ const Socios = () => {
   const limpiarChip = useCallback(
     (tipo) => {
       setFiltros((prev) => {
-        if (tipo === 'busqueda')
-          return { ...prev, busqueda: '', showAll: prev.showAll };
-        if (tipo === 'id') return { ...prev, busquedaId: '', showAll: false };
-        if (tipo === 'letra')
-          return { ...prev, letraSeleccionada: 'TODOS', showAll: false };
-        if (tipo === 'categoria')
+        if (tipo === "busqueda")
+          return { ...prev, busqueda: "", showAll: prev.showAll };
+        if (tipo === "id") return { ...prev, busquedaId: "", showAll: false };
+        if (tipo === "letra")
+          return { ...prev, letraSeleccionada: "TODOS", showAll: false };
+        if (tipo === "categoria")
           return {
             ...prev,
-            categoriaSeleccionada: 'OPCIONES',
+            categoriaSeleccionada: "OPCIONES",
             showAll: false,
           };
-        if (tipo === 'fecha')
+        if (tipo === "fecha")
           return {
             ...prev,
-            fechaDesde: '',
-            fechaHasta: '',
+            fechaDesde: "",
+            fechaHasta: "",
             showAll: false,
           };
-        if (tipo === 'showAll') return { ...prev, showAll: false };
+        if (tipo === "showAll") return { ...prev, showAll: false };
         return prev;
       });
-      if (tipo === 'busqueda') setBusquedaInput('');
+      if (tipo === "busqueda") setBusquedaInput("");
     },
     [setFiltros]
   );
@@ -1389,24 +1389,24 @@ const Socios = () => {
   const chips = useMemo(() => {
     const arr = [];
     if (showAll) {
-      arr.push({ key: 'showAll', label: 'Mostrar todos' });
+      arr.push({ key: "showAll", label: "Mostrar todos" });
       return arr;
     }
     if (busqueda && busqueda.trim()) {
-      arr.push({ key: 'busqueda', label: `Texto: "${busqueda.trim()}"` });
+      arr.push({ key: "busqueda", label: `Texto: "${busqueda.trim()}"` });
     }
     if (busquedaId) {
-      arr.push({ key: 'id', label: `ID: ${busquedaId}` });
+      arr.push({ key: "id", label: `ID: ${busquedaId}` });
     }
-    if (letraSeleccionada && letraSeleccionada !== 'TODOS') {
-      arr.push({ key: 'letra', label: `Letra: ${letraSeleccionada}` });
+    if (letraSeleccionada && letraSeleccionada !== "TODOS") {
+      arr.push({ key: "letra", label: `Letra: ${letraSeleccionada}` });
     }
-    if (categoriaSeleccionada && categoriaSeleccionada !== 'OPCIONES') {
+    if (categoriaSeleccionada && categoriaSeleccionada !== "OPCIONES") {
       const found = categorias.find(
         (c) => String(c.id) === String(categoriaSeleccionada)
       );
       arr.push({
-        key: 'categoria',
+        key: "categoria",
         label: `Categoría: ${
           found ? found.descripcion : categoriaSeleccionada
         }`,
@@ -1419,7 +1419,7 @@ const Socios = () => {
           : fechaDesde
           ? `Ingreso: desde ${fechaDesde}`
           : `Ingreso: hasta ${fechaHasta}`;
-      arr.push({ key: 'fecha', label: etiqueta });
+      arr.push({ key: "fecha", label: etiqueta });
     }
     return arr;
   }, [
@@ -1444,7 +1444,7 @@ const Socios = () => {
             tipo={toast.tipo}
             mensaje={toast.mensaje}
             onClose={() =>
-              setToast({ mostrar: false, tipo: '', mensaje: '' })
+              setToast({ mostrar: false, tipo: "", mensaje: "" })
             }
             duracion={3000}
           />
@@ -1468,99 +1468,69 @@ const Socios = () => {
         />
 
         <div className="soc-tabla-container">
-          <div
-            className="soc-tabla-header-container"
-            style={{ position: 'relative' }}
-          >
-            <div
-              className="soc-contador"
-              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-            >
-              <FaUsers className="soc-contador-icono" size={14} />
-              {showAll
-                ? 'Total visibles:'
-                : activeFiltersCount === 0
-                ? 'Filtrá para ver socios:'
-                : 'Socios filtrados:'}
-              <strong>
+          <div className="soc-tabla-header-container" style={{ position: "relative" }}>
+            {/* NUEVO: Contenedor unificado para contador + indicadores + chips */}
+            <div className="soc-header-meta">
+              <div className="soc-contador">
+                <FaUsers className="soc-contador-icono" size={14} />
                 {showAll
-                  ? sociosFiltrados.length
+                  ? "Total visibles:"
                   : activeFiltersCount === 0
-                  ? 0
-                  : sociosFiltrados.length}
-              </strong>
-            </div>
+                  ? "Filtrá para ver socios:"
+                  : "Socios filtrados:"}
+                <strong>
+                  {showAll
+                    ? sociosFiltrados.length
+                    : activeFiltersCount === 0
+                    ? 0
+                    : sociosFiltrados.length}
+                </strong>
+              </div>
 
-            {/* Leyenda de estado de pago */}
-            <div className="soc-legenda-pagos">
-              <span className="soc-legenda-item">
-                <span className="soc-legenda-dot soc-legenda-dot--al-dia" />
-                Al día
-              </span>
-              <span className="soc-legenda-item">
-                <span className="soc-legenda-dot soc-legenda-dot--debe-1-2" />
-                Debe 1–2 periodos
-              </span>
-              <span className="soc-legenda-item">
-                <span className="soc-legenda-dot soc-legenda-dot--debe-3-mas" />
-                Debe 3+ periodos
-              </span>
-            </div>
+              <div className="soc-header-meta-right">
 
-            {/* Isla de chips */}
-            <div
-              className="soc-filters-island"
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                position: 'absolute',
-                right: '12px',
-                top: '32px',
-                maxWidth: '55%',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-              }}
-            >
-              {chips.map((ch) => (
-                <div
-                  key={ch.key}
-                  className="soc-chip"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '4px 8px',
-                    borderRadius: '999px',
-                    background: '#f1f5f9',
-                    border: '1px solid #e2e8f0',
-                    fontSize: 12,
-                    whiteSpace: 'nowrap',
-                  }}
-                  title={ch.label}
-                >
-                  <span>{ch.label}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      limpiarChip(ch.key);
-                    }}
-                    className="soc-chip-close"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      lineHeight: 1,
-                      padding: 0,
-                    }}
-                    title="Quitar filtro"
-                  >
-                    <FaTimes size={10} />
-                  </button>
+
+                {/* Isla de chips */}
+                <div className="soc-filters-island">
+                  {chips.map((ch) => (
+                    <div
+                      key={ch.key}
+                      className="soc-chip"
+                      title={ch.label}
+                    >
+                      <span>{ch.label}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          limpiarChip(ch.key);
+                        }}
+                        className="soc-chip-close"
+                        title="Quitar filtro"
+                      >
+                        <FaTimes size={10} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+                                {/* Leyenda de estado de pago */}
+                <div className="soc-legenda-pagos">
+                  <span className="soc-legenda-item">
+                    <span className="soc-legenda-dot soc-legenda-dot--al-dia" />
+                    Al día
+                  </span>
+                  <span className="soc-legenda-item">
+                    <span className="soc-legenda-dot soc-legenda-dot--debe-1-2" />
+                    Debe 1–2 meses
+                  </span>
+                  <span className="soc-legenda-item">
+                    <span className="soc-legenda-dot soc-legenda-dot--debe-3-mas" />
+                    Debe 3+ meses
+                  </span>
+                </div>
+              </div>
             </div>
 
+            {/* Header de la tabla */}
             <div className="soc-tabla-header">
               <div className="soc-col-id">ID</div>
               <div className="soc-col-nombre">Apellido y Nombre</div>
@@ -1573,9 +1543,9 @@ const Socios = () => {
           {/* Lista */}
           <div
             className={`soc-list-container ${
-              animacionActiva ? 'soc-cascade-animation' : ''
+              animacionActiva ? "soc-cascade-animation" : ""
             }`}
-            style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
+            style={{ flex: 1, overflow: "hidden", position: "relative" }}
           >
             {!showAll && activeFiltersCount === 0 ? (
               <div className="soc-boton-mostrar-container">
@@ -1585,15 +1555,15 @@ const Socios = () => {
                 <button
                   className="soc-boton-mostrar-todos"
                   onClick={() => {
-                    setBusquedaInput('');
+                    setBusquedaInput("");
                     startTransition(() => {
                       setFiltros({
-                        busqueda: '',
-                        busquedaId: '',
-                        letraSeleccionada: 'TODOS',
-                        categoriaSeleccionada: 'OPCIONES',
-                        fechaDesde: '',
-                        fechaHasta: '',
+                        busqueda: "",
+                        busquedaId: "",
+                        letraSeleccionada: "TODOS",
+                        categoriaSeleccionada: "OPCIONES",
+                        fechaDesde: "",
+                        fechaHasta: "",
                         showAll: true,
                       });
                     });
@@ -1646,7 +1616,7 @@ const Socios = () => {
         <div className="soc-barra-inferior">
           <button
             className="soc-boton soc-boton-volver"
-            onClick={() => navigate('/panel')}
+            onClick={() => navigate("/panel")}
           >
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
@@ -1656,7 +1626,7 @@ const Socios = () => {
             {isAdmin && (
               <button
                 className="soc-boton soc-boton-agregar"
-                onClick={() => navigate('/socios/agregar')}
+                onClick={() => navigate("/socios/agregar")}
               >
                 <FaUserPlus className="soc-boton-icono" /> Agregar Socio
               </button>
@@ -1677,7 +1647,7 @@ const Socios = () => {
 
             <button
               className="soc-boton soc-boton-baja"
-              onClick={() => navigate('/socios/baja')}
+              onClick={() => navigate("/socios/baja")}
             >
               <FaUserSlash className="soc-boton-icono" /> Dados de Baja
             </button>
@@ -1685,7 +1655,7 @@ const Socios = () => {
             {/* 🔹 Nuevo: botón Familias */}
             <button
               className="soc-boton soc-boton-Familia"
-              onClick={() => navigate('/familias')}
+              onClick={() => navigate("/familias")}
             >
               <FaUsers className="soc-boton-icono" /> Familias
             </button>

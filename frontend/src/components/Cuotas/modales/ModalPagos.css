@@ -16,11 +16,10 @@
 
 /* Overlay & container */
 .modal-pagos-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;z-index:1000;padding:1rem;animation:fadeIn .3s ease-out;backdrop-filter:blur(8px)}
-.modal-pagos-contenido{background:transparent;box-shadow:var(--shadow-xl);width:100%;max-width:600px;display:flex;flex-direction:column;border-radius:var(--border-radius-lg);overflow:hidden}
-.modal-pagos-overlay.active .modal-pagos-contenido{transform:scale(1)}
+.modal-pagos-contenido{background:transparent;box-shadow:var(--shadow-xl);width:100%;max-height: 95vh; max-width:55%;display:flex;flex-direction:column;border-radius:var(--border-radius-lg);overflow:hidden}
+
 @keyframes fadeIn{from{opacity:0;backdrop-filter:blur(0)}to{opacity:1;backdrop-filter:blur(8px)}}
-@media (max-width:1450px){.modal-pagos-contenido{transform:scale(.9);}}
-@media (max-width:1200px){.modal-pagos-contenido{transform:scale(.8);}}
+
 @media (max-width:1200px){.periodos-section{overflow: auto;}}
 
 /* Header */
@@ -33,7 +32,19 @@
 .modal-close-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* Body */
-.modal-body{padding:1rem 0;background:#fff;max-height:80vh;display:flex;flex-direction:column;min-height:120px}
+.modal-body{
+  padding:1rem 0;
+  background:#fff;
+  max-height:80vh;
+  min-height:120px;
+
+  display:flex;
+  flex-direction:column;
+
+  /* ⬇️ Para que la sección central sea scrolleable */
+  overflow-y:auto;
+  scrollbar-gutter:stable;
+}
 .modal-body>.success-card:only-child{margin:auto 1.5rem}
 
 /* Socio */
@@ -136,7 +147,7 @@
 
 /* Footer */
 .modal-footer{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:1.5rem;background:#fff;border-top:1px solid var(--gray-200)}
-.footer-left{display:flex;align-items:center}
+.footer-left{display:flex;align-items:center;gap: 20px;}
 .total-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem .875rem;border-radius:9999px;font-weight:600;font-size:.95rem;background:#2563EB;color:#fff;box-shadow:var(--shadow-sm);user-select:none}
 .total-badge-warning{background:var(--warning);color:#1F2937}
 .footer-actions{display:flex;gap:.75rem}
@@ -168,6 +179,8 @@
 .mode-option.active .mode-bullet{background:var(--primary);box-shadow:inset 0 0 0 3px #fff}
 
 /* Responsive */
+.modal-pagos-contenido
+
 @media (max-width:600px){
   .modal-header{padding:1.25rem}
   .modal-body{padding:.75rem 0}
@@ -187,3 +200,124 @@
 .success-info{display:none}
 
 
+
+/* ===========================
+   MEDIO DE PAGO (oficina)
+   =========================== */
+.medio-pago-section{
+  margin: 0 1.5rem 1rem;
+  padding: 1rem 1.1rem .9rem;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.medio-pago-section .section-header{
+  margin-bottom: .5rem;
+  gap: .5rem;
+}
+
+.required-badge{
+  padding: .15rem .6rem;
+  border-radius: 9999px;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 600;
+  background: var(--danger);
+  color: #fff;
+}
+
+.medio-pago-selector{
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.medio-pago-select{
+  width: 100%;
+  padding: .55rem .75rem;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  font-size: .9rem;
+  color: var(--gray-800);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.medio-pago-select:focus{
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(79,70,229,.18);
+  background: var(--primary-light);
+}
+
+.medio-pago-select:disabled{
+  background: var(--gray-100);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+
+.medio-pago-hint{
+  font-size: .75rem;
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.medio-pago-hint::before{
+  content: "•";
+  font-size: .9rem;
+  color: var(--warning);
+}
+
+/* Responsive ajuste leve */
+@media (max-width:600px){
+  .medio-pago-section{
+    margin: 0 1rem 1rem;
+    padding: .9rem .9rem .8rem;
+  }
+}
+/* ================================
+   BADGE — Medio de Pago Seleccionado
+   ================================= */
+.medio-pago-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+
+  background: var(--primary-light);
+  color: var(--primary);
+  
+  border: 1px solid var(--primary);
+  border-radius: 9999px;
+
+  padding: .35rem .75rem;
+  font-size: .8rem;
+  font-weight: 600;
+
+  box-shadow: var(--shadow-sm);
+  user-select: none;
+  white-space: nowrap;
+
+  /* Animación suave de aparición */
+  animation: badgeFadeIn .25s ease-out;
+}
+
+@keyframes badgeFadeIn{
+  from{ opacity: 0; transform: translateY(4px); }
+  to{ opacity: 1; transform: translateY(0); }
+}
+
+/* Icono dentro del badge */
+.medio-pago-badge::before{
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px #fff inset;
+}

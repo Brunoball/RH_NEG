@@ -368,3 +368,130 @@ html, body {
   max-height: 37px;
   min-height: 37px;
 }
+/* ===== Badges / layout para columna "Período" (CobMes) ===== */
+.periodo-main{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+}
+
+.periodo-label{
+  font-weight:600;
+  color:#0f172a;
+}
+
+.periodo-kind-badge{
+  font-size:0.7rem;
+  padding:3px 8px;
+  border-radius:999px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  font-weight:700;
+  border:1px solid transparent;
+}
+
+/* Colores por tipo de período */
+.periodo-kind-mensual{
+  background:rgba(37,99,235,0.08);
+  color:#1d4ed8;
+  border-color:rgba(37,99,235,0.25);
+}
+
+.periodo-kind-bimestral{
+  background:rgba(16,185,129,0.08);
+  color:#0f766e;
+  border-color:rgba(16,185,129,0.25);
+}
+
+.periodo-kind-trimestral{
+  background:rgba(234,179,8,0.10);
+  color:#92400e;
+  border-color:rgba(234,179,8,0.30);
+}
+
+.periodo-kind-anual{
+  background:rgba(147,51,234,0.10);
+  color:#6d28d9;
+  border-color:rgba(147,51,234,0.35);
+}
+
+.periodo-kind-multi{
+  background:rgba(15,23,42,0.05);
+  color:#0f172a;
+  border-color:rgba(148,163,184,0.45);
+}
+
+.periodo-kind-sin-meses{
+  background:rgba(148,163,184,0.10);
+  color:#475569;
+  border-color:rgba(148,163,184,0.45);
+}
+/* === PILL BASE === */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+/* versión más suave para subniveles */
+.pill-soft {
+  opacity: 0.95;
+}
+
+/* versión mini para medios */
+.pill-mini {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+}
+
+/* Íconos */
+.pill svg {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* Pequeña sombra */
+.pill,
+.pill-soft,
+.pill-mini {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* Hover sutil */
+.pill:hover {
+  filter: brightness(1.05);
+}
+.family-oficina{
+  background: rgba(37,99,235,0.08);
+  color:#1d4ed8;
+  border-color: rgba(37,99,235,0.4);
+}
+
+.family-cobrador{
+  background: rgba(16,185,129,0.10);
+  color:#047857;
+  border-color: rgba(16,185,129,0.45);
+}
+
+.family-transferencia{
+  background: rgba(168,85,247,0.10);
+  color:#7e22ce;
+  border-color: rgba(168,85,247,0.5);
+}
+
+/* opcional neutro */
+.family-other{
+  background: rgba(148,163,184,0.15);
+  color:#334155;
+  border-color: rgba(148,163,184,0.5);
+}

@@ -46,6 +46,15 @@ export default function CobMesTable({
 }) {
   const upper = (s) => String(s || "").toUpperCase().trim();
 
+  // Familia visual (OFICINA / COBRADOR / TRANSFERENCIA)
+  const getFamilyClass = (nombre) => {
+    const key = upper(nombre);
+    if (key === "OFICINA") return "family-oficina";
+    if (key === "COBRADOR") return "family-cobrador";
+    if (key === "TRANSFERENCIA") return "family-transferencia";
+    return "family-other";
+  };
+
   const selectedKey =
     cobradorSeleccionado && cobradorSeleccionado !== "todos"
       ? upper(cobradorSeleccionado)
@@ -155,7 +164,7 @@ export default function CobMesTable({
           let esperadoE = 0;
           let recaudadoE = 0;
           const sociosEArr = [];
-          const porMedio = {}; // NUEVO: por medio de pago dentro del estado
+          const porMedio = {}; // por medio de pago dentro del estado
 
           for (const m of monthsToUse) {
             // Esperado por estado (viene desde el backend)
@@ -188,8 +197,7 @@ export default function CobMesTable({
 
             recaudadoE += sumMoneda(pagosMesEstado);
 
-            // ===== NUEVO: desglosar por MEDIO DE PAGO dentro del estado =====
-            // Solo tiene sentido para OFICINA, pero lo calculamos siempre
+            // Desglosar por MEDIO DE PAGO dentro del estado
             pagosMesEstado.forEach((pg) => {
               const medioRaw =
                 pg.Medio_Pago ||
@@ -202,7 +210,7 @@ export default function CobMesTable({
               if (!porMedio[medio]) {
                 porMedio[medio] = {
                   recaudado: 0,
-                  socios: 0, // acá interpretamos "cant soc" = cantidad de pagos
+                  socios: 0, // interpretamos "cant soc" = cantidad de pagos
                 };
               }
               porMedio[medio].recaudado += Number(pg._precioNum) || 0;
@@ -238,7 +246,7 @@ export default function CobMesTable({
             esperado: esperadoE,
             recaudado: recaudadoE,
             socios: sociosE,
-            porMedio, // NUEVO
+            porMedio,
           };
         }
 
@@ -386,244 +394,273 @@ export default function CobMesTable({
                   {/* Subfilas por cobrador y por estado */}
                   {r.cobradoresListado.length > 0 && (
                     <div className="gridtable-subrows">
-                      {r.cobradoresListado.map((cob, idx) => (
-                        <React.Fragment key={`cm-${i}-c-${idx}`}>
-                          {/* Fila del COBRADOR */}
-                          <div className="gridtable-row subrow" role="row">
-                            <div className="gridtable-cell" role="cell">
-                              <span className="pill pill-light">
-                                <FontAwesomeIcon icon={cob.icon} />{" "}
-                                {cob.nombre}
-                              </span>
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.esperado)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.recaudado)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmtSocios(cob.socios)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                              style={difStyle(cob.esperado - cob.recaudado)}
-                            >
-                              {fmtDif(cob.esperado - cob.recaudado)}
-                            </div>
-                          </div>
+                      {r.cobradoresListado.map((cob, idx) => {
+                        const familyClass = getFamilyClass(cob.nombre);
+                        const clsCobrador = `pill pill-light pill-cobrador ${familyClass}`;
 
-                          {/* Fila ACTIVO */}
-                          <div
-                            className="gridtable-row subrow subrow-estado"
-                            role="row"
-                          >
-                            <div className="gridtable-cell" role="cell">
-                              <span className="pill pill-soft">ACTIVO</span>
+                        return (
+                          <React.Fragment key={`cm-${i}-c-${idx}`}>
+                            {/* Fila del COBRADOR */}
+                            <div className="gridtable-row subrow" role="row">
+                              <div className="gridtable-cell" role="cell">
+                                <span className={clsCobrador}>
+                                  <FontAwesomeIcon icon={cob.icon} />{" "}
+                                  {cob.nombre}
+                                </span>
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.esperado)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.recaudado)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmtSocios(cob.socios)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                                style={difStyle(
+                                  cob.esperado - cob.recaudado
+                                )}
+                              >
+                                {fmtDif(cob.esperado - cob.recaudado)}
+                              </div>
                             </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.porEstado.ACTIVO?.esperado || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.porEstado.ACTIVO?.recaudado || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmtSocios(cob.porEstado.ACTIVO?.socios || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                              style={difStyle(
-                                (cob.porEstado.ACTIVO?.esperado || 0) -
-                                  (cob.porEstado.ACTIVO?.recaudado || 0)
-                              )}
-                            >
-                              {fmtDif(
-                                (cob.porEstado.ACTIVO?.esperado || 0) -
-                                  (cob.porEstado.ACTIVO?.recaudado || 0)
-                              )}
-                            </div>
-                          </div>
 
-                          {/* SUBSUBFILAS: ACTIVO -> medios de pago (solo OFICINA) */}
-                          {cob.nombre === "OFICINA" &&
-                            MEDIOS_OFICINA.map((medio) => {
-                              const info =
-                                cob.porEstado.ACTIVO?.porMedio?.[medio] || {
-                                  recaudado: 0,
-                                  socios: 0,
-                                };
-                              if (
-                                info.recaudado === 0 &&
-                                info.socios === 0
-                              ) {
-                                return null;
-                              }
-                              return (
-                                <div
-                                  className="gridtable-row subrow subrow-estado subrow-medio"
-                                  role="row"
-                                  key={`cm-${i}-c-${idx}-A-${medio}`}
+                            {/* Fila ACTIVO */}
+                            <div
+                              className="gridtable-row subrow subrow-estado"
+                              role="row"
+                            >
+                              <div
+                                className="gridtable-cell"
+                                role="cell"
+                              >
+                                <span
+                                  className={`pill pill-soft pill-estado pill-estado-activo ${familyClass}`}
                                 >
-                                  <div
-                                    className="gridtable-cell"
-                                    role="cell"
-                                  >
-                                    <span className="pill pill-soft pill-mini">
-                                      {medio}
-                                    </span>
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {/* Esperado vacío */}
-                                    <span className="muted">—</span>
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {fmt(info.recaudado)}
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {fmtSocios(info.socios)}
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                    style={difStyle(0)}
-                                  >
-                                    {fmtDif(0)}
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                  ACTIVO
+                                </span>
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.porEstado.ACTIVO?.esperado || 0)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.porEstado.ACTIVO?.recaudado || 0)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmtSocios(
+                                  cob.porEstado.ACTIVO?.socios || 0
+                                )}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                                style={difStyle(
+                                  (cob.porEstado.ACTIVO?.esperado || 0) -
+                                    (cob.porEstado.ACTIVO?.recaudado || 0)
+                                )}
+                              >
+                                {fmtDif(
+                                  (cob.porEstado.ACTIVO?.esperado || 0) -
+                                    (cob.porEstado.ACTIVO?.recaudado || 0)
+                                )}
+                              </div>
+                            </div>
 
-                          {/* Fila PASIVO */}
-                          <div
-                            className="gridtable-row subrow subrow-estado"
-                            role="row"
-                          >
-                            <div className="gridtable-cell" role="cell">
-                              <span className="pill pill-soft pill-warn">
-                                PASIVO
-                              </span>
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.porEstado.PASIVO?.esperado || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmt(cob.porEstado.PASIVO?.recaudado || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                            >
-                              {fmtSocios(cob.porEstado.PASIVO?.socios || 0)}
-                            </div>
-                            <div
-                              className="gridtable-cell centers"
-                              role="cell"
-                              style={difStyle(
-                                (cob.porEstado.PASIVO?.esperado || 0) -
-                                  (cob.porEstado.PASIVO?.recaudado || 0)
-                              )}
-                            >
-                              {fmtDif(
-                                (cob.porEstado.PASIVO?.esperado || 0) -
-                                  (cob.porEstado.PASIVO?.recaudado || 0)
-                              )}
-                            </div>
-                          </div>
+                            {/* SUBSUBFILAS: ACTIVO -> medios de pago (solo OFICINA) */}
+                            {cob.nombre === "OFICINA" &&
+                              MEDIOS_OFICINA.map((medio) => {
+                                const info =
+                                  cob.porEstado.ACTIVO?.porMedio?.[medio] || {
+                                    recaudado: 0,
+                                    socios: 0,
+                                  };
+                                if (
+                                  info.recaudado === 0 &&
+                                  info.socios === 0
+                                ) {
+                                  return null;
+                                }
+                                const medioLower = medio.toLowerCase();
+                                const clsMedio = `pill pill-soft pill-mini pill-medio-${medioLower} ${familyClass}`;
 
-                          {/* SUBSUBFILAS: PASIVO -> medios de pago (solo OFICINA) */}
-                          {cob.nombre === "OFICINA" &&
-                            MEDIOS_OFICINA.map((medio) => {
-                              const info =
-                                cob.porEstado.PASIVO?.porMedio?.[medio] || {
-                                  recaudado: 0,
-                                  socios: 0,
-                                };
-                              if (
-                                info.recaudado === 0 &&
-                                info.socios === 0
-                              ) {
-                                return null;
-                              }
-                              return (
-                                <div
-                                  className="gridtable-row subrow subrow-estado subrow-medio"
-                                  role="row"
-                                  key={`cm-${i}-c-${idx}-P-${medio}`}
+                                return (
+                                  <div
+                                    className="gridtable-row subrow subrow-estado subrow-medio"
+                                    role="row"
+                                    key={`cm-${i}-c-${idx}-A-${medio}`}
+                                  >
+                                    <div
+                                      className="gridtable-cell"
+                                      role="cell"
+                                    >
+                                      <span className={clsMedio}>
+                                        {medio}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {/* Esperado vacío */}
+                                      <span className="muted">—</span>
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {fmt(info.recaudado)}
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {fmtSocios(info.socios)}
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                      style={difStyle(0)}
+                                    >
+                                      {fmtDif(0)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+
+                            {/* Fila PASIVO */}
+                            <div
+                              className="gridtable-row subrow subrow-estado"
+                              role="row"
+                            >
+                              <div
+                                className="gridtable-cell"
+                                role="cell"
+                              >
+                                <span
+                                  className={`pill pill-soft pill-estado pill-estado-pasivo ${familyClass}`}
                                 >
+                                  PASIVO
+                                </span>
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.porEstado.PASIVO?.esperado || 0)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmt(cob.porEstado.PASIVO?.recaudado || 0)}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                              >
+                                {fmtSocios(
+                                  cob.porEstado.PASIVO?.socios || 0
+                                )}
+                              </div>
+                              <div
+                                className="gridtable-cell centers"
+                                role="cell"
+                                style={difStyle(
+                                  (cob.porEstado.PASIVO?.esperado || 0) -
+                                    (cob.porEstado.PASIVO?.recaudado || 0)
+                                )}
+                              >
+                                {fmtDif(
+                                  (cob.porEstado.PASIVO?.esperado || 0) -
+                                    (cob.porEstado.PASIVO?.recaudado || 0)
+                                )}
+                              </div>
+                            </div>
+
+                            {/* SUBSUBFILAS: PASIVO -> medios de pago (solo OFICINA) */}
+                            {cob.nombre === "OFICINA" &&
+                              MEDIOS_OFICINA.map((medio) => {
+                                const info =
+                                  cob.porEstado.PASIVO?.porMedio?.[medio] || {
+                                    recaudado: 0,
+                                    socios: 0,
+                                  };
+                                if (
+                                  info.recaudado === 0 &&
+                                  info.socios === 0
+                                ) {
+                                  return null;
+                                }
+                                const medioLower = medio.toLowerCase();
+                                const clsMedio = `pill pill-soft pill-mini pill-medio-${medioLower} ${familyClass}`;
+
+                                return (
                                   <div
-                                    className="gridtable-cell"
-                                    role="cell"
+                                    className="gridtable-row subrow subrow-estado subrow-medio"
+                                    role="row"
+                                    key={`cm-${i}-c-${idx}-P-${medio}`}
                                   >
-                                    <span className="pill pill-soft pill-mini">
-                                      {medio}
-                                    </span>
+                                    <div
+                                      className="gridtable-cell"
+                                      role="cell"
+                                    >
+                                      <span className={clsMedio}>
+                                        {medio}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {/* Esperado vacío */}
+                                      <span className="muted">—</span>
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {fmt(info.recaudado)}
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                    >
+                                      {fmtSocios(info.socios)}
+                                    </div>
+                                    <div
+                                      className="gridtable-cell centers"
+                                      role="cell"
+                                      style={difStyle(0)}
+                                    >
+                                      {fmtDif(0)}
+                                    </div>
                                   </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {/* Esperado vacío */}
-                                    <span className="muted">—</span>
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {fmt(info.recaudado)}
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                  >
-                                    {fmtSocios(info.socios)}
-                                  </div>
-                                  <div
-                                    className="gridtable-cell centers"
-                                    role="cell"
-                                    style={difStyle(0)}
-                                  >
-                                    {fmtDif(0)}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </React.Fragment>
-                      ))}
+                                );
+                              })}
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                   )}
                 </React.Fragment>
