@@ -178,8 +178,6 @@
 .mode-option.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,.12)}
 .mode-option.active .mode-bullet{background:var(--primary);box-shadow:inset 0 0 0 3px #fff}
 
-/* Responsive */
-.modal-pagos-contenido
 
 @media (max-width:600px){
   .modal-header{padding:1.25rem}
@@ -190,8 +188,7 @@
   .periodo-card{flex-basis:100%;max-width:100%}
   .section-header-actions{flex-direction:column;align-items:flex-end;gap:.5rem}
   .year-picker{flex-basis:auto}
-}
-
+  }
 /* Éxito */
 .success-card{position:relative;background:#fff;border:1px solid var(--gray-200);border-radius:14px;padding:1rem 1rem 1rem 2.5rem;margin:0 1.5rem 1.5rem;box-shadow:var(--shadow-sm);text-align:center;min-height:140px;display:flex;flex-direction:column;justify-content:center;align-items:center}
 .success-card::before{content:"";position:absolute;left:12px;top:12px;bottom:12px;width:6px;background:linear-gradient(180deg,var(--success),var(--success-strong));border-radius:9999px;filter:drop-shadow(0 0 2px rgba(16,185,129,.25))}
@@ -320,4 +317,93 @@
   border-radius: 50%;
   background: var(--primary);
   box-shadow: 0 0 0 2px #fff inset;
+}
+/* ==========================
+   MODAL CONFIRMACIÓN PAGO
+   ========================== */
+.confirm-pago-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100; /* por encima del modal principal */
+}
+
+.confirm-pago-card{
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 1.25rem 1.5rem 1.25rem;
+  animation: badgeFadeIn .22s ease-out;
+}
+
+.confirm-pago-title{
+  margin: 0 0 .5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.confirm-pago-text{
+  margin: 0 0 .75rem;
+  font-size: .9rem;
+  color: var(--gray-600);
+}
+
+.confirm-pago-resumen{
+  border-radius: 10px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  padding: .7rem .9rem;
+  margin-bottom: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.confirm-pago-row{
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  font-size: .85rem;
+  color: var(--gray-700);
+}
+
+.confirm-pago-row.total{
+  margin-top: .25rem;
+  padding-top: .35rem;
+  border-top: 1px dashed var(--gray-300);
+  font-weight: 600;
+}
+
+.confirm-pago-label{
+  color: var(--gray-500);
+}
+
+.confirm-pago-value{
+  text-align: right;
+  flex: 1;
+}
+
+.confirm-pago-warning{
+  margin: 0 0 .9rem;
+  font-size: .8rem;
+  color: var(--warning-hover);
+}
+
+.confirm-pago-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+@media (max-width: 600px){
+  .confirm-pago-card{
+    margin: 0 1rem;
+    padding: 1rem 1rem .9rem;
+  }
 }

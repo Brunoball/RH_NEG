@@ -76,6 +76,9 @@ const ModalPagos = ({ socio, onClose }) => {
   // Nuevo: modo de salida en la vista de éxito
   const [modoSalida, setModoSalida] = useState('imprimir'); // 'imprimir' | 'pdf'
 
+  // NUEVO: modal de confirmación
+  const [showConfirm, setShowConfirm] = useState(false);
+
   // Determinar si el socio tiene cobrador = "oficina"
   const esOficina = useMemo(() => {
     const cobrador = socio?.cobrador || socio?.medio_pago || '';
@@ -561,6 +564,17 @@ const ModalPagos = ({ socio, onClose }) => {
     bloquearPorMontos ||
     (esOficina && !medioPagoSeleccionado);
 
+  // Handlers para el modal de confirmación
+  const handleAbrirConfirmacion = () => {
+    if (deshabilitarConfirmar) return;
+    setShowConfirm(true);
+  };
+
+  const handleConfirmarDesdeModal = () => {
+    setShowConfirm(false);
+    confirmar();
+  };
+
   return (
     <>
       {toast && (
@@ -772,7 +786,7 @@ const ModalPagos = ({ socio, onClose }) => {
               </button>
               <button
                 className={`btn ${condonar ? 'btn-warnings' : 'btn-primary'}`}
-                onClick={confirmar}
+                onClick={handleAbrirConfirmacion}
                 disabled={deshabilitarConfirmar}
                 title={deshabilitarConfirmar ? 
                   (esOficina && !medioPagoSeleccionado ? 'Seleccioná un medio de pago' : 
@@ -790,6 +804,76 @@ const ModalPagos = ({ socio, onClose }) => {
             </div>
           </div>
         </div>
+
+        {/* MODAL DE CONFIRMACIÓN DE PAGO / CONDONACIÓN */}
+        {showConfirm && (
+          <div className="confirm-pago-overlay">
+            <div className="confirm-pago-card">
+              <h3 className="confirm-pago-title">
+                {condonar ? 'Confirmar condonación' : 'Confirmar pago'}
+              </h3>
+
+              <p className="confirm-pago-text">
+                Estás a punto de {condonar ? 'registrar la condonación' : 'registrar el pago'} para:
+              </p>
+
+              <div className="confirm-pago-resumen">
+                <div className="confirm-pago-row">
+                  <span className="confirm-pago-label">Socio:</span>
+                  <span className="confirm-pago-value">
+                    {socio.id_socio} - {socio.nombre}
+                  </span>
+                </div>
+
+                {periodoTextoFinal && (
+                  <div className="confirm-pago-row">
+                    <span className="confirm-pago-label">Período/s:</span>
+                    <span className="confirm-pago-value">{periodoTextoFinal}</span>
+                  </div>
+                )}
+
+                {esOficina && medioPagoSeleccionado && (
+                  <div className="confirm-pago-row">
+                    <span className="confirm-pago-label">Medio de pago:</span>
+                    <span className="confirm-pago-value">{medioPagoSeleccionado}</span>
+                  </div>
+                )}
+
+                <div className="confirm-pago-row total">
+                  <span className="confirm-pago-label">Total:</span>
+                  <span className="confirm-pago-value">
+                    {condonar ? 'Condonado (sin cobro)' : formatearARS(total)}
+                  </span>
+                </div>
+              </div>
+
+              <p className="confirm-pago-warning">
+                {condonar
+                  ? 'Esta acción registrará la deuda como condonada.'
+                  : 'Al confirmar, se registrará el pago de forma definitiva.'}
+              </p>
+
+              <div className="confirm-pago-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowConfirm(false)}
+                  disabled={cargando}
+                >
+                  Revisar
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${condonar ? 'btn-warnings' : 'btn-primary'}`}
+                  onClick={handleConfirmarDesdeModal}
+                  disabled={cargando}
+                >
+                  {cargando ? 'Procesando…' : (condonar ? 'Confirmar condonación' : 'Confirmar pago')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
