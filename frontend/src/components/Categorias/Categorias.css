@@ -39,6 +39,21 @@
   *{animation:none !important;transition:none !important}
 }
 
+/* ✅ FIX anti “pantalla blanca”:
+   - Por defecto visible.
+   - Animar SOLO si no se pidió reducir movimiento.
+   - En reduce, forzar estado final visible.
+*/
+@media (prefers-reduced-motion: reduce){
+  .cat_card,
+  .cat_row{
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* Fondo coherente con el registro */
 .cat_page{
   min-height:100vh;
@@ -68,9 +83,19 @@
   gap:16px;
   position:relative;
   overflow:hidden;
-  opacity:0;
-  transform:translateY(18px);
-  animation: cat_fade_in .4s ease forwards;
+
+  /* ✅ fallback seguro (visible aunque no corran animaciones) */
+  opacity: 1;
+  transform: none;
+}
+
+/* ✅ Animar solo si se permite (evita opacity:0 permanente) */
+@media (prefers-reduced-motion: no-preference){
+  .cat_card{
+    opacity:0;
+    transform:translateY(18px);
+    animation: cat_fade_in .4s ease forwards;
+  }
 }
 
 @keyframes cat_fade_in{
@@ -169,9 +194,21 @@
   border-radius:10px;
   background: #f9fafb;
   box-shadow:0 2px 4px rgba(0,0,0,.06);
-  animation: cat_cascade .28s ease forwards;
-  opacity:0; transform:translateY(8px);
+
+  /* ✅ fallback seguro (visible aunque no corran animaciones) */
+  opacity: 1;
+  transform: none;
 }
+
+/* ✅ Animar solo si se permite */
+@media (prefers-reduced-motion: no-preference){
+  .cat_row{
+    animation: cat_cascade .28s ease forwards;
+    opacity:0;
+    transform:translateY(8px);
+  }
+}
+
 @keyframes cat_cascade{to{opacity:1;transform:translateY(0)}}
 
 .cat_cell{
@@ -383,6 +420,7 @@ thead{   background: linear-gradient(135deg, var(--cat-primary), var(--cat-secon
   border-radius:8px;
 }
 .cat_head_cell{text-align: left;}
+
 /* ===== Modal Confirmar Eliminación (estilo Principal) ===== */
 @keyframes catdel-modal-fadeIn { 
   from { opacity: 0 } 
