@@ -163,6 +163,14 @@ try {
             require_once __DIR__ . '/../modules/cuotas/montos.php';
             exit;
 
+        case 'precio_historico':
+            require_once __DIR__ . '/../modules/cuotas/precio_historico.php';
+            exit;
+
+        case 'registrar_inscripcion':
+            require __DIR__ . '/../modules/cuotas/registrar_inscripcion.php';
+            break;
+
         /* =========================
                 CATEGORÍAS
            (sin prefijo de DB)

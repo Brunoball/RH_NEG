@@ -182,7 +182,7 @@ export async function generarReciboPDFUnico(opts = {}) {
             <div class="importe-box">Importe: ${importeStr}</div>
             <div class="separador"></div>
             <div class="firma-box">
-              Francisco José Meré<br/>Tesorero
+              Norberto Blesio<br/>Tesorero
             </div>
           </div>
         </div>

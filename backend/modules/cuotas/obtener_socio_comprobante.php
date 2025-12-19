@@ -1,117 +1,121 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
+header('Content-Type: application/json; charset=utf-8');
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json; charset=utf-8");
+const ID_CONTADO_ANUAL = 7;
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+function fechaReferenciaPorPeriodo(int $anio, int $idPeriodo): string {
+    if ($idPeriodo === ID_CONTADO_ANUAL || $idPeriodo <= 0) return sprintf('%04d-12-31', $anio);
+    $mapMesFin = [1=>2, 2=>4, 3=>6, 4=>8, 5=>10, 6=>12];
+    $mesFin = $mapMesFin[$idPeriodo] ?? 12;
+    $d = DateTime::createFromFormat('Y-n-j', $anio . '-' . $mesFin . '-1');
+    if (!$d) return sprintf('%04d-12-31', $anio);
+    $d->modify('last day of this month');
+    return $d->format('Y-m-d');
 }
 
-$id = $_GET['id'] ?? null;
+function cargarHistorialPrecios(PDO $pdo, int $idCatMonto): array {
+    $st = $pdo->prepare("
+        SELECT tipo, precio_viejo, precio_nuevo, fecha_cambio
+          FROM precios_historicos
+         WHERE id_cat_monto = :id
+         ORDER BY tipo ASC, fecha_cambio ASC
+    ");
+    $st->bindValue(':id', $idCatMonto, PDO::PARAM_INT);
+    $st->execute();
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-if (!$id) {
-    echo json_encode(['exito' => false, 'mensaje' => 'ID no proporcionado']);
-    exit;
+    $map = [];
+    foreach ($rows as $r) {
+        $tipo = (string)$r['tipo'];
+        $map[$tipo][] = [
+            'fecha' => (string)$r['fecha_cambio'],
+            'viejo' => (int)$r['precio_viejo'],
+            'nuevo' => (int)$r['precio_nuevo'],
+        ];
+    }
+    return $map;
+}
+
+function precioVigenteEnFecha(int $idCatMonto, string $tipo, string $fechaRef, int $precioActual, array $hist): int {
+    $lista = $hist[$tipo] ?? [];
+    if (!$lista) return $precioActual;
+
+    $primer = $lista[0];
+    if ($fechaRef < $primer['fecha']) return (int)$primer['viejo'];
+
+    $vigente = null;
+    foreach ($lista as $c) {
+        if ($c['fecha'] <= $fechaRef) $vigente = (int)$c['nuevo'];
+        else break;
+    }
+    return $vigente !== null ? $vigente : $precioActual;
 }
 
 try {
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $idSocio = isset($_GET['id_socio']) ? (int)$_GET['id_socio'] : 0;
+    if ($idSocio <= 0) {
+        echo json_encode(['exito' => false, 'mensaje' => 'Falta id_socio'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 
-    // Consulta corregida para obtener correctamente la categoría del socio
-    $stmt = $pdo->prepare("
+    $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+    $idPeriodo = isset($_GET['id_periodo']) ? (int)$_GET['id_periodo'] : 0;
+
+    $fechaRef = fechaReferenciaPorPeriodo($anio, $idPeriodo);
+
+    $st = $pdo->prepare("
         SELECT 
             s.id_socio,
             s.nombre,
-            s.apellido,
             s.domicilio,
             s.numero,
-            s.telefono_movil,
-            s.telefono_fijo,
             s.domicilio_cobro,
-            s.id_periodo,
-            s.id_estado,
             s.id_categoria,
-            s.id_grupo,
-
-            -- Grupo sanguíneo (si existe en la tabla categoria)
-            COALESCE(cat_g.descripcion, '') AS grupo_sanguineo,
-
-            -- Categoría/cuota (esta es la categoría principal del socio)
-            COALESCE(cat_c.descripcion, '') AS nombre_categoria,
-
-            -- Estado (ACTIVO/PASIVO)
-            COALESCE(e.descripcion, '') AS nombre_estado,
-
-            cb.nombre AS nombre_cobrador,
-            p.nombre AS nombre_periodo,
-            
-            -- Monto de la categoría si existe
-            COALESCE(cm.monto, 4000) AS importe
-            
+            cat.descripcion AS nombre_categoria,
+            s.id_cat_monto,
+            cm.monto_mensual AS monto_mensual_cat,
+            cm.monto_anual AS monto_anual_cat
         FROM socios s
-        LEFT JOIN categoria cat_g ON s.id_grupo = cat_g.id_categoria
-        LEFT JOIN categoria cat_c ON s.id_categoria = cat_c.id_categoria
-        LEFT JOIN cat_monto cm ON s.id_cat_monto = cm.id_cat_monto
-        LEFT JOIN estado e ON s.id_estado = e.id_estado
-        LEFT JOIN cobrador cb ON s.id_cobrador = cb.id_cobrador
-        LEFT JOIN periodo p ON s.id_periodo = p.id_periodo
-        WHERE s.id_socio = ?
+        LEFT JOIN categoria cat ON s.id_categoria = cat.id_categoria
+        LEFT JOIN categoria_monto cm ON s.id_cat_monto = cm.id_cat_monto
+        WHERE s.id_socio = :id
         LIMIT 1
     ");
-    $stmt->execute([$id]);
-    $socio = $stmt->fetch(PDO::FETCH_ASSOC);
+    $st->bindValue(':id', $idSocio, PDO::PARAM_INT);
+    $st->execute();
+    $s = $st->fetch(PDO::FETCH_ASSOC);
 
-    if ($socio) {
-        $anio = date('Y');
-
-        // Teléfono: móvil > fijo
-        $telefono = '';
-        if (!empty($socio['telefono_movil']))      $telefono = trim($socio['telefono_movil']);
-        elseif (!empty($socio['telefono_fijo']))   $telefono = trim($socio['telefono_fijo']);
-
-        // Período visible
-        $periodoTexto = '';
-        if (!empty($socio['nombre_periodo'])) {
-            $periodoTexto = $socio['nombre_periodo'];
-        } elseif (!empty($socio['id_periodo'])) {
-            $periodoTexto = "PERÍODO: {$socio['id_periodo']} / {$anio}";
-        }
-
-        echo json_encode([
-            'exito' => true,
-            'socio' => [
-                'id_socio'         => $socio['id_socio'] ?? '',
-                'nombre'           => $socio['nombre'] ?? '',
-                'apellido'         => $socio['apellido'] ?? '',
-                'domicilio'        => $socio['domicilio'] ?? '',
-                'numero'           => $socio['numero'] ?? '',
-                'domicilio_cobro'  => trim($socio['domicilio_cobro'] ?? ''),
-                'telefono'         => $telefono,
-                'periodo_texto'    => $periodoTexto,
-
-                'id_estado'        => isset($socio['id_estado']) ? (int)$socio['id_estado'] : null,
-                'nombre_estado'    => $socio['nombre_estado'] ?? '',
-
-                // Información de categoría (corregido)
-                'id_categoria'     => isset($socio['id_categoria']) ? (int)$socio['id_categoria'] : null,
-                'nombre_categoria' => $socio['nombre_categoria'] ?? '',
-
-                // Información de grupo sanguíneo
-                'id_grupo'         => isset($socio['id_grupo']) ? (int)$socio['id_grupo'] : null,
-                'grupo_sanguineo'  => $socio['grupo_sanguineo'] ?? '',
-
-                'importe'          => $socio['importe'] ?? 4000,
-                'importe_total'    => $socio['importe'] ?? 4000,
-                'nombre_cobrador'  => $socio['nombre_cobrador'] ?? ''
-            ]
-        ], JSON_UNESCAPED_UNICODE);
-    } else {
-        echo json_encode(['exito' => false, 'mensaje' => 'Socio no encontrado']);
+    if (!$s) {
+        echo json_encode(['exito' => false, 'mensaje' => 'Socio no encontrado'], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-} catch (PDOException $e) {
-    echo json_encode(['exito' => false, 'mensaje' => 'Error de servidor: ' . $e->getMessage()]);
+
+    $idCatMonto = !empty($s['id_cat_monto']) ? (int)$s['id_cat_monto'] : 0;
+    $actualMensual = (int)($s['monto_mensual_cat'] ?? 0);
+    $actualAnual   = (int)($s['monto_anual_cat'] ?? 0);
+
+    $hist = $idCatMonto ? cargarHistorialPrecios($pdo, $idCatMonto) : [];
+
+    $mMensual = $idCatMonto ? precioVigenteEnFecha($idCatMonto, 'mensual', $fechaRef, $actualMensual, $hist) : $actualMensual;
+    $mAnual   = $idCatMonto ? precioVigenteEnFecha($idCatMonto, 'anual',   $fechaRef, $actualAnual,   $hist) : $actualAnual;
+
+    echo json_encode([
+        'exito' => true,
+        'socio' => [
+            'id_socio'         => (int)$s['id_socio'],
+            'nombre'           => $s['nombre'] ?? '',
+            'domicilio'        => trim(($s['domicilio'] ?? '') . ' ' . ($s['numero'] ?? '')),
+            'domicilio_cobro'  => $s['domicilio_cobro'] ?? '',
+            'id_categoria'     => $s['id_categoria'] !== null ? (int)$s['id_categoria'] : null,
+            'nombre_categoria' => $s['nombre_categoria'] ?? '',
+            'id_cat_monto'     => $idCatMonto ?: null,
+            'monto_mensual'    => $mMensual,
+            'monto_anual'      => $mAnual,
+            'precio_ref_fecha' => $fechaRef,
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['exito' => false, 'mensaje' => 'Error: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }

@@ -41,7 +41,7 @@ import axios from 'axios';
 import ModalMesCuotas from './modales/ModalMesCuotas';
 import * as XLSX from 'xlsx';
 
-// ⬇️ NUEVO: modal de exportación Galicia
+// ⬇️ modal de exportación Galicia
 import GaliciaExport from './modales/GaliciaExport';
 
 /* =========================
@@ -62,7 +62,7 @@ api.interceptors.response.use(
   }
 );
 
-// ⚠️ Ya no hay precios fijos en el frontend
+// ⚠️ Ya no hay precios fijos en el frontend (el backend devuelve monto_mensual/anual según año+período)
 const ID_CONTADO_ANUAL_FALLBACK = 7;
 
 /* =========================
@@ -122,7 +122,7 @@ const Row = React.memo(function Row({ index, style, data }) {
         </span>
       </div>
 
-      {/* Medio de pago: Cobrador/Oficina/Transferencia */}
+      {/* Medio de pago */}
       <div className="cuo_col-medio-pago">
         <span className={`cuo_badge ${claseMedioPago}`}>{cuota.medio_pago || 'Sin especificar'}</span>
       </div>
@@ -157,7 +157,7 @@ const Row = React.memo(function Row({ index, style, data }) {
             </button>
           )}
 
-          {/* Imprimir: abre el modal de selección de períodos para ESTE socio */}
+          {/* Imprimir */}
           <button
             className="cuo_boton-accion cuo_boton-accion-primary"
             onClick={data.onImprimir(cuota)}
@@ -185,7 +185,6 @@ const CuotasList = React.memo(function CuotasList({
   getId,
   isAdmin,
 }) {
-  // Ocultar overflow-x
   const OuterElement = React.useMemo(
     () =>
       React.forwardRef((props, ref) => (
@@ -242,7 +241,7 @@ const Cuotas = () => {
   const [isPending, startTransition] = useTransition();
 
   /* =========================
-   * ROL DEL USUARIO (admin/vista)
+   * ROL DEL USUARIO
    * ========================= */
   const [usuario] = useState(() => {
     try {
@@ -267,10 +266,10 @@ const Cuotas = () => {
 
   // Año y lista de años (del backend según pagos reales)
   const [anioSeleccionado, setAnioSeleccionado] = useState('');
-  const [anios, setAnios] = useState([]); // arr de números
+  const [anios, setAnios] = useState([]);
 
   const [mediosPago, setMediosPago] = useState([]);
-  const [periodos, setPeriodos] = useState([]); // [{id, nombre, anio?}]
+  const [periodos, setPeriodos] = useState([]); // [{id, nombre}]
   const [estados, setEstados] = useState([]);
   const [mostrarModalPagos, setMostrarModalPagos] = useState(false);
   const [mostrarModalCodigoBarras, setMostrarModalCodigoBarras] = useState(false);
@@ -289,23 +288,20 @@ const Cuotas = () => {
   const [imprimirContable, setImprimirContable] = useState(false);
   const [cuotaParaImprimir, setCuotaParaImprimir] = useState(null); // si es null => imprimir todos
 
-  // ⬇️ NUEVO: exportación Galicia modal
+  // exportación Galicia modal
   const [mostrarExportGalicia, setMostrarExportGalicia] = useState(false);
 
   // ===== Caché (memoria) + TTL =====
   const cacheRef = useRef({
-    ttl: 30 * 60 * 1000, // 30 minutos
-    mutationTs: 0, // timestamp de la última mutación global
-    cuotas: {}, // clave: "anio|estado|periodo" => {data, ts}
+    ttl: 30 * 60 * 1000,
+    mutationTs: 0,
+    cuotas: {},
     listas: { data: null, ts: 0 },
   });
   const [cacheVersion, setCacheVersion] = useState(0);
   const bumpCacheVersion = useCallback(() => setCacheVersion((v) => v + 1), []);
 
-  // Control de operaciones para ignorar respuestas viejas
   const currentOpIdRef = useRef(0);
-
-  // flag para evitar solapes entre cargas
   const isFetchingAllRef = useRef(false);
 
   // ===== Scroll control =====
@@ -318,19 +314,18 @@ const Cuotas = () => {
     });
   }, []);
 
-  // isFresh también verifica que sea posterior a mutationTs
   const isFresh = (ts) => {
     const { ttl, mutationTs } = cacheRef.current;
     return ts && ts >= mutationTs && Date.now() - ts < ttl;
   };
 
-  // ⬇️ La key de cuotas incluye el año seleccionado
+  // ⬇️ La key incluye el año seleccionado (clave para que los precios “históricos” cacheen bien)
   const getCuotasKey = useCallback(
     (estadoPago, periodoId) => `${anioSeleccionado || 'NOYEAR'}|${estadoPago}|${periodoId || 'NO_PERIODO'}`,
     [anioSeleccionado]
   );
 
-  // ===== Helpers de ID (usan campos normalizados) =====
+  // ===== Helpers de ID =====
   const getId = (c) => String(c?.id_socio ?? c?.idSocio ?? c?.idsocio ?? c?.id ?? '');
   const getIdNumber = (c) => (Number.isFinite(c?._idnum) ? c._idnum : null);
   const equalId = (c, needle) => {
@@ -341,7 +336,7 @@ const Cuotas = () => {
   };
 
   // =========================
-  // Carga de LISTAS (no toca años)
+  // Carga de LISTAS
   // =========================
   const fetchListas = useCallback(async () => {
     const listasCache = cacheRef.current.listas;
@@ -368,13 +363,10 @@ const Cuotas = () => {
   }, []);
 
   // =========================
-  // NUEVO: Años con pagos reales + lógica 1° de diciembre
+  // Años con pagos reales + lógica 1° de diciembre
   // =========================
   const fetchAnios = useCallback(
     async () => {
-      // Helper local: arma la lista final asegurando:
-      //  - SIEMPRE el año actual
-      //  - Desde el 1/12, también el año siguiente
       const buildFinalYears = (baseList) => {
         let listaNum = Array.isArray(baseList)
           ? baseList.map((n) => Number(n)).filter(Boolean)
@@ -382,27 +374,15 @@ const Cuotas = () => {
 
         const hoy = new Date();
         const current = hoy.getFullYear();
-        const mes = hoy.getMonth(); // 0 = enero, 11 = diciembre
+        const mes = hoy.getMonth(); // 0=ene, 11=dic
         const dia = hoy.getDate();
         const nextYear = current + 1;
 
-        // Siempre incluimos el año actual, aunque el backend no lo tenga
-        if (!listaNum.includes(current)) {
-          listaNum.push(current);
-        }
+        if (!listaNum.includes(current)) listaNum.push(current);
+        if (mes === 11 && dia >= 1 && !listaNum.includes(nextYear)) listaNum.push(nextYear);
 
-        // A partir del 1 de diciembre, si el año siguiente todavía no está,
-        // lo agregamos (queda habilitado "para siempre" una vez que entra)
-        if (mes === 11 && dia >= 1 && !listaNum.includes(nextYear)) {
-          listaNum.push(nextYear);
-        }
+        if (listaNum.length === 0) listaNum = [current];
 
-        // Fallback raro: si igual quedó vacío, metemos el año actual
-        if (listaNum.length === 0) {
-          listaNum = [current];
-        }
-
-        // Ordenar y quitar duplicados por las dudas
         listaNum = Array.from(new Set(listaNum)).sort((a, b) => a - b);
         return listaNum;
       };
@@ -412,7 +392,6 @@ const Cuotas = () => {
         if (res?.exito) {
           const final = buildFinalYears(res.anios);
           setAnios(final);
-          // Ajustar selección si no pertenece a la lista
           const selNum = parseInt(anioSeleccionado, 10);
           if (!anioSeleccionado || !final.includes(selNum)) {
             setAnioSeleccionado(String(final[0]));
@@ -454,7 +433,6 @@ const Cuotas = () => {
 
   const fetchCuotas = useCallback(
     async (estadoPago, periodoId, { force = false, setAsVisible = false, resetScroll = false } = {}) => {
-      // Hasta no tener año seleccionado, no consultamos
       if (!anioSeleccionado) {
         if (setAsVisible) applyVisibleData([], { resetScroll });
         return [];
@@ -463,6 +441,7 @@ const Cuotas = () => {
         if (setAsVisible) applyVisibleData([], { resetScroll });
         return [];
       }
+
       const key = getCuotasKey(estadoPago, periodoId);
       const cached = cacheRef.current.cuotas[key];
 
@@ -474,8 +453,9 @@ const Cuotas = () => {
       let qs = '';
       if (estadoPago === 'pagado') qs = '&pagados=1';
       else if (estadoPago === 'condonado') qs = '&condonados=1';
-      if (periodoId) qs += `&id_periodo=${encodeURIComponent(periodoId)}`;
-      if (anioSeleccionado) qs += `&anio=${encodeURIComponent(anioSeleccionado)}`;
+
+      qs += `&id_periodo=${encodeURIComponent(periodoId)}`;
+      qs += `&anio=${encodeURIComponent(anioSeleccionado)}`;
 
       try {
         const dataCuotas = await api.get(`/api.php?action=cuotas${qs}`);
@@ -512,7 +492,6 @@ const Cuotas = () => {
     [fetchCuotas, bumpCacheVersion, anioSeleccionado]
   );
 
-  // Invalidación tras mutaciones
   const invalidateCuotas = useCallback(
     (estadoPago, periodoId) => {
       const key = getCuotasKey(estadoPago, periodoId);
@@ -522,10 +501,9 @@ const Cuotas = () => {
     [getCuotasKey, bumpCacheVersion]
   );
 
-  // ========== Efectos ========== */
   useEffect(() => {
     fetchListas();
-    fetchAnios(); // ⬅️ traemos los años reales de pagos + lógica 1/12
+    fetchAnios();
   }, [fetchListas, fetchAnios]);
 
   const setVisibleFromCache = useCallback(
@@ -555,11 +533,7 @@ const Cuotas = () => {
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!anioSeleccionado) {
-        applyVisibleData([], { resetScroll: true });
-        return;
-      }
-      if (!periodoSeleccionado) {
+      if (!anioSeleccionado || !periodoSeleccionado) {
         applyVisibleData([], { resetScroll: true });
         return;
       }
@@ -595,13 +569,9 @@ const Cuotas = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoSeleccionado, anioSeleccionado]);
 
-  // (B) Cambio de pestaña de ESTADO DE PAGO o AÑO
+  // (B) Cambio de pestaña
   useEffect(() => {
-    if (!anioSeleccionado) {
-      applyVisibleData([], { resetScroll: true });
-      return;
-    }
-    if (!periodoSeleccionado) {
+    if (!anioSeleccionado || !periodoSeleccionado) {
       applyVisibleData([], { resetScroll: true });
       return;
     }
@@ -648,15 +618,12 @@ const Cuotas = () => {
           estadoSocioSeleccionado === '' || c.estado === estadoSocioSeleccionado;
         const coincideMedio =
           medioPagoSeleccionado === '' || c.medio_pago === medioPagoSeleccionado;
-        const coincideEstadoPago =
-          estadoPagoSeleccionado === '' || c.estado_pago === estadoPagoSeleccionado;
 
         return (
           coincideBusqueda &&
           coincideId &&
           coincideEstadoSocio &&
-          coincideMedio &&
-          coincideEstadoPago
+          coincideMedio
         );
       });
 
@@ -672,7 +639,6 @@ const Cuotas = () => {
       if (orden.campo === 'domicilio') {
         return orden.ascendente ? a._q_dom.localeCompare(b._q_dom) : b._q_dom.localeCompare(a._q_dom);
       }
-      // nombre
       return orden.ascendente ? a._q_nombre.localeCompare(b._q_nombre) : b._q_nombre.localeCompare(a._q_nombre);
     });
   }, [
@@ -682,13 +648,9 @@ const Cuotas = () => {
     busquedaId,
     estadoSocioSeleccionado,
     medioPagoSeleccionado,
-    estadoPagoSeleccionado,
     orden
   ]);
 
-  /* ================================
-   * Contadores
-   * ================================ */
   const getCachedListFor = useCallback(
     (estadoFijo) => {
       if (!periodoSeleccionado) return [];
@@ -716,12 +678,11 @@ const Cuotas = () => {
     const listaPag = getCachedListFor('pagado');
     const listaCond = getCachedListFor('condonado');
 
-    const filtrar = (lista, estadoFijo) => {
+    const filtrar = (lista) => {
       return lista
         .filter(
           (c) =>
-            (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null) &&
-            c.estado_pago === estadoFijo
+            (String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null)
         )
         .filter((c) => {
           const coincideBusqueda =
@@ -741,9 +702,9 @@ const Cuotas = () => {
     };
 
     return {
-      deudor: filtrar(listaDeu, 'deudor'),
-      pagado: filtrar(listaPag, 'pagado'),
-      condonado: filtrar(listaCond, 'condonado'),
+      deudor: filtrar(listaDeu),
+      pagado: filtrar(listaPag),
+      condonado: filtrar(listaCond),
     };
   }, [
     periodoSeleccionado,
@@ -766,30 +727,25 @@ const Cuotas = () => {
   const limpiarPrefijoPeriodo = (txt = '') =>
     String(txt).replace(/^\s*per[ií]odo?s?\s*:?\s*/i, '').trim();
 
-  // IDs de períodos NO anuales (para detectar “6 meses = anual”)
   const getNonAnualIds = useCallback(() => {
     return periodos
       .filter((p) => !isAnualName(p.nombre))
       .map((p) => String(p.id));
   }, [periodos]);
 
-  // Obtiene el período "Anual" (si existe)
   const getAnualPeriodo = useCallback(
     () => periodos.find((p) => isAnualName(p?.nombre || '')) || null,
     [periodos]
   );
 
-  // Construye el texto de período para el comprobante, con AÑO
   const construirPeriodoTexto = useCallback(
     (ids, year) => {
       if (!ids || ids.length === 0) return '';
       const anual = getAnualPeriodo();
       const idsStr = ids.map(String);
 
-      // ¿Incluye el ítem Anual?
       const incluyeAnual = anual && idsStr.includes(String(anual.id));
 
-      // ¿Todas las no-anuales seleccionadas?
       const nonAnual = getNonAnualIds();
       const esSeisMeses =
         nonAnual.length > 0 &&
@@ -815,7 +771,7 @@ const Cuotas = () => {
   const primerIdSeleccionado = (ids) =>
     ids.length ? String([...ids].sort((a, b) => Number(a) - Number(b))[0]) : '0';
 
-  // ⬇️ NUEVO: cálculo de importe por socio usando precios que vienen del backend
+  // ✅ Importe: SIEMPRE con monto_mensual/monto_anual que manda el backend (histórico por período+año)
   const calcularImportePorSeleccion = useCallback(
     (idsSeleccion, socio) => {
       if (!idsSeleccion || idsSeleccion.length === 0) return 0;
@@ -851,7 +807,6 @@ const Cuotas = () => {
     });
   }, [periodos, anioSeleccionado]);
 
-  // Si el período seleccionado deja de existir para el año elegido, lo limpiamos
   useEffect(() => {
     if (!periodoSeleccionado) return;
     const stillExists = periodosFiltrados.some((p) => String(p.id) === String(periodoSeleccionado));
@@ -862,9 +817,7 @@ const Cuotas = () => {
 
   // =========================
   // Impresión
-  // ========================= */
-
-  // Imprimir TODOS directo (período seleccionado y año actual seleccionado)
+  // =========================
   const handleImprimirTodosDirecto = async () => {
     if (!periodoSeleccionado) {
       setToastTipo('error');
@@ -896,9 +849,8 @@ const Cuotas = () => {
           : primerIdSeleccionado(ids);
       const anioNum = Number(anioSeleccionado) || new Date().getFullYear();
 
-      // Importe por socio (usa campos del backend)
       const listaEnriquecida = cuotasFiltradas.map((c) => ({
-        ...c, // ⬅️ ahora incluye id_categoria y nombre_categoria desde el backend
+        ...c,
         id_periodo: periodoIdImpresion,
         periodo_texto: periodoTexto,
         importe_total: calcularImportePorSeleccion(ids, c),
@@ -914,28 +866,13 @@ const Cuotas = () => {
     }
   };
 
-  // Abrir selector (para fila o masivo con selección manual)
-  const handleAbrirSelectorImpresion = () => {
-    if (cuotasFiltradas.length === 0) {
-      setToastTipo('error');
-      setToastMensaje('No hay registros visibles para imprimir.');
-      setToastVisible(true);
-      return;
-    }
-    setCuotaParaImprimir(null); // impresión masiva (pero con selector)
-    setPeriodosAImprimir(periodoSeleccionado ? [periodoSeleccionado] : []);
-    setImprimirContable(false);
-    setMostrarModalSeleccionPeriodos(true);
-  };
-
-  // ⬇️ ACTUALIZADO: acepta socioEnriquecido enviado por el modal (¡clave para la categoría correcta!)
   const handleImprimirSeleccionados = async (payload) => {
     const {
       anio,
       seleccionados,
-      periodoTexto, // texto ya calculado por el modal
-      importe_total, // para caso por-socio
-      socioEnriquecido, // ⭐ info del socio desde socio_comprobante
+      periodoTexto,
+      importe_total,
+      socioEnriquecido,
     } = payload || {};
 
     const ventanaImpresion = window.open('', '_blank');
@@ -971,7 +908,6 @@ const Cuotas = () => {
         const anioNum = Number(anio) || Number(anioSeleccionado) || new Date().getFullYear();
 
         if (cuotaParaImprimir) {
-          // ⚠️ Para UNA fila: usar la versión enriquecida (trae nombre_categoria / id_categoria correctos)
           const baseSocio = socioEnriquecido && socioEnriquecido.id_socio ? socioEnriquecido : cuotaParaImprimir;
 
           const importe =
@@ -988,7 +924,6 @@ const Cuotas = () => {
           };
           await imprimirRecibosUnicos([socioConPeriodos], periodoCodigo, ventanaImpresion);
         } else {
-          // Impresión masiva: ahora cada item ya trae id_categoria y nombre_categoria desde el backend
           const listaEnriquecida = cuotasFiltradas.map((c) => ({
             ...c,
             id_periodo: periodoCodigo,
@@ -1025,7 +960,6 @@ const Cuotas = () => {
   };
   const toggleFiltros = () => setFiltrosExpandidos((s) => !s);
 
-  // Handlers estables para acciones de fila
   const handlePagar = useCallback(
     (cuota) => () => {
       if (!isAdmin) return;
@@ -1042,6 +976,7 @@ const Cuotas = () => {
     },
     []
   );
+
   const handleEliminarCondonacion = useCallback(
     (cuota) => () => {
       setSocioParaPagar(cuota);
@@ -1049,6 +984,7 @@ const Cuotas = () => {
     },
     []
   );
+
   const handleImprimirFila = useCallback(
     (cuota) => () => {
       setCuotaParaImprimir(cuota);
@@ -1059,9 +995,6 @@ const Cuotas = () => {
     [periodoSeleccionado]
   );
 
-  // =========================
-  // Utilidad de UI
-  // =========================
   const getNombrePeriodo = (id) => {
     const periodo = periodos.find((p) => String(p.id) === String(id));
     return periodo ? periodo.nombre : id;
@@ -1088,9 +1021,11 @@ const Cuotas = () => {
       'Estado socio': c.estado || '',
       'Medio de pago': c.medio_pago || '',
       'Estado de pago': c.estado_pago || '',
-      'Categoría': c.nombre_categoria || '', // ⬅️ ahora disponible
+      'Categoría': c.nombre_categoria || '',
       'Período (visible)': periodoTexto || '',
       Año: anioSeleccionado || '',
+      'Monto mensual (histórico)': Number(c.monto_mensual) || 0,
+      'Monto anual (histórico)': Number(c.monto_anual) || 0,
     }));
 
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -1107,10 +1042,8 @@ const Cuotas = () => {
     XLSX.writeFile(wb, fileName);
   };
 
-  // ======= Helpers para exportación Galicia =======
   const sociosPagadosTarjetaPeriodo = useMemo(() => {
     if (!periodoSeleccionado) return [];
-    // Tomamos SIEMPRE la lista cacheada de "pagado" del período (no depende de la pestaña visible)
     const listaPagados = getCachedListFor('pagado');
     return listaPagados
       .filter((c) => String(c.id_periodo) === String(periodoSeleccionado) || c.id_periodo === null)
@@ -1118,7 +1051,6 @@ const Cuotas = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoSeleccionado, cacheVersion, medioPagoSeleccionado, estadoSocioSeleccionado, q]);
 
-  // ======= estado derivado para habilitar "Imprimir todos" =======
   const imprimirTodosDeshabilitado = useMemo(
     () => loadingPrint || loading || cuotasFiltradas.length === 0,
     [loadingPrint, loading, cuotasFiltradas.length]
@@ -1127,7 +1059,7 @@ const Cuotas = () => {
   // =========================
   // Render
   // =========================
-  const anualRef = getAnualPeriodo();
+  const anualRef = periodos.find((p) => isAnualName(p?.nombre || '')) || null;
   const idAnual = anualRef?.id ?? ID_CONTADO_ANUAL_FALLBACK;
 
   return (
@@ -1469,32 +1401,6 @@ const Cuotas = () => {
               >
                 <FaFileExcel /> Exportar Excel
               </button>
-
-              {/* ⬇️ NUEVO: botón Exportar Pago Directo Galicia - COMENTADO TEMPORALMENTE */}
-              {/*
-              <button
-                className="cuo_boton cuo_boton-dark"
-                onClick={() => {
-                  if (!periodoSeleccionado) {
-                    setToastTipo('error');
-                    setToastMensaje('Seleccioná un período antes de exportar.');
-                    setToastVisible(true);
-                    return;
-                  }
-                  if (sociosPagadosTarjetaPeriodo.length === 0) {
-                    setToastTipo('error');
-                    setToastMensaje('No hay pagos con tarjeta en el período seleccionado.');
-                    setToastVisible(true);
-                    return;
-                  }
-                  setMostrarExportGalicia(true);
-                }}
-                disabled={loading || !periodoSeleccionado}
-                title="Exportar archivo de órdenes de débito (Pago Directo Galicia)"
-              >
-                Exportar Pago Directo Galicia
-              </button>
-              */}
             </div>
           </div>
         </div>
@@ -1584,20 +1490,22 @@ const Cuotas = () => {
       {mostrarModalPagos && (
         <ModalPagos
           socio={socioParaPagar}
+
+          // ✅ FIX MONTO HISTÓRICO: el modal ahora sabe año+período seleccionado en la pantalla
+          anioContexto={Number(anioSeleccionado) || currentYear}
+          periodoContexto={Number(periodoSeleccionado) || 0}
+
           onClose={async (refetch) => {
             setMostrarModalPagos(false);
             if (refetch) {
               cacheRef.current.mutationTs = Date.now();
-              // invalidar todo el período (del año actual seleccionado)
               invalidateCuotas('deudor', periodoSeleccionado);
               invalidateCuotas('pagado', periodoSeleccionado);
               invalidateCuotas('condonado', periodoSeleccionado);
-              // una sola carga
               await fetchCuotasAll(periodoSeleccionado, { force: true });
               setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, {
                 resetScroll: false,
               });
-              // refrescamos años por si se creó pago en un año nuevo
               fetchAnios();
             }
           }}
@@ -1618,7 +1526,6 @@ const Cuotas = () => {
             setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, {
               resetScroll: false,
             });
-            // si apareció un año nuevo por este pago, lo agregamos
             fetchAnios();
           }}
         />
@@ -1645,16 +1552,13 @@ const Cuotas = () => {
           onClose={() => setMostrarModalEliminarPago(false)}
           onEliminado={async () => {
             cacheRef.current.mutationTs = Date.now();
-            // invalidamos todas las pestañas del período actual
             invalidateCuotas('pagado', periodoSeleccionado);
             invalidateCuotas('deudor', periodoSeleccionado);
             invalidateCuotas('condonado', periodoSeleccionado);
-            // recargamos las 3 listas del período visible
             await fetchCuotasAll(periodoSeleccionado, { force: true });
             setVisibleFromCache(estadoPagoSeleccionado, periodoSeleccionado, {
               resetScroll: false,
             });
-            // refrescar años por si al eliminar se vacía o aparece un año
             fetchAnios();
           }}
         />
@@ -1696,7 +1600,6 @@ const Cuotas = () => {
       {/* Modal de selección de períodos para imprimir */}
       {mostrarModalSeleccionPeriodos && (
         <ModalMesCuotas
-          /* Socio de la fila */
           socioInfo={cuotaParaImprimir || null}
           id_socio={cuotaParaImprimir?.id_socio || cuotaParaImprimir?.id || cuotaParaImprimir?.idsocio}
           id_cat_monto={cuotaParaImprimir?.id_cat_monto}
@@ -1714,19 +1617,16 @@ const Cuotas = () => {
           anios={anios}
           anioSeleccionado={anioSeleccionado}
           onAnioChange={setAnioSeleccionado}
-          /* Montos por socio */
           montoMensual={cuotaParaImprimir ? Number(cuotaParaImprimir?.monto_mensual) || 0 : undefined}
           montoAnual={
             cuotaParaImprimir
-              ? Number(cuotaParaImprimir?.monto_anual) ||
-                (Number(cuotaParaImprimir?.monto_mensual) || 0) * 12
+              ? Number(cuotaParaImprimir?.monto_anual) || 0
               : undefined
           }
           condonar={false}
         />
       )}
 
-      {/* ⬇️ NUEVO: Modal Exportación Galicia */}
       {mostrarExportGalicia && (
         <GaliciaExport
           open={mostrarExportGalicia}

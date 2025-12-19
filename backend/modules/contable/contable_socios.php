@@ -11,13 +11,18 @@ try {
     // ===================== META LIGERA: SOLO AÑOS =====================
     // Llamar con: action=contable&meta=years
     if (isset($_GET['meta']) && $_GET['meta'] === 'years') {
-        // Recomendado: índice (estado, fecha_pago)
-        // CREATE INDEX IF NOT EXISTS idx_pagos_estado_fecha ON pagos (estado, fecha_pago);
 
+        // Trae años desde pagos + pagos_inscripcion
         $yearsStmt = $pdo->query("
             SELECT DISTINCT YEAR(fecha_pago) AS y
             FROM pagos
             WHERE estado = 'pagado'
+
+            UNION
+
+            SELECT DISTINCT YEAR(fecha_pago) AS y
+            FROM pagos_inscripcion
+
             ORDER BY y ASC
         ");
         $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
@@ -42,6 +47,12 @@ try {
         SELECT DISTINCT YEAR(fecha_pago) AS y
         FROM pagos
         WHERE estado = 'pagado'
+
+        UNION
+
+        SELECT DISTINCT YEAR(fecha_pago) AS y
+        FROM pagos_inscripcion
+
         ORDER BY y ASC
     ");
     $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
@@ -142,6 +153,39 @@ try {
     $stCond->execute();
     $condonadosRaw = $stCond->fetchAll(PDO::FETCH_ASSOC);
 
+    // ===================== NUEVO: PAGOS INSCRIPCION DEL AÑO =====================
+    // Estructura: pagos_inscripcion(id_inscripcion, id_socio, monto, fecha_pago, id_medio_pago)
+    $sqlIns = "
+        SELECT
+            pi.id_inscripcion,
+            pi.id_socio,
+            pi.monto,
+            pi.fecha_pago,
+            pi.id_medio_pago,
+            mp.nombre              AS medio_pago_nombre,
+            s.nombre               AS socio_nombre,
+            s.id_cobrador          AS socio_id_cobrador,
+            s.id_cat_monto         AS socio_id_cat_monto,
+            s.id_estado            AS socio_estado_id,
+            e.descripcion          AS socio_estado_desc,
+            cb.nombre              AS cobrador_nombre,
+            cm.nombre_categoria    AS nombre_categoria,
+            cm.monto_mensual       AS monto_base_m,
+            cm.monto_anual         AS monto_base_a
+        FROM pagos_inscripcion pi
+        INNER JOIN socios           s   ON s.id_socio = pi.id_socio
+        LEFT  JOIN cobrador         cb  ON cb.id_cobrador = s.id_cobrador
+        LEFT  JOIN categoria_monto  cm  ON cm.id_cat_monto = s.id_cat_monto
+        LEFT  JOIN estado           e   ON e.id_estado     = s.id_estado
+        LEFT  JOIN medios_pago      mp  ON mp.id_medio_pago = pi.id_medio_pago
+        WHERE YEAR(pi.fecha_pago) = :anio
+        ORDER BY pi.fecha_pago ASC, pi.id_inscripcion ASC
+    ";
+    $stIns = $pdo->prepare($sqlIns);
+    $stIns->bindValue(':anio', $anioAplicado, PDO::PARAM_INT);
+    $stIns->execute();
+    $inscripciones = $stIns->fetchAll(PDO::FETCH_ASSOC);
+
     // ===================== Armar 'datos' por período =====================
     $porPeriodo = [];
 
@@ -158,7 +202,7 @@ try {
         $porPeriodo[$periodoNombre]['pagos'][] = [
             'ID_Socio'           => (int)$r['id_socio'],
             'Socio'              => (string)$r['socio_nombre'],
-            'Precio'             => (float)($r['monto'] ?? 0),               // usa pagos.monto
+            'Precio'             => (float)($r['monto'] ?? 0),
             'Tipo_Precio'        => ((int)$r['id_periodo'] === 7 ? 'A' : 'M'),
             'Categoria_Id'       => (int)($r['socio_id_cat_monto'] ?? 0),
             'Nombre_Categoria'   => (string)($r['nombre_categoria'] ?? ''),
@@ -168,13 +212,44 @@ try {
             'fechaPago'          => (string)($r['fecha_pago'] ?? ''),
             'Mes_Pagado'         => $periodoNombre,
             'Estado'             => (string)$r['estado'],
-            // NUEVO: estado del socio para poder desglosar ACTIVO / PASIVO en el frontend
             'Estado_Socio'       => (string)($r['socio_estado_desc'] ?? ''),
             'Estado_Socio_Id'    => (int)($r['socio_estado_id'] ?? 0),
-            // NUEVO: medio de pago (para desglosar OFICINA -> transf / efectivo)
             'Medio_Pago_Id'      => (int)($r['id_medio_pago'] ?? 0),
             'Medio_Pago'         => (string)($r['medio_pago_nombre'] ?? ''),
         ];
+    }
+
+    // ===================== NUEVO: inyectar INSCRIPCION como "período virtual" =====================
+    if (!empty($inscripciones)) {
+        $k = 'INSCRIPCION';
+
+        if (!isset($porPeriodo[$k])) {
+            $porPeriodo[$k] = [
+                'nombre' => $k,
+                'pagos'  => [],
+            ];
+        }
+
+        foreach ($inscripciones as $r) {
+            $porPeriodo[$k]['pagos'][] = [
+                'ID_Socio'           => (int)$r['id_socio'],
+                'Socio'              => (string)$r['socio_nombre'],
+                'Precio'             => (float)($r['monto'] ?? 0),
+                'Tipo_Precio'        => 'I',                 // I = Inscripción
+                'Categoria_Id'       => (int)($r['socio_id_cat_monto'] ?? 0),
+                'Nombre_Categoria'   => (string)($r['nombre_categoria'] ?? ''),
+                'Monto_Base_M'       => (float)($r['monto_base_m'] ?? 0),
+                'Monto_Base_A'       => (float)($r['monto_base_a'] ?? 0),
+                'Cobrador'           => (string)($r['cobrador_nombre'] ?? ''),
+                'fechaPago'          => (string)($r['fecha_pago'] ?? ''),
+                'Mes_Pagado'         => 'INSCRIPCION',
+                'Estado'             => 'inscripcion',       // o 'pagado' si querés tratarlo como pagado
+                'Estado_Socio'       => (string)($r['socio_estado_desc'] ?? ''),
+                'Estado_Socio_Id'    => (int)($r['socio_estado_id'] ?? 0),
+                'Medio_Pago_Id'      => (int)($r['id_medio_pago'] ?? 0),
+                'Medio_Pago'         => (string)($r['medio_pago_nombre'] ?? ''),
+            ];
+        }
     }
 
     $datos = array_values($porPeriodo);

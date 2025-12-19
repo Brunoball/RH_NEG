@@ -23,7 +23,9 @@ if ($idSocio <= 0) {
 const ID_CONTADO_ANUAL = 7;
 
 try {
-    // Tomamos el último registro por período de ese año (por fecha de carga)
+    // =========================
+    // 1) PAGOS DE CUOTAS (por año)
+    // =========================
     $stmtPagos = $pdo->prepare("
         SELECT id_periodo, estado, fecha_pago
           FROM pagos
@@ -62,7 +64,9 @@ try {
     $periodosIds = array_map('intval', array_keys($estadosPorPeriodo));
     sort($periodosIds);
 
-    // Fecha de ingreso (para filtrar disponibles en el modal)
+    // =========================
+    // 2) DATOS DEL SOCIO (ingreso)
+    // =========================
     $stmtIngreso = $pdo->prepare("SELECT ingreso FROM socios WHERE id_socio = ? LIMIT 1");
     $stmtIngreso->execute([$idSocio]);
     $socio = $stmtIngreso->fetch(PDO::FETCH_ASSOC);
@@ -72,14 +76,42 @@ try {
         exit;
     }
 
+    // =========================
+    // 3) INSCRIPCIÓN (se paga una sola vez, SIN filtrar por año)
+    // =========================
+    $stmtIns = $pdo->prepare("
+        SELECT monto, fecha_pago, id_medio_pago
+          FROM pagos_inscripcion
+         WHERE id_socio = ?
+         ORDER BY fecha_pago DESC, id_inscripcion DESC
+         LIMIT 1
+    ");
+    $stmtIns->execute([$idSocio]);
+    $ins = $stmtIns->fetch(PDO::FETCH_ASSOC);
+
+    $inscripcionPagada = $ins ? true : false;
+    $inscripcion = null;
+
+    if ($ins) {
+        $inscripcion = [
+            'monto' => (int)$ins['monto'],
+            'fecha_pago' => $ins['fecha_pago'],
+            'id_medio_pago' => isset($ins['id_medio_pago']) ? (int)$ins['id_medio_pago'] : null,
+        ];
+    }
+
     echo json_encode([
         'exito'               => true,
         'anio'                => $anio,
-        // Compatibilidad: sigue existiendo este array con los IDs marcados (pagado o condonado)
+
+        // CUOTAS
         'periodos_pagados'    => $periodosIds,
-        // Nuevo: estado real por período
         'estados_por_periodo' => $estadosPorPeriodo,
-        'ingreso'             => $socio['ingreso']
+        'ingreso'             => $socio['ingreso'],
+
+        // INSCRIPCIÓN
+        'inscripcion_pagada'  => $inscripcionPagada,
+        'inscripcion'         => $inscripcion
     ]);
 } catch (PDOException $e) {
     echo json_encode(['exito' => false, 'mensaje' => 'Error en la base de datos']);

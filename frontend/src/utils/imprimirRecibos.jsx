@@ -258,7 +258,7 @@ export const imprimirRecibos = async (listaSocios, periodoActual = '', ventana) 
                       ${conCodigo
                         ? `<div class="barcode-container"><svg id="barcode-${indexGlobal}" class="barcode"></svg></div>
                            <div class="barcode-text">${codigoBarra}</div>`
-                        : `<div class="firma">Francisco José Meré -<br>Tesorero</div>`}
+                        : `<div class="firma">Norberto Blesio -<br>Tesorero</div>`}
                     </div>
                   </div>
                 </div>

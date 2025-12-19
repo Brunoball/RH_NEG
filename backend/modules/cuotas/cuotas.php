@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 const ID_CONTADO_ANUAL = 7;
 
-/* ======= Endpoint: listar años con pagos ======= */
+/* =========================================================
+   Endpoint: listar años con pagos
+========================================================= */
 if (isset($_GET['listar_anios'])) {
     try {
         $stmt = $pdo->query("
@@ -20,12 +22,32 @@ if (isset($_GET['listar_anios'])) {
         echo json_encode(['exito' => true, 'anios' => $anios], JSON_UNESCAPED_UNICODE);
         exit;
     } catch (Throwable $e) {
-        echo json_encode(['exito' => false, 'mensaje' => 'No se pudieron obtener los años']);
+        echo json_encode(['exito' => false, 'mensaje' => 'No se pudieron obtener los años'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 }
 
-/* ======= Helpers ======= */
+/* =========================================================
+   Helpers: períodos -> fecha de referencia
+   - Periodo 1..6 = bimestres (fin mes: 2,4,6,8,10,12)
+   - Anual = 31/12
+========================================================= */
+function fechaReferenciaPorPeriodo(int $anio, int $idPeriodo): string {
+    if ($idPeriodo === ID_CONTADO_ANUAL || $idPeriodo <= 0) {
+        return sprintf('%04d-12-31', $anio);
+    }
+    $mapMesFin = [1=>2, 2=>4, 3=>6, 4=>8, 5=>10, 6=>12];
+    $mesFin = $mapMesFin[$idPeriodo] ?? 12;
+
+    $d = DateTime::createFromFormat('Y-n-j', $anio . '-' . $mesFin . '-1');
+    if (!$d) return sprintf('%04d-12-31', $anio);
+    $d->modify('last day of this month');
+    return $d->format('Y-m-d');
+}
+
+/* =========================================================
+   Helpers de elegibilidad por ingreso (lo tuyo, igual)
+========================================================= */
 function obtenerMesNumero($nombreMes) {
     static $meses = [
         'ENERO'=>1,'FEBRERO'=>2,'MARZO'=>3,'ABRIL'=>4,'MAYO'=>5,'JUNIO'=>6,
@@ -61,14 +83,82 @@ function socioElegibleEnPeriodo($fechaIngreso, $mesFin, $anioPeriodo) {
     return $ingreso <= $finPeriodo;
 }
 
-/* ======= Lógica principal ======= */
-try {
-    $anioFiltro       = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
-    $idPeriodoFilter  = isset($_GET['id_periodo']) ? (int)$_GET['id_periodo'] : 0;
-    $verPagados       = isset($_GET['pagados']);
-    $verCondonados    = isset($_GET['condonados']);
+/* =========================================================
+   ✅ PRECIOS HISTÓRICOS
+========================================================= */
+function cargarHistorialPrecios(PDO $pdo, array $idsCatMonto): array {
+    $idsCatMonto = array_values(array_unique(array_filter(array_map('intval', $idsCatMonto))));
+    if (empty($idsCatMonto)) return [];
 
-    $incluirInactivos = ($verPagados || $verCondonados);
+    $in = implode(',', array_fill(0, count($idsCatMonto), '?'));
+
+    $sql = "
+        SELECT id_cat_monto, tipo, precio_viejo, precio_nuevo, fecha_cambio
+          FROM precios_historicos
+         WHERE id_cat_monto IN ($in)
+         ORDER BY id_cat_monto ASC, tipo ASC, fecha_cambio ASC
+    ";
+    $st = $pdo->prepare($sql);
+    foreach ($idsCatMonto as $i => $v) {
+        $st->bindValue($i+1, $v, PDO::PARAM_INT);
+    }
+    $st->execute();
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $map = [];
+    foreach ($rows as $r) {
+        $id = (int)$r['id_cat_monto'];
+        $tipo = (string)$r['tipo']; // mensual|anual
+        $map[$id][$tipo][] = [
+            'fecha' => (string)$r['fecha_cambio'],
+            'viejo' => (int)$r['precio_viejo'],
+            'nuevo' => (int)$r['precio_nuevo'],
+        ];
+    }
+    return $map;
+}
+
+function precioVigenteEnFecha(?int $idCatMonto, string $tipo, string $fechaRef, int $precioActual, array $historialMap): int {
+    if (!$idCatMonto) return $precioActual;
+
+    $lista = $historialMap[$idCatMonto][$tipo] ?? [];
+    if (empty($lista)) return $precioActual;
+
+    $primer = $lista[0];
+    if ($fechaRef < $primer['fecha']) {
+        return (int)$primer['viejo'];
+    }
+
+    $vigente = null;
+    foreach ($lista as $c) {
+        if ($c['fecha'] <= $fechaRef) {
+            $vigente = (int)$c['nuevo'];
+        } else {
+            break;
+        }
+    }
+    return $vigente !== null ? $vigente : $precioActual;
+}
+
+/* =========================================================
+   Lógica principal
+========================================================= */
+try {
+    $anioFiltro      = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
+    $idPeriodoFilter = isset($_GET['id_periodo']) ? (int)$_GET['id_periodo'] : 0;
+
+    // ✅ MODO CORRECTO (arregla el bug de duplicación)
+    // - si viene pagados=1 => solo pagados
+    // - si viene condonados=1 => solo condonados
+    // - si no viene ninguno => solo deudores
+    $verPagados    = isset($_GET['pagados']);
+    $verCondonados = isset($_GET['condonados']);
+    $modo = $verPagados ? 'pagado' : ($verCondonados ? 'condonado' : 'deudor');
+
+    // incluir inactivos solo cuando estás mirando pagados/condonados
+    $incluirInactivos = ($modo !== 'deudor');
+
+    $fechaRefGlobal = fechaReferenciaPorPeriodo($anioFiltro, $idPeriodoFilter);
 
     /* ===== SOCIOS ===== */
     $sociosSql = "
@@ -80,8 +170,8 @@ try {
             s.domicilio_cobro,
             s.ingreso,
             s.activo,
-            s.telefono_movil,        -- ✅ AGREGADO
-            s.telefono_fijo,         -- ✅ AGREGADO
+            s.telefono_movil,
+            s.telefono_fijo,
             e.descripcion AS estado,
             c.nombre AS cobrador,
             s.id_categoria,
@@ -117,11 +207,13 @@ try {
 
     $sociosSql .= " ORDER BY s.nombre ASC ";
     $stmt = $pdo->prepare($sociosSql);
+
     if ($incluirInactivos && $idPeriodoFilter > 0) {
         $stmt->bindValue(':pp2',    $idPeriodoFilter,  PDO::PARAM_INT);
         $stmt->bindValue(':anual2', ID_CONTADO_ANUAL,  PDO::PARAM_INT);
         $stmt->bindValue(':anio2',  $anioFiltro,       PDO::PARAM_INT);
     }
+
     $stmt->execute();
     $socios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -150,6 +242,7 @@ try {
         $pagosStmt->bindValue(':anio', $anioFiltro, PDO::PARAM_INT);
         $pagosStmt->execute();
     }
+
     $pagos = $pagosStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $pagoDirecto = [];
@@ -165,10 +258,17 @@ try {
         }
     }
 
+    /* ===== ✅ Cargar historial precios (1 sola vez) ===== */
+    $idsCatMonto = [];
+    foreach ($socios as $s) {
+        if (!empty($s['id_cat_monto'])) $idsCatMonto[] = (int)$s['id_cat_monto'];
+    }
+    $historialMap = cargarHistorialPrecios($pdo, $idsCatMonto);
+
     /* ===== ARMADO DE CUOTAS ===== */
     $cuotas = [];
 
-    // ——— CONTADO ANUAL
+    // —— CONTADO ANUAL
     if ($idPeriodoFilter === ID_CONTADO_ANUAL) {
         $nombreAnual = 'CONTADO ANUAL';
         foreach ($periodos as $pp) {
@@ -184,35 +284,46 @@ try {
 
             $estadoPago = 'deudor';
             $origenAnual = false;
+
             if (isset($pagoAnual[$idSocio])) {
                 $estadoPago = ($pagoAnual[$idSocio] === 'condonado') ? 'condonado' : 'pagado';
                 $origenAnual = true;
             }
 
-            if ($verPagados && $estadoPago !== 'pagado') continue;
-            if ($verCondonados && $estadoPago !== 'condonado') continue;
+            // ✅ FILTRO POR MODO (FIX)
+            if ($modo === 'pagado' && $estadoPago !== 'pagado') continue;
+            if ($modo === 'condonado' && $estadoPago !== 'condonado') continue;
+            if ($modo === 'deudor' && $estadoPago !== 'deudor') continue;
 
             $domicilio = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));
             $domicilioCobro = trim($socio['domicilio_cobro'] ?? '');
 
+            $idCatMonto = !empty($socio['id_cat_monto']) ? (int)$socio['id_cat_monto'] : null;
+            $actualMensual = (int)($socio['monto_mensual_cat'] ?? 0);
+            $actualAnual   = (int)($socio['monto_anual_cat'] ?? 0);
+
+            $mMensual = precioVigenteEnFecha($idCatMonto, 'mensual', $fechaRefGlobal, $actualMensual, $historialMap);
+            $mAnual   = precioVigenteEnFecha($idCatMonto, 'anual',   $fechaRefGlobal, $actualAnual,   $historialMap);
+
             $cuotas[] = [
-                'id_socio'        => $idSocio,
-                'nombre'          => $socio['nombre'],
-                'domicilio'       => $domicilio,
-                'domicilio_cobro' => $domicilioCobro,
-                'estado'          => $socio['estado'] ?? 'No definido',
-                'medio_pago'      => $socio['cobrador'] ?? 'No definido',
-                'telefono_movil'  => $socio['telefono_movil'] ?? '',  // ✅ AGREGADO
-                'telefono_fijo'   => $socio['telefono_fijo'] ?? '',   // ✅ AGREGADO
-                'mes'             => $nombreAnual,
-                'id_periodo'      => ID_CONTADO_ANUAL,
-                'estado_pago'     => $estadoPago,
-                'origen_anual'    => $origenAnual,
+                'id_socio'         => $idSocio,
+                'nombre'           => $socio['nombre'],
+                'domicilio'        => $domicilio,
+                'domicilio_cobro'  => $domicilioCobro,
+                'estado'           => $socio['estado'] ?? 'No definido',
+                'medio_pago'       => $socio['cobrador'] ?? 'No definido',
+                'telefono_movil'   => $socio['telefono_movil'] ?? '',
+                'telefono_fijo'    => $socio['telefono_fijo'] ?? '',
+                'mes'              => $nombreAnual,
+                'id_periodo'       => ID_CONTADO_ANUAL,
+                'estado_pago'      => $estadoPago,
+                'origen_anual'     => $origenAnual,
                 'id_categoria'     => $socio['id_categoria'] !== null ? (int)$socio['id_categoria'] : null,
                 'nombre_categoria' => $socio['nombre_categoria'] ?? '',
-                'id_cat_monto'     => $socio['id_cat_monto'] !== null ? (int)$socio['id_cat_monto'] : null,
-                'monto_mensual'    => (int)($socio['monto_mensual_cat'] ?? 0),
-                'monto_anual'      => (int)($socio['monto_anual_cat'] ?? 0),
+                'id_cat_monto'     => $idCatMonto,
+                'monto_mensual'    => $mMensual,
+                'monto_anual'      => $mAnual,
+                'precio_ref_fecha' => $fechaRefGlobal,
             ];
         }
 
@@ -220,7 +331,7 @@ try {
         exit;
     }
 
-    // ——— PERÍODOS 1..6
+    // —— PERÍODOS 1..6
     $periodos16 = array_values(array_filter(
         $periodos,
         fn($p) => (int)$p['id_periodo'] !== ID_CONTADO_ANUAL
@@ -233,6 +344,7 @@ try {
         foreach ($periodos16 as $periodo) {
             $idPeriodo     = (int)$periodo['id_periodo'];
             $nombrePeriodo = $periodo['nombre'];
+
             if ($idPeriodoFilter > 0 && $idPeriodo !== $idPeriodoFilter) continue;
 
             [, $mesFin] = obtenerRangoMeses($periodo['meses'] ?? '', $idPeriodo);
@@ -240,6 +352,7 @@ try {
 
             $estadoPago  = 'deudor';
             $origenAnual = false;
+
             if (isset($pagoDirecto[$idSocio][$idPeriodo])) {
                 $estadoPago  = ($pagoDirecto[$idSocio][$idPeriodo] === 'condonado') ? 'condonado' : 'pagado';
             } elseif ($tieneAnual) {
@@ -247,30 +360,42 @@ try {
                 $origenAnual = true;
             }
 
-            if ($verPagados && $estadoPago !== 'pagado') continue;
-            if ($verCondonados && $estadoPago !== 'condonado') continue;
+            // ✅ FILTRO POR MODO (FIX)
+            if ($modo === 'pagado' && $estadoPago !== 'pagado') continue;
+            if ($modo === 'condonado' && $estadoPago !== 'condonado') continue;
+            if ($modo === 'deudor' && $estadoPago !== 'deudor') continue;
 
             $domicilio = trim(($socio['domicilio'] ?? '') . ' ' . ($socio['numero'] ?? ''));
             $domicilioCobro = trim($socio['domicilio_cobro'] ?? '');
 
+            $fechaRefPeriodo = fechaReferenciaPorPeriodo($anioFiltro, $idPeriodo);
+
+            $idCatMonto = !empty($socio['id_cat_monto']) ? (int)$socio['id_cat_monto'] : null;
+            $actualMensual = (int)($socio['monto_mensual_cat'] ?? 0);
+            $actualAnual   = (int)($socio['monto_anual_cat'] ?? 0);
+
+            $mMensual = precioVigenteEnFecha($idCatMonto, 'mensual', $fechaRefPeriodo, $actualMensual, $historialMap);
+            $mAnual   = precioVigenteEnFecha($idCatMonto, 'anual',   $fechaRefPeriodo, $actualAnual,   $historialMap);
+
             $cuotas[] = [
-                'id_socio'        => $idSocio,
-                'nombre'          => $socio['nombre'],
-                'domicilio'       => $domicilio,
-                'domicilio_cobro' => $domicilioCobro,
-                'estado'          => $socio['estado'] ?? 'No definido',
-                'medio_pago'      => $socio['cobrador'] ?? 'No definido',
-                'telefono_movil'  => $socio['telefono_movil'] ?? '',  // ✅ AGREGADO
-                'telefono_fijo'   => $socio['telefono_fijo'] ?? '',   // ✅ AGREGADO
-                'mes'             => $nombrePeriodo,
-                'id_periodo'      => $idPeriodo,
-                'estado_pago'     => $estadoPago,
-                'origen_anual'    => $origenAnual,
+                'id_socio'         => $idSocio,
+                'nombre'           => $socio['nombre'],
+                'domicilio'        => $domicilio,
+                'domicilio_cobro'  => $domicilioCobro,
+                'estado'           => $socio['estado'] ?? 'No definido',
+                'medio_pago'       => $socio['cobrador'] ?? 'No definido',
+                'telefono_movil'   => $socio['telefono_movil'] ?? '',
+                'telefono_fijo'    => $socio['telefono_fijo'] ?? '',
+                'mes'              => $nombrePeriodo,
+                'id_periodo'       => $idPeriodo,
+                'estado_pago'      => $estadoPago,
+                'origen_anual'     => $origenAnual,
                 'id_categoria'     => $socio['id_categoria'] !== null ? (int)$socio['id_categoria'] : null,
                 'nombre_categoria' => $socio['nombre_categoria'] ?? '',
-                'id_cat_monto'     => $socio['id_cat_monto'] !== null ? (int)$socio['id_cat_monto'] : null,
-                'monto_mensual'    => (int)($socio['monto_mensual_cat'] ?? 0),
-                'monto_anual'      => (int)($socio['monto_anual_cat'] ?? 0),
+                'id_cat_monto'     => $idCatMonto,
+                'monto_mensual'    => $mMensual,
+                'monto_anual'      => $mAnual,
+                'precio_ref_fecha' => $fechaRefPeriodo,
             ];
         }
     }
