@@ -1049,75 +1049,69 @@ const ModalPagos = ({
                 </div>
               </div>
             )}
+{modo === 'inscripcion' && (
+  <div className="condonar-box is-active inscripcion-box">
+    {inscripcionPagada && (
+      <div className="inscripcion-paid-banner">
+        <span className="inscripcion-paid-left">✅ Pagado</span>
+        <span className="inscripcion-paid-right">
+          {inscripcionInfo?.fecha_pago ? formatearFecha(inscripcionInfo.fecha_pago) : ''}
+        </span>
+      </div>
+    )}
 
-            {/* ✅ inscripción: monto libre (SIN selector de año) */}
-            {modo === 'inscripcion' && (
-              <div className="condonar-box is-active">
-                {/* ✅ cartel de pagada */}
-                {inscripcionPagada && (
-                  <div
-                    style={{
-                      marginBottom: 10,
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 10,
-                      border: '1px solid rgba(0,0,0,0.08)',
-                      background: 'rgba(46, 204, 113, 0.12)',
-                    }}
-                  >
-                    <span>✅Pagado</span>
-                    <span style={{ fontWeight: 700, opacity: 0.9 }}>
-                      {inscripcionInfo?.fecha_pago ? formatearFecha(inscripcionInfo.fecha_pago) : ''}
-                    </span>
-                  </div>
-                )}
+    <div className="inscripcion-row">
+      <div className="inscripcion-left">
+        <div className="inscripcion-label">
+          Monto de inscripción{" "}
+          <span className="inscripcion-label-muted">
+            {inscripcionPagada ? "(ya registrada)" : "(libre)"}
+          </span>
+        </div>
 
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                      Monto de inscripción {inscripcionPagada ? '(ya registrada)' : '(libre)'}
-                    </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={String(montoInscripcion)}
+          onChange={(e) => {
+            if (inscripcionPagada) return;
+            const v = e.target.value.replace(/[^\d]/g, "");
+            setMontoInscripcion(v ? Number(v) : 0);
+          }}
+          className={`medio-pago-select inscripcion-input ${inscripcionPagada ? "is-locked" : ""}`}
+          disabled={cargando || inscripcionPagada}
+          placeholder="Ej: 6000"
+        />
 
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={String(montoInscripcion)}
-                      onChange={(e) => {
-                        if (inscripcionPagada) return; // ✅ bloqueado
-                        const v = e.target.value.replace(/[^\d]/g, '');
-                        setMontoInscripcion(v ? Number(v) : 0);
-                      }}
-                      className="medio-pago-select"
-                      style={{ width: '100%', opacity: inscripcionPagada ? 0.85 : 1 }}
-                      disabled={cargando || inscripcionPagada}
-                      placeholder="Ej: 6000"
-                    />
+        <div className="medio-pago-hint inscripcion-hint">
+          {inscripcionPagada
+            ? `Registrada${
+                inscripcionInfo?.monto ? ` por ${formatearARS(Number(inscripcionInfo.monto) || 0)}` : ""
+              }${medioInscripcionPagada ? ` • Medio: ${medioInscripcionPagada}` : ""}`
+            : "Se registra una sola vez por socio."}
+        </div>
+      </div>
 
-                    <div className="medio-pago-hint">
-                      {inscripcionPagada
-                        ? `Registrada${inscripcionInfo?.monto ? ` por ${formatearARS(Number(inscripcionInfo.monto) || 0)}` : ''}${medioInscripcionPagada ? ` • Medio: ${medioInscripcionPagada}` : ''}`
-                        : 'Se registra una sola vez por socio.'}
-                    </div>
-                  </div>
+<div className="inscripcion-year-pill">
+  <FaCalendarAlt />
+  <span>{nowYear}</span> 
+</div>
 
-                  {/* ✅ Solo mostramos un texto del año actual (SIN botón) */}
-                  <div style={{ minWidth: 120, textAlign: 'right', opacity: 0.8, fontWeight: 700 }}>
-                    Año: {nowYear}
-                  </div>
-                </div>
-              </div>
-            )}
+    </div>
+  </div>
+)}
+
+
 
             {/* ✅ MEDIO DE PAGO */}
             {mostrarSelectorMedioPago && (
               <div className="medio-pago-section">
                 <div className="section-header">
                   <h4 className="section-title">Medio de Pago*</h4>
-                  <span className="required-badge">Requerido</span>
+  {!medioPagoSeleccionado && (
+    <span className="required-badge">Requerido</span>
+  )}
+
                 </div>
                 <div className="medio-pago-selector">
                   <select

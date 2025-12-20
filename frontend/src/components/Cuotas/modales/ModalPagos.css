@@ -67,7 +67,6 @@
   align-items:center;
   gap:1rem;
 }
-.condonar-box.is-active{background:var(--warning-light);border-color:#FDE68A;box-shadow:0 1px 0 0 rgba(245,158,11,.12) inset}
 .condonar-check{display:flex;align-items:center;gap:.75rem;cursor:pointer;user-select:none;flex:1}
 .condonar-check input{display:none}
 .switch{width:44px;height:24px;background:var(--gray-300);border-radius:999px;position:relative;transition:background .2s;flex:0 0 auto}
@@ -308,16 +307,7 @@
   to{ opacity: 1; transform: translateY(0); }
 }
 
-/* Icono dentro del badge */
-.medio-pago-badge::before{
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 0 0 2px #fff inset;
-}
+
 /* ==========================
    MODAL CONFIRMACIÓN PAGO
    ========================== */
@@ -406,4 +396,173 @@
     margin: 0 1rem;
     padding: 1rem 1rem .9rem;
   }
+}
+/* ==========================
+   INSCRIPCIÓN (estilos)
+   ========================== */
+.inscripcion-box{
+  /* Mantiene la estética de "is-active" pero más pro */
+
+  box-shadow: 0 1px 0 rgba(0,0,0,.02) inset;
+}
+
+.inscripcion-paid-banner{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+
+  padding: .65rem .85rem;
+  border-radius: 12px;
+  margin-bottom: .75rem;
+
+  border: 1px solid rgba(16,185,129,.22);
+  background: rgba(16,185,129,.10);
+}
+
+.inscripcion-paid-left{
+  font-weight: 800;
+  color: var(--gray-900);
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.inscripcion-paid-right{
+  font-weight: 700;
+  color: var(--gray-700);
+  opacity: .95;
+  white-space: nowrap;
+}
+
+.inscripcion-row{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.inscripcion-left{
+  flex: 1;
+  min-width: 220px;
+}
+
+.inscripcion-label{
+  font-weight: 800;
+  margin-bottom: .45rem;
+  color: var(--gray-900);
+  letter-spacing: .01em;
+}
+
+.inscripcion-label-muted{
+  font-weight: 700;
+  color: var(--gray-600);
+  opacity: .95;
+  margin-left: .35rem;
+}
+
+.inscripcion-input{
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.inscripcion-input.is-locked{
+  opacity: .9;
+}
+
+.inscripcion-hint{
+  margin-top: .35rem;
+}
+
+/* “Año: 2025” como badge lateral */
+.inscripcion-year{
+  flex: 0 0 auto;
+  min-width: 110px;
+  text-align: center;
+
+
+
+  border-radius: 12px;
+
+  border: 1px solid var(--gray-200);
+  background: rgba(255,255,255,.65);
+  box-shadow: var(--shadow-sm);
+}
+
+.inscripcion-year-label{
+  display: block;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+  color: var(--gray-500);
+}
+
+.inscripcion-year-value{
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--gray-900);
+  margin-top: .1rem;
+}
+
+/* Responsive: apila el año abajo */
+@media (max-width: 600px){
+  .inscripcion-row{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inscripcion-year{
+    text-align: left;
+    min-width: auto;
+    width: 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .inscripcion-year-label{
+    margin-bottom: 0;
+  }
+}
+.condonar-box.inscripcion-box .inscripcion-label { font-weight: 800; }
+.condonar-box.inscripcion-box .inscripcion-year { box-shadow: var(--shadow-sm); }
+/* ==========================
+   INSCRIPCIÓN – Año pill
+   ========================== */
+.inscripcion-year-pill{
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+ cursor: not-allowed;
+  padding: .45rem .85rem;
+  border-radius: 9999px;
+
+  font-weight: 800;
+  font-size: .95rem;
+
+  color: var(--primary);
+  background: var(--primary-light);
+
+  border: 1px solid var(--primary);
+  box-shadow: var(--shadow-sm);
+
+  user-select: none;
+  white-space: nowrap;
+}
+
+.inscripcion-year-pill svg{
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+
+/* Mobile: que no se vea gigante */
+@media (max-width: 600px){
+  .inscripcion-year-pill{
+    align-self: flex-start;
+  }
+}
+.btn-secondary, .btn-primary{
+  padding: 9px 5px !important;
 }
