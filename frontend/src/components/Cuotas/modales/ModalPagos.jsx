@@ -991,19 +991,27 @@ const ModalPagos = ({
             </div>
 
             {/* ✅ Selector modo */}
-            <div className="output-mode" style={{ marginBottom: 10 }}>
-              <label className={`mode-option ${modo === 'cuotas' ? 'active' : ''}`}>
-                <input type="radio" name="modoPago" value="cuotas" checked={modo === 'cuotas'} onChange={() => setModo('cuotas')} />
-                <span className="mode-bullet" />
-                <span>Cuotas</span>
-              </label>
+{/* ✅ Selector modo (tabs) */}
+<div className="modo-tabs">
+  <button
+    type="button"
+    className={`modo-tab ${modo === "cuotas" ? "active" : ""}`}
+    onClick={() => setModo("cuotas")}
+    disabled={cargando}
+  >
+    Cuotas
+  </button>
 
-              <label className={`mode-option ${modo === 'inscripcion' ? 'active' : ''}`}>
-                <input type="radio" name="modoPago" value="inscripcion" checked={modo === 'inscripcion'} onChange={() => setModo('inscripcion')} />
-                <span className="mode-bullet" />
-                <span>Inscripción</span>
-              </label>
-            </div>
+  <button
+    type="button"
+    className={`modo-tab ${modo === "inscripcion" ? "active" : ""}`}
+    onClick={() => setModo("inscripcion")}
+    disabled={cargando}
+  >
+    Inscripción
+  </button>
+</div>
+
 
             {/* ✅ condonar SOLO en cuotas */}
             {modo === 'cuotas' && (

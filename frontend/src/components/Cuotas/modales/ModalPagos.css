@@ -110,11 +110,8 @@
 
 /* Grid con scroll = 3 filas visibles */
 .periodos-grid-container{
-  max-height: calc((var(--periodo-item-h) + var(--periodos-gap)) * 3 + 2px);
   overflow-y: auto;
   padding: 2px 2px 2px 0;
-  scrollbar-gutter: stable;
-  min-height: 120px;
 }
 .periodos-grid{display:flex;flex-wrap:wrap;gap:var(--periodos-gap);align-content:flex-start}
 
@@ -565,4 +562,88 @@
 }
 .btn-secondary, .btn-primary{
   padding: 9px 5px !important;
+}
+/* ==========================
+   TABS MODO (Cuotas / Inscripción)
+   estilo "pestaña navegador" (Chrome-like)
+   ========================== */
+
+.modo-tabs{
+  margin: 0 1.5rem .6rem;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: .2rem;
+
+  /* que no “infle” el layout */
+  width: fit-content;
+  padding: 0;
+
+  /* línea base como en navegador */
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.modo-tab{
+  appearance: none;
+  border: 1px solid var(--gray-200);
+  border-bottom: none; /* clave para look tab */
+  background: var(--gray-50);
+  color: var(--gray-700);
+
+  padding: .42rem .75rem;  /* compacto */
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+
+  font-size: .85rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  line-height: 1;
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .05s ease;
+  position: relative;
+  top: 1px; /* para que se “pegue” a la línea base */
+}
+
+.modo-tab:hover:not(:disabled){
+  background: #fff;
+  border-color: var(--gray-300);
+}
+
+.modo-tab:active:not(:disabled){
+  transform: translateY(1px);
+}
+
+.modo-tab.active{
+  background: #fff;
+  color: var(--gray-900);
+  border-color: var(--gray-300);
+  box-shadow: var(--shadow-sm);
+}
+
+/* línea de color abajo de la tab activa (Google-ish) */
+.modo-tab.active::after{
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+/* disabled */
+.modo-tab:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Mobile: que siga siendo compacto y no ocupe todo */
+@media (max-width: 600px){
+  .modo-tabs{
+    margin: 0 1rem .55rem;
+  }
+  .modo-tab{
+    padding: .4rem .65rem;
+    font-size: .82rem;
+  }
 }
