@@ -1061,7 +1061,7 @@ const ModalPagos = ({
   <div className="condonar-box is-active inscripcion-box">
     {inscripcionPagada && (
       <div className="inscripcion-paid-banner">
-        <span className="inscripcion-paid-left">✅ Pagado</span>
+        <span className="inscripcion-paid-left">Pagado</span>
         <span className="inscripcion-paid-right">
           {inscripcionInfo?.fecha_pago ? formatearFecha(inscripcionInfo.fecha_pago) : ''}
         </span>

@@ -26,7 +26,6 @@ import {
   faLayerGroup,
   faUsers,
   faFilePdf,
-  faTag,
 } from "@fortawesome/free-solid-svg-icons";
 import * as XLSX from "xlsx";
 
@@ -58,9 +57,20 @@ const MESES_NOMBRES = Object.freeze([
   "Diciembre",
 ]);
 const mesUC = (mNum) => MESES_NOMBRES[mNum - 1].toUpperCase();
-const labelMes = (m) => (m && m !== "Todos los meses" ? ` · ${mesUC(parseInt(m, 10))}` : "");
 const SKELETON_ROWS = 8;
 const getTxt = (o, k) => (typeof o?.[k] === "string" ? o[k].trim() : "");
+
+// ✅ formateador simple AR (0 decimales)
+const nfAR0 = new Intl.NumberFormat("es-AR");
+
+// ✅ detecta inscripción
+const isInscripcion = (p) =>
+  String(p?.Mes_Pagado || p?.mes_pagado || "")
+    .trim()
+    .toUpperCase() === "INSCRIPCION" ||
+  String(p?.Tipo_Precio || "")
+    .trim()
+    .toUpperCase() === "I";
 
 /* nombres / campos normalizados */
 const getNombreSocio = (p) => {
@@ -129,7 +139,10 @@ const extractMonthsFromPeriodLabel = (label) => {
 // Encontrar período que contiene un mes específico
 const findPeriodoForMes = (periodosOpts, mesNum) => {
   if (!mesNum) return null;
-  return periodosOpts.find((opt) => opt.months && opt.months.includes(mesNum))?.value || null;
+  return (
+    periodosOpts.find((opt) => opt.months && opt.months.includes(mesNum))?.value ||
+    null
+  );
 };
 
 const ok = (obj) => obj && (obj.success === true || obj.exito === true);
@@ -187,7 +200,12 @@ function buildYearIndexes(rawContable, rawListas) {
         const _month = getMonthFromDate(p?.fechaPago);
         const _precioNum = parseFloat(p?.Precio) || 0;
         const _nombre = getNombreSocio(p);
-        const _categoria = getCategoriaTxt(p);
+
+        // ✅ NUEVO: si es INSCRIPCION, la "categoría" que usamos para buscar/exportar será SOLO el monto
+        const _categoria = isInscripcion(p)
+          ? `$${nfAR0.format(_precioNum)}`
+          : getCategoriaTxt(p);
+
         const _medio = String(getMedioPago(p) || "").trim() || "(Sin medio)";
         const _ts = p?.fechaPago ? new Date(p.fechaPago).getTime() || 0 : 0;
 
@@ -217,7 +235,9 @@ function buildYearIndexes(rawContable, rawListas) {
 
   for (const opt of periodosOpts) {
     const months =
-      opt?.months && opt.months.length ? opt.months : extractMonthsFromPeriodLabel(opt?.value);
+      opt?.months && opt.months.length
+        ? opt.months
+        : extractMonthsFromPeriodLabel(opt?.value);
     if (!months || !months.length) continue;
 
     if (months.length === 1) {
@@ -286,13 +306,7 @@ function buildYearIndexes(rawContable, rawListas) {
 
 /**
  * A partir de la respuesta de obtener_monto_objetivo.php
- * arma los mapas que usa CobMesTable:
- *
- * - esperadosPorMes               { mes -> monto esperado TOTAL }
- * - esperadosPorMesPorCobrador    { cobrador -> { mes -> monto } }
- * - sociosPorMesPorCobrador       { cobrador -> { mes -> socios esperados } }
- * - esperadosPorMesPorCobradorEstado { cobrador -> { ESTADO -> { mes -> monto } } }
- * - sociosPorMesPorCobradorEstado { cobrador -> { ESTADO -> { mes -> socios esperados } } }
+ * arma los mapas que usa CobMesTable
  */
 const buildEsperadosMaps = (objetivo) => {
   const esperadosPorMes = {};
@@ -313,17 +327,14 @@ const buildEsperadosMaps = (objetivo) => {
       const mes = Number(mesStr);
       const monto = Number(montoVal || 0);
 
-      // Global (todos los cobradores)
       esperadosPorMes[mes] = (esperadosPorMes[mes] || 0) + monto;
 
-      // Por cobrador
       if (!esperadosPorMesPorCobrador[cobradorNombre]) {
         esperadosPorMesPorCobrador[cobradorNombre] = {};
       }
       esperadosPorMesPorCobrador[cobradorNombre][mes] =
         (esperadosPorMesPorCobrador[cobradorNombre][mes] || 0) + monto;
 
-      // Socios: usamos socios_contados del cobrador
       if (!sociosPorMesPorCobrador[cobradorNombre]) {
         sociosPorMesPorCobrador[cobradorNombre] = {};
       }
@@ -332,7 +343,7 @@ const buildEsperadosMaps = (objetivo) => {
     }
   }
 
-  // ===== 2) Totales por cobrador, MES y ESTADO (ACTIVO / PASIVO) =====
+  // ===== 2) Totales por cobrador, MES y ESTADO =====
   const listaPME = objetivo?.esperado_por_cobrador_por_mes_estado || [];
   for (const row of listaPME) {
     const cobradorNombre = String(row.nombre || "").trim();
@@ -346,7 +357,6 @@ const buildEsperadosMaps = (objetivo) => {
       const mes = Number(mesStr);
       const monto = Number(montoVal || 0);
 
-      // Inicializar estructuras si no existen
       if (!esperadosPorMesPorCobradorEstado[cobradorNombre]) {
         esperadosPorMesPorCobradorEstado[cobradorNombre] = {};
       }
@@ -361,11 +371,9 @@ const buildEsperadosMaps = (objetivo) => {
         sociosPorMesPorCobradorEstado[cobradorNombre][estado] = {};
       }
 
-      // Monto esperado por COBRADOR + ESTADO + MES
       esperadosPorMesPorCobradorEstado[cobradorNombre][estado][mes] =
         (esperadosPorMesPorCobradorEstado[cobradorNombre][estado][mes] || 0) + monto;
 
-      // Socios esperados por COBRADOR + ESTADO + MES
       sociosPorMesPorCobradorEstado[cobradorNombre][estado][mes] =
         (sociosPorMesPorCobradorEstado[cobradorNombre][estado][mes] || 0) + sociosCont;
     }
@@ -476,7 +484,7 @@ export default function DashboardContable() {
   const curPagosByMonthRef = useRef([]);
   const curPeriodMergedMapRef = useRef(new Map());
 
-  // bandera de inicialización de filtros (primera vez)
+  // ✅ bandera de inicialización de filtros (primera vez)
   const didInitRef = useRef(false);
 
   const nfPesos = useMemo(() => new Intl.NumberFormat("es-AR"), []);
@@ -513,14 +521,10 @@ export default function DashboardContable() {
       base = byMonth[monthNum] || [];
     } else {
       base = byPeriod.get(periodLabel) || [];
-      if (monthNum) {
-        base = base.filter((p) => p._month === monthNum);
-      }
+      if (monthNum) base = base.filter((p) => p._month === monthNum);
     }
 
-    if (cobrador !== "todos") {
-      base = base.filter((p) => p._cb === cobrador);
-    }
+    if (cobrador !== "todos") base = base.filter((p) => p._cb === cobrador);
 
     let total = 0;
     const setCb = new Set();
@@ -544,8 +548,7 @@ export default function DashboardContable() {
       return Array.from({ length: 12 }, (_, i) => i + 1);
     }
     const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
-    const ms =
-      opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
+    const ms = opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
     return ms && ms.length ? ms : [];
   }, [anioSeleccionado, periodoSeleccionado, periodosOpts]);
 
@@ -561,7 +564,6 @@ export default function DashboardContable() {
       const res = await fetch(u.toString() + `&ts=${Date.now()}`);
       const data = await res.json().catch(() => ({}));
 
-      // Usar la nueva función buildEsperadosMaps
       const mapsEsperados = buildEsperadosMaps(data);
 
       return {
@@ -578,7 +580,7 @@ export default function DashboardContable() {
             meses[mes] || 0,
           ])
         ),
-        mapsEsperados, // Devolvemos todos los maps para uso posterior
+        mapsEsperados,
       };
     },
     [anioSeleccionado]
@@ -586,13 +588,10 @@ export default function DashboardContable() {
 
   const mesesParaResumen = useMemo(() => {
     if (!anioSeleccionado) return [];
-    if (mesSeleccionado !== "Todos los meses") {
-      return [parseInt(mesSeleccionado, 10)];
-    }
+    if (mesSeleccionado !== "Todos los meses") return [parseInt(mesSeleccionado, 10)];
     if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
       const opt = periodosOpts.find((o) => o.value === periodoSeleccionado);
-      const ms =
-        opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
+      const ms = opt?.months?.length ? opt.months : extractMonthsFromPeriodLabel(periodoSeleccionado);
       return ms && ms.length ? ms.slice().sort((a, b) => a - b) : [];
     }
     return Array.from({ length: 12 }, (_, i) => i + 1);
@@ -619,34 +618,24 @@ export default function DashboardContable() {
       const porCobradorEstado = {};
       const sociosCobradorEstadoGlobal = {};
 
-      for (const [
-        m,
-        { totalMes, porCobrador: mapCobrador, sociosPorCobrador, mapsEsperados },
-      ] of pairs) {
+      for (const [m, { totalMes, porCobrador: mapCobrador, sociosPorCobrador, mapsEsperados }] of pairs) {
         obj[m] = totalMes;
 
-        // montos por cobrador
         for (const nombreKey of Object.keys(mapCobrador)) {
           if (!porCobrador[nombreKey]) porCobrador[nombreKey] = {};
-          porCobrador[nombreKey][m] =
-            (porCobrador[nombreKey][m] ?? 0) + mapCobrador[nombreKey];
+          porCobrador[nombreKey][m] = (porCobrador[nombreKey][m] ?? 0) + mapCobrador[nombreKey];
         }
 
-        // socios por cobrador
         for (const nombreKey of Object.keys(sociosPorCobrador)) {
           if (!sociosCobradorGlobal[nombreKey]) sociosCobradorGlobal[nombreKey] = {};
           sociosCobradorGlobal[nombreKey][m] =
             (sociosCobradorGlobal[nombreKey][m] ?? 0) + sociosPorCobrador[nombreKey];
         }
 
-        // Por cobrador y estado
-        for (const [cobrador, estados] of Object.entries(
-          mapsEsperados.esperadosPorMesPorCobradorEstado || {}
-        )) {
+        for (const [cobrador, estados] of Object.entries(mapsEsperados.esperadosPorMesPorCobradorEstado || {})) {
           for (const [estado, meses] of Object.entries(estados)) {
             const monto = meses[m] || 0;
-            const socios =
-              mapsEsperados.sociosPorMesPorCobradorEstado?.[cobrador]?.[estado]?.[m] || 0;
+            const socios = mapsEsperados.sociosPorMesPorCobradorEstado?.[cobrador]?.[estado]?.[m] || 0;
 
             if (!porCobradorEstado[cobrador]) porCobradorEstado[cobrador] = {};
             if (!porCobradorEstado[cobrador][estado]) porCobradorEstado[cobrador][estado] = {};
@@ -654,8 +643,7 @@ export default function DashboardContable() {
               (porCobradorEstado[cobrador][estado][m] || 0) + monto;
 
             if (!sociosCobradorEstadoGlobal[cobrador]) sociosCobradorEstadoGlobal[cobrador] = {};
-            if (!sociosCobradorEstadoGlobal[cobrador][estado])
-              sociosCobradorEstadoGlobal[cobrador][estado] = {};
+            if (!sociosCobradorEstadoGlobal[cobrador][estado]) sociosCobradorEstadoGlobal[cobrador][estado] = {};
             sociosCobradorEstadoGlobal[cobrador][estado][m] =
               (sociosCobradorEstadoGlobal[cobrador][estado][m] || 0) + socios;
           }
@@ -687,9 +675,7 @@ export default function DashboardContable() {
 
     if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
       const n = parseInt(mesSeleccionado, 10);
-      if (Number.isFinite(n)) {
-        u.searchParams.set("mes", String(n));
-      }
+      if (Number.isFinite(n)) u.searchParams.set("mes", String(n));
     } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
       u.searchParams.set("periodo", periodoSeleccionado);
     }
@@ -705,10 +691,7 @@ export default function DashboardContable() {
     const url = buildDetSocURL();
     if (!url) {
       setDetSocRows([]);
-      setDetSocTotales({
-        ACTIVO: 0,
-        PASIVO: 0,
-      });
+      setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
       return;
     }
     try {
@@ -745,9 +728,7 @@ export default function DashboardContable() {
 
     if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
       const n = parseInt(mesSeleccionado, 10);
-      if (Number.isFinite(n)) {
-        u.searchParams.set("mes", String(n));
-      }
+      if (Number.isFinite(n)) u.searchParams.set("mes", String(n));
     } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
       u.searchParams.set("periodo", periodoSeleccionado);
     }
@@ -765,42 +746,49 @@ export default function DashboardContable() {
       setCategoriasMonto([]);
       return;
     }
-    
+
     try {
       setLoadingCategorias(true);
       const url = new URL(`${BASE_URL}/api.php`);
       url.searchParams.set("action", "categorias_monto_cards");
       url.searchParams.set("anio", String(anioSeleccionado));
-      
-      // Aplicar filtros si existen
+
       if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
         const n = parseInt(mesSeleccionado, 10);
-        if (Number.isFinite(n)) {
-          url.searchParams.set("mes", String(n));
-        }
+        if (Number.isFinite(n)) url.searchParams.set("mes", String(n));
       } else if (periodoSeleccionado && periodoSeleccionado !== "Selecciona un periodo") {
         url.searchParams.set("periodo", periodoSeleccionado);
       }
-      
+
       if (cobradorSeleccionado && cobradorSeleccionado !== "todos") {
         url.searchParams.set("cobrador", cobradorSeleccionado);
       }
-      
+
       const res = await fetch(url.toString() + `&ts=${Date.now()}`);
       const data = await res.json();
-      
-      if (data?.exito) {
-        setCategoriasMonto(data.categorias || []);
-      } else {
-        setCategoriasMonto([]);
-      }
+
+      if (data?.exito) setCategoriasMonto(data.categorias || []);
+      else setCategoriasMonto([]);
     } catch (e) {
-      console.error('Error cargando categorías de monto', e);
+      console.error("Error cargando categorías de monto", e);
       setCategoriasMonto([]);
     } finally {
       setLoadingCategorias(false);
     }
   }, [anioSeleccionado, mesSeleccionado, periodoSeleccionado, cobradorSeleccionado]);
+
+  /* =======================================================================
+     ✅ FIX: al recargar SIEMPRE default = AÑO ACTUAL (si existe) + PERÍODO ACTUAL
+     Ej: hoy 19/12/2025 => año 2025 y período que contenga el mes 12 (y 11/12 si es bimestre)
+     - Si el año actual NO existe en la lista, cae al mayor año disponible (como antes).
+  ======================================================================= */
+  const pickDefaultYear = useCallback((years) => {
+    const yNow = new Date().getFullYear();
+    const list = Array.isArray(years) ? years.map((n) => Number(n)).filter(Boolean) : [];
+    if (!list.length) return "";
+    if (list.includes(yNow)) return yNow;
+    return Math.max(...list);
+  }, []);
 
   /* ===== carga inicial años + listas ===== */
   useEffect(() => {
@@ -810,15 +798,11 @@ export default function DashboardContable() {
         setError(null);
         setLoadingYears(true);
 
-        const rawListas = await fetchJSON(
-          `${BASE_URL}/api.php?action=listas`,
-          ctrl.signal
-        ).catch(() => null);
-
-        const meta = await fetchJSON(
-          `${BASE_URL}/api.php?action=contable&meta=years`,
-          ctrl.signal
+        const rawListas = await fetchJSON(`${BASE_URL}/api.php?action=listas`, ctrl.signal).catch(
+          () => null
         );
+
+        const meta = await fetchJSON(`${BASE_URL}/api.php?action=contable&meta=years`, ctrl.signal);
 
         if (!ok(meta)) throw new Error("Respuesta inválida (years)");
 
@@ -828,9 +812,7 @@ export default function DashboardContable() {
         setAniosDisponibles(years);
         setTotalSocios(totalSoc);
 
-        const lastYear = years.length ? Math.max(...years) : "";
-        setAnioSeleccionado(lastYear || "");
-
+        // ===== listas (periodos / cobradores) =====
         let periodosSrv = [];
         let cobradoresSrv = [];
 
@@ -870,19 +852,19 @@ export default function DashboardContable() {
         setPeriodosOpts(periodosOptsLocal);
         setCobradores(cobradoresSrv);
 
-        // ===== INICIALIZACIÓN SOLO LA PRIMERA VEZ =====
-        if (!didInitRef.current && lastYear) {
+        // ✅ DEFAULT YEAR: año actual si existe; si no, el mayor disponible
+        const defaultYear = pickDefaultYear(years);
+        setAnioSeleccionado(defaultYear || "");
+
+        // ✅ DEFAULT PERIOD: el que contenga el mes actual (si el año es el actual)
+        if (!didInitRef.current && defaultYear) {
           const hoy = new Date();
           const yNow = hoy.getFullYear();
-          const mNow = hoy.getMonth() + 1; // 1..12
+          const mNow = hoy.getMonth() + 1;
 
-          if (Number(lastYear) === yNow) {
+          if (Number(defaultYear) === yNow) {
             const periodoActual = findPeriodoForMes(periodosOptsLocal, mNow);
-            if (periodoActual) {
-              setPeriodoSeleccionado(periodoActual);
-            } else {
-              setPeriodoSeleccionado("Selecciona un periodo");
-            }
+            setPeriodoSeleccionado(periodoActual || "Selecciona un periodo");
             setMesSeleccionado("Todos los meses");
           } else {
             setPeriodoSeleccionado("Selecciona un periodo");
@@ -902,16 +884,14 @@ export default function DashboardContable() {
     })();
 
     return () => ctrl.abort();
-  }, [fetchJSON]);
+  }, [fetchJSON, pickDefaultYear]);
 
   const needsYearData = useMemo(() => Boolean(anioSeleccionado), [anioSeleccionado]);
 
   useEffect(() => {
     if (mesSeleccionado !== "Todos los meses") {
       const n = parseInt(mesSeleccionado, 10);
-      if (!mesesDisponibles.includes(n)) {
-        setMesSeleccionado("Todos los meses");
-      }
+      if (!mesesDisponibles.includes(n)) setMesSeleccionado("Todos los meses");
     }
   }, [mesesDisponibles, mesSeleccionado]);
 
@@ -924,7 +904,6 @@ export default function DashboardContable() {
       try {
         const key = String(anioSeleccionado);
 
-        // 🔹 Si ya está en caché, lo usamos
         if (yearCacheRef.current[key]) {
           const { built, datosMeses } = yearCacheRef.current[key];
 
@@ -936,31 +915,21 @@ export default function DashboardContable() {
           curPagosByMonthRef.current = built.pagosByMonth;
           curPeriodMergedMapRef.current = built.periodMergedMap;
 
-          const d = recomputeSync(
-            periodoSeleccionado,
-            mesSeleccionado,
-            cobradorSeleccionado
-          );
-          setDerived((prev) => ({
-            ...prev,
-            ...d,
-          }));
+          const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+          setDerived((prev) => ({ ...prev, ...d }));
           setIsLoadingTable(false);
 
           await recomputeResumen();
           await fetchDetSoc();
-          await fetchCategoriasMonto(); // 🔹 NUEVO: cargar categorías
+          await fetchCategoriasMonto();
           return;
         }
 
-        // 🔹 Si no está en caché, lo pedimos al backend
         setLoadingPagos(true);
         setIsLoadingTable(true);
 
         const raw = await fetchJSON(
-          `${BASE_URL}/api.php?action=contable&anio=${encodeURIComponent(
-            anioSeleccionado
-          )}`,
+          `${BASE_URL}/api.php?action=contable&anio=${encodeURIComponent(anioSeleccionado)}`,
           ctrl.signal
         );
 
@@ -974,10 +943,7 @@ export default function DashboardContable() {
           },
         });
 
-        yearCacheRef.current[key] = {
-          built,
-          datosMeses: arr(raw),
-        };
+        yearCacheRef.current[key] = { built, datosMeses: arr(raw) };
 
         setTotalSocios(built.totalSocios);
         setCondonados(built.condonados);
@@ -987,19 +953,12 @@ export default function DashboardContable() {
         curPagosByMonthRef.current = built.pagosByMonth;
         curPeriodMergedMapRef.current = built.periodMergedMap;
 
-        const d = recomputeSync(
-          periodoSeleccionado,
-          mesSeleccionado,
-          cobradorSeleccionado
-        );
-        setDerived((prev) => ({
-          ...prev,
-          ...d,
-        }));
+        const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
+        setDerived((prev) => ({ ...prev, ...d }));
 
         await recomputeResumen();
         await fetchDetSoc();
-        await fetchCategoriasMonto(); // 🔹 NUEVO: cargar categorías
+        await fetchCategoriasMonto();
       } catch (err) {
         if (err.name !== "AbortError") {
           console.error("Error al cargar pagos del año:", err);
@@ -1031,7 +990,7 @@ export default function DashboardContable() {
     recomputeSync,
     recomputeResumen,
     fetchDetSoc,
-    fetchCategoriasMonto, // 🔹 NUEVO: añadido a las dependencias
+    fetchCategoriasMonto,
   ]);
 
   /* ===== efecto: esperado total ===== */
@@ -1079,11 +1038,7 @@ export default function DashboardContable() {
 
     computeRAF1.current = requestAnimationFrame(() => {
       startTransition(() => {
-        const d = recomputeSync(
-          periodoSeleccionado,
-          mesSeleccionado,
-          cobradorSeleccionado
-        );
+        const d = recomputeSync(periodoSeleccionado, mesSeleccionado, cobradorSeleccionado);
         computeRAF2.current = requestAnimationFrame(() => {
           setDerived((prev) => {
             const diff = prev.esperado - d.total;
@@ -1096,7 +1051,7 @@ export default function DashboardContable() {
 
     recomputeResumen();
     fetchDetSoc();
-    fetchCategoriasMonto(); // 🔹 NUEVO: actualizar categorías cuando cambien filtros
+    fetchCategoriasMonto();
 
     return () => {
       cancelAnimationFrame(computeRAF1.current);
@@ -1109,7 +1064,8 @@ export default function DashboardContable() {
     startTransition,
     recomputeResumen,
     fetchDetSoc,
-    fetchCategoriasMonto, // 🔹 NUEVO: añadido a las dependencias
+    fetchCategoriasMonto,
+    recomputeSync,
   ]);
 
   /* ===== periodos visibles ===== */
@@ -1119,14 +1075,11 @@ export default function DashboardContable() {
     if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
       const mesNum = parseInt(mesSeleccionado, 10);
       const periodoForMes = findPeriodoForMes(periodosOpts, mesNum);
-      if (periodoForMes) {
-        return periodosOpts.filter((p) => p.value === periodoForMes);
-      }
+      if (periodoForMes) return periodosOpts.filter((p) => p.value === periodoForMes);
       return [];
     }
 
-    if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo")
-      return periodosOpts;
+    if (!periodoSeleccionado || periodoSeleccionado === "Selecciona un periodo") return periodosOpts;
     return periodosOpts.filter((p) => p.value === periodoSeleccionado);
   }, [periodosOpts, periodoSeleccionado, mesSeleccionado, anioSeleccionado]);
 
@@ -1135,9 +1088,7 @@ export default function DashboardContable() {
 
   const handlePeriodoChange = useCallback((e) => {
     setPeriodoSeleccionado(e.target.value);
-    if (e.target.value !== "Selecciona un periodo") {
-      setMesSeleccionado("Todos los meses");
-    }
+    if (e.target.value !== "Selecciona un periodo") setMesSeleccionado("Todos los meses");
   }, []);
 
   const handleMesChange = useCallback(
@@ -1182,12 +1133,10 @@ export default function DashboardContable() {
     setSociosPorMesPorCobradorEstado({});
     setDetSocRows([]);
     setDetSocTotales({ ACTIVO: 0, PASIVO: 0 });
-    setCategoriasMonto([]); // 🔹 NUEVO: limpiar categorías
+    setCategoriasMonto([]);
   }, []);
 
-  const handleSearch = useCallback((e) => {
-    setSearchText(e.target.value);
-  }, []);
+  const handleSearch = useCallback((e) => setSearchText(e.target.value), []);
 
   /* ===== Buscador ===== */
   const registrosFiltradosPorBusqueda = useMemo(() => {
@@ -1196,7 +1145,6 @@ export default function DashboardContable() {
 
     const regs = derived.registros || [];
     const out = [];
-
     for (let i = 0; i < regs.length; i++) {
       const r = regs[i];
       if (
@@ -1254,15 +1202,7 @@ export default function DashboardContable() {
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(data, {
-        header: [
-          "SOCIO",
-          "CATEGORÍA",
-          "MONTO",
-          "COBRADOR",
-          "MEDIO PAGO",
-          "FECHA DE PAGO",
-          "PERÍODO PAGO",
-        ],
+        header: ["SOCIO", "CATEGORÍA", "MONTO", "COBRADOR", "MEDIO PAGO", "FECHA DE PAGO", "PERÍODO PAGO"],
       });
 
       ws["!cols"] = [
@@ -1334,7 +1274,6 @@ export default function DashboardContable() {
       return;
     }
 
-    // Detalle de Cobranza (Excel)
     if (periodosVisibles.length === 0) {
       setShowNoDataToast(true);
       return;
@@ -1354,42 +1293,23 @@ export default function DashboardContable() {
       if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
         const mesNum = parseInt(mesSeleccionado, 10);
         let pagosMes = curPagosByMonthRef.current[mesNum] || [];
-        if (cobradorSeleccionado !== "todos") {
-          pagosMes = pagosMes.filter(
-            (pg) =>
-              pg._cb === cobradorSeleccionado ||
-              (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
-          );
-        }
+        if (cobradorSeleccionado !== "todos") pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
         recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
 
-        // Esperado:
-        if (cobradorSeleccionado === "todos") {
-          esperado = Number(esperadosPorMes[mesNum] || 0);
-        } else {
-          esperado = Number(
-            esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[mesNum] || 0
-          );
-        }
+        esperado =
+          cobradorSeleccionado === "todos"
+            ? Number(esperadosPorMes[mesNum] || 0)
+            : Number(esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[mesNum] || 0);
       } else {
         for (const m of months) {
           let pagosMes = curPagosByMonthRef.current[m] || [];
-          if (cobradorSeleccionado !== "todos") {
-            pagosMes = pagosMes.filter(
-              (pg) =>
-                pg._cb === cobradorSeleccionado ||
-                (pg.id_cobrador ?? pg._cb) === cobradorSeleccionado
-            );
-          }
+          if (cobradorSeleccionado !== "todos") pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
           recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
 
-          if (cobradorSeleccionado === "todos") {
-            esperado += Number(esperadosPorMes[m] || 0);
-          } else {
-            esperado += Number(
-              esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[m] || 0
-            );
-          }
+          esperado +=
+            cobradorSeleccionado === "todos"
+              ? Number(esperadosPorMes[m] || 0)
+              : Number(esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[m] || 0);
         }
       }
 
@@ -1447,13 +1367,11 @@ export default function DashboardContable() {
 
   /* ===== EXPORTAR PDF ===== */
   const exportarPDF = useCallback(() => {
-    // 1) Vista DETALLE: no hay PDF
     if (mainView === "detalle") {
       setShowNoDataToast(true);
       return;
     }
 
-    // 2) Vista DETALLE DE SOCIOS
     if (mainView === "detsoc") {
       if (!detSocRows.length) {
         setShowNoDataToast(true);
@@ -1473,15 +1391,13 @@ export default function DashboardContable() {
       return;
     }
 
-    // 3) Vista DETALLE DE COBRANZA - Exportar tabla COMPLETA
     if (periodosVisibles.length === 0) {
       setShowNoDataToast(true);
       return;
     }
 
-    // Exportar tabla completa con jerarquía
     exportCobranzaPDF({
-      rows: [], // No se usa directamente
+      rows: [],
       periodosVisibles,
       esperadosPorMes,
       esperadosPorMesPorCobrador,
@@ -1499,7 +1415,7 @@ export default function DashboardContable() {
       cobrador: cobradorSeleccionado,
       categoriasMonto,
     });
-    
+
     setShowSuccessToast(true);
   }, [
     mainView,
@@ -1516,7 +1432,7 @@ export default function DashboardContable() {
     mesSeleccionado,
     cobradorSeleccionado,
     nfPesos,
-      categoriasMonto, // 🔹 NUEVO
+    categoriasMonto,
   ]);
 
   const haveData = (curPagosAllSortedRef.current?.length || 0) > 0;
@@ -1537,31 +1453,18 @@ export default function DashboardContable() {
         padding: "10px 16px",
         background: "#fff",
       },
-      title: {
-        fontSize: 13,
-        fontWeight: 600,
-        color: "#334155",
-      },
-      num: {
-        fontSize: 22,
-        fontWeight: 800,
-        marginTop: 4,
-      },
-      foot: {
-        fontSize: 11,
-        color: "#6b7280",
-        marginTop: 2,
-      },
+      title: { fontSize: 13, fontWeight: 600, color: "#334155" },
+      num: { fontSize: 22, fontWeight: 800, marginTop: 4 },
+      foot: { fontSize: 11, color: "#6b7280", marginTop: 2 },
     };
 
     if (mainView === "cobmes") {
       const esperado = Number(derived.esperado || 0);
       const recaudado = Number(derived.total || 0);
-      const diferencia = Number(esperado - recaudado); // esperado – recaudado
+      const diferencia = Number(esperado - recaudado);
 
-      // siempre sin signo, solo color (verde = superávit, rojo = faltante)
       const diffTxt = `$${nfPesos.format(Math.abs(diferencia))}`;
-      const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a"; // rojo si falta, verde si sobra
+      const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a";
 
       return (
         <div style={box.wrap} aria-label="Resumen global (montos)">
@@ -1584,16 +1487,13 @@ export default function DashboardContable() {
             <div style={{ ...box.title, color: colorTexto }}>
               Faltante / Superávit (esperado – recaudado)
             </div>
-            <div style={{ ...box.num, color: colorTexto }}>
-              {diffTxt}
-            </div>
+            <div style={{ ...box.num, color: colorTexto }}>{diffTxt}</div>
             <div style={box.foot}>= Comparación con filtros aplicados</div>
           </div>
         </div>
       );
     }
 
-    // Detalle de Socios
     const totalAct = Number(detSocTotales.ACTIVO || 0);
     const totalPas = Number(detSocTotales.PASIVO || 0);
     const totalGen = totalAct + totalPas;
@@ -1622,7 +1522,7 @@ export default function DashboardContable() {
   /* ===== NUEVO: Componente para mostrar las cajas de categorías de monto ===== */
   const CategoriasMontoCards = () => {
     if (mainView !== "cobmes") return null;
-    
+
     return (
       <div className="categorias-monto-section">
         <div className="section-header">
@@ -1631,7 +1531,7 @@ export default function DashboardContable() {
             <FontAwesomeIcon icon={faSpinner} spin style={{ marginLeft: 8 }} />
           )}
         </div>
-        
+
         <div className="cards-row">
           {loadingCategorias ? (
             <div className="card-resumen skeleton">
@@ -1640,20 +1540,16 @@ export default function DashboardContable() {
               <div className="card-sub"></div>
             </div>
           ) : categoriasMonto.length === 0 ? (
-            <div className="no-categorias">
-              No hay datos de categorías para los filtros aplicados.
-            </div>
+            <div className="no-categorias">No hay datos de categorías para los filtros aplicados.</div>
           ) : (
-            categoriasMonto.map(cat => (
+            categoriasMonto.map((cat) => (
               <div key={cat.id_cat_monto || cat.nombre_categoria} className="card-resumen">
                 <div className="card-title">{cat.nombre_categoria}</div>
-                <div className="card-value">{cat.monto_mensual_fmt || `$${nfPesos.format(cat.monto_mensual || 0)}`}</div>
-                {cat.monto_anual_fmt && (
-                  <div className="card-sub">Anual: {cat.monto_anual_fmt}</div>
-                )}
-                <div className="card-sub">
-                  {cat.cant_socios ? `${cat.cant_socios} socios` : 'Monto por período'}
+                <div className="card-value">
+                  {cat.monto_mensual_fmt || `$${nfPesos.format(cat.monto_mensual || 0)}`}
                 </div>
+                {cat.monto_anual_fmt && <div className="card-sub">Anual: {cat.monto_anual_fmt}</div>}
+                <div className="card-sub">{cat.cant_socios ? `${cat.cant_socios} socios` : "Monto por período"}</div>
               </div>
             ))
           )}
@@ -1671,11 +1567,7 @@ export default function DashboardContable() {
           <FontAwesomeIcon icon={faDollarSign} /> Resumen de pagos
         </h1>
 
-        <button
-          className="contable-back-button"
-          onClick={volver}
-          aria-label="Volver"
-        >
+        <button className="contable-back-button" onClick={volver} aria-label="Volver">
           <FontAwesomeIcon icon={faArrowLeft} />
           &nbsp; Volver
         </button>
@@ -1685,21 +1577,19 @@ export default function DashboardContable() {
       <div className="contable-grid">
         {/* SIDEBAR */}
         <aside className="contable-sidebar">
-          {/* Errores generales */}
-          {error &&
-            error !== "No se pudieron obtener los pagos del año seleccionado." && (
-              <div className="contable-warning">
-                <FontAwesomeIcon icon={faExclamationTriangle} />
-                <span>{error}</span>
-                <button
-                  onClick={() => setError(null)}
-                  className="contable-close-error"
-                  aria-label="Cerrar error"
-                >
-                  <FontAwesomeIcon icon={faTimes} />
-                </button>
-              </div>
-            )}
+          {error && error !== "No se pudieron obtener los pagos del año seleccionado." && (
+            <div className="contable-warning">
+              <FontAwesomeIcon icon={faExclamationTriangle} />
+              <span>{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="contable-close-error"
+                aria-label="Cerrar error"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+          )}
 
           <h3 className="side-block-title" style={{ marginTop: 0 }}>
             <FontAwesomeIcon icon={faCalendarAlt} /> Filtros
@@ -1738,12 +1628,7 @@ export default function DashboardContable() {
               <span>
                 Período{" "}
                 {loadingPagos && needsYearData && (
-                  <FontAwesomeIcon
-                    icon={faSpinner}
-                    spin
-                    title="Cargando pagos…"
-                    style={{ marginLeft: 6 }}
-                  />
+                  <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{ marginLeft: 6 }} />
                 )}
               </span>
               <select
@@ -1766,12 +1651,7 @@ export default function DashboardContable() {
               <span>
                 Mes{" "}
                 {loadingPagos && needsYearData && (
-                  <FontAwesomeIcon
-                    icon={faSpinner}
-                    spin
-                    title="Cargando pagos…"
-                    style={{ marginLeft: 6 }}
-                  />
+                  <FontAwesomeIcon icon={faSpinner} spin title="Cargando pagos…" style={{ marginLeft: 6 }} />
                 )}
               </span>
               <select
@@ -1900,7 +1780,7 @@ export default function DashboardContable() {
             </div>
           </div>
 
-          {/* 🔹 NUEVO: Categorías de Monto (solo en vista Detalle de Cobranza) */}
+          {/* Categorías de Monto */}
           {mainView === "cobmes" && <CategoriasMontoCards />}
 
           {/* Cards resumen */}
@@ -1918,23 +1798,19 @@ export default function DashboardContable() {
           )}
 
           {mainView === "cobmes" && (
-            <>
-              {/* 🔹 NUEVO: Las cajas de categorías ahora van arriba de la tabla */}
-              {/* La tabla Detalle de Cobranza se mostrará debajo */}
-              <CobMesTable
-                loadingResumen={loadingResumen}
-                periodosVisibles={periodosVisibles}
-                esperadosPorMes={esperadosPorMes}
-                esperadosPorMesPorCobrador={esperadosPorMesPorCobrador}
-                sociosPorMesPorCobrador={sociosPorMesPorCobrador}
-                esperadosPorMesPorCobradorEstado={esperadosPorMesPorCobradorEstado}
-                sociosPorMesPorCobradorEstado={sociosPorMesPorCobradorEstado}
-                getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
-                cobradorSeleccionado={cobradorSeleccionado}
-                mesSeleccionado={mesSeleccionado}
-                nfPesos={nfPesos}
-              />
-            </>
+            <CobMesTable
+              loadingResumen={loadingResumen}
+              periodosVisibles={periodosVisibles}
+              esperadosPorMes={esperadosPorMes}
+              esperadosPorMesPorCobrador={esperadosPorMesPorCobrador}
+              sociosPorMesPorCobrador={sociosPorMesPorCobrador}
+              esperadosPorMesPorCobradorEstado={esperadosPorMesPorCobradorEstado}
+              sociosPorMesPorCobradorEstado={sociosPorMesPorCobradorEstado}
+              getPagosByMonth={(m) => curPagosByMonthRef.current[m] || []}
+              cobradorSeleccionado={cobradorSeleccionado}
+              mesSeleccionado={mesSeleccionado}
+              nfPesos={nfPesos}
+            />
           )}
 
           {mainView === "detsoc" && (
