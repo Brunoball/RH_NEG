@@ -20,7 +20,6 @@
 
 @keyframes fadeIn{from{opacity:0;backdrop-filter:blur(0)}to{opacity:1;backdrop-filter:blur(8px)}}
 
-@media (max-width:1200px){.periodos-section{overflow: auto;}}
 
 /* Header */
 .modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;background:var(--primary);border-bottom:1px solid rgba(255,255,255,.1)}
