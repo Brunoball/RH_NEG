@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../config/db.php';
 header("Access-Control-Allow-Origin: http://localhost:3000");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=utf-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -23,17 +23,42 @@ if ($idSocio <= 0) {
 const ID_CONTADO_ANUAL = 7;
 
 try {
+    // =========================================================
+    // Helper: detectar si existe la columna anio_aplicado en pagos
+    // =========================================================
+    $tieneAnioAplicado = false;
+    try {
+        $chk = $pdo->query("SHOW COLUMNS FROM pagos LIKE 'anio_aplicado'");
+        $tieneAnioAplicado = ($chk && $chk->fetch(PDO::FETCH_ASSOC)) ? true : false;
+    } catch (Exception $e) {
+        $tieneAnioAplicado = false;
+    }
+
     // =========================
     // 1) PAGOS DE CUOTAS (por año)
     // =========================
-    $stmtPagos = $pdo->prepare("
-        SELECT id_periodo, estado, fecha_pago
-          FROM pagos
-         WHERE id_socio = ?
-           AND YEAR(fecha_pago) = ?
-         ORDER BY fecha_pago DESC, id_pago DESC
-    ");
-    $stmtPagos->execute([$idSocio, $anio]);
+    if ($tieneAnioAplicado) {
+        // ✅ CORRECTO: se usa el año "lógico" del pago
+        $stmtPagos = $pdo->prepare("
+            SELECT id_periodo, estado, fecha_pago
+              FROM pagos
+             WHERE id_socio = ?
+               AND anio_aplicado = ?
+             ORDER BY fecha_pago DESC, id_pago DESC
+        ");
+        $stmtPagos->execute([$idSocio, $anio]);
+    } else {
+        // ⚠️ Fallback viejo por si esa DB no tiene anio_aplicado
+        $stmtPagos = $pdo->prepare("
+            SELECT id_periodo, estado, fecha_pago
+              FROM pagos
+             WHERE id_socio = ?
+               AND YEAR(fecha_pago) = ?
+             ORDER BY fecha_pago DESC, id_pago DESC
+        ");
+        $stmtPagos->execute([$idSocio, $anio]);
+    }
+
     $rows = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
 
     // Mapa: id_periodo => estado ('pagado' | 'condonado')
@@ -41,13 +66,21 @@ try {
     $estadoAnual = null;
 
     foreach ($rows as $r) {
-        $pid = (int)$r['id_periodo'];
-        $estado = strtolower(trim($r['estado'] ?? ''));
-        if (!isset($estadosPorPeriodo[$pid])) {
-            $estadosPorPeriodo[$pid] = $estado ?: 'pagado';
+        $pid = (int)($r['id_periodo'] ?? 0);
+        if ($pid <= 0) continue;
+
+        $estado = strtolower(trim((string)($r['estado'] ?? '')));
+        if ($estado !== 'condonado' && $estado !== 'pagado') {
+            $estado = 'pagado';
         }
+
+        // Quedarnos con el más reciente por período (por el ORDER BY DESC)
+        if (!isset($estadosPorPeriodo[$pid])) {
+            $estadosPorPeriodo[$pid] = $estado;
+        }
+
         if ($pid === ID_CONTADO_ANUAL && $estadoAnual === null) {
-            $estadoAnual = $estado ?: 'pagado';
+            $estadoAnual = $estado;
         }
     }
 
@@ -60,7 +93,7 @@ try {
         }
     }
 
-    // IDs únicos ordenados (por compatibilidad con el frontend viejo)
+    // IDs únicos ordenados (compat con frontend)
     $periodosIds = array_map('intval', array_keys($estadosPorPeriodo));
     sort($periodosIds);
 
@@ -79,25 +112,33 @@ try {
     // =========================
     // 3) INSCRIPCIÓN (se paga una sola vez, SIN filtrar por año)
     // =========================
-    $stmtIns = $pdo->prepare("
-        SELECT monto, fecha_pago, id_medio_pago
-          FROM pagos_inscripcion
-         WHERE id_socio = ?
-         ORDER BY fecha_pago DESC, id_inscripcion DESC
-         LIMIT 1
-    ");
-    $stmtIns->execute([$idSocio]);
-    $ins = $stmtIns->fetch(PDO::FETCH_ASSOC);
-
-    $inscripcionPagada = $ins ? true : false;
+    $inscripcionPagada = false;
     $inscripcion = null;
 
-    if ($ins) {
-        $inscripcion = [
-            'monto' => (int)$ins['monto'],
-            'fecha_pago' => $ins['fecha_pago'],
-            'id_medio_pago' => isset($ins['id_medio_pago']) ? (int)$ins['id_medio_pago'] : null,
-        ];
+    // Si la tabla no existe, no rompemos el endpoint
+    try {
+        $stmtIns = $pdo->prepare("
+            SELECT monto, fecha_pago, id_medio_pago
+              FROM pagos_inscripcion
+             WHERE id_socio = ?
+             ORDER BY fecha_pago DESC, id_inscripcion DESC
+             LIMIT 1
+        ");
+        $stmtIns->execute([$idSocio]);
+        $ins = $stmtIns->fetch(PDO::FETCH_ASSOC);
+
+        if ($ins) {
+            $inscripcionPagada = true;
+            $inscripcion = [
+                'monto' => (int)($ins['monto'] ?? 0),
+                'fecha_pago' => $ins['fecha_pago'] ?? null,
+                'id_medio_pago' => isset($ins['id_medio_pago']) ? (int)$ins['id_medio_pago'] : null,
+            ];
+        }
+    } catch (Exception $e) {
+        // tabla no existe o error menor -> no cortamos
+        $inscripcionPagada = false;
+        $inscripcion = null;
     }
 
     echo json_encode([
@@ -112,7 +153,8 @@ try {
         // INSCRIPCIÓN
         'inscripcion_pagada'  => $inscripcionPagada,
         'inscripcion'         => $inscripcion
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
+
 } catch (PDOException $e) {
-    echo json_encode(['exito' => false, 'mensaje' => 'Error en la base de datos']);
+    echo json_encode(['exito' => false, 'mensaje' => 'Error en la base de datos'], JSON_UNESCAPED_UNICODE);
 }

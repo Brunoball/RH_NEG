@@ -28,8 +28,21 @@ import '../Global/roots.css';
 const MiniSpinner = () => <span className="mini-spinner" aria-label="cargando" />;
 
 const FORM_KEYS = [
-  'nombre','id_cobrador','id_categoria','id_cat_monto','domicilio','numero','telefono_movil','telefono_fijo','comentario',
-  'nacimiento','id_estado','domicilio_cobro','dni','ingreso'
+  'nombre',
+  'id_cobrador',
+  'id_categoria',
+  'id_cat_monto',
+  'domicilio',
+  'numero',
+  'telefono_movil',
+  'telefono_fijo',
+  'comentario',
+  'ultimo_contacto', // ✅ NUEVO
+  'nacimiento',
+  'id_estado',
+  'domicilio_cobro',
+  'dni',
+  'ingreso',
 ];
 
 /* ====== Helper fetch sin cache + cache-buster ====== */
@@ -67,7 +80,7 @@ const formatFechaISO = (fecha) => {
 
 const socioToForm = (socioRaw) => {
   const out = {};
-  FORM_KEYS.forEach(k => {
+  FORM_KEYS.forEach((k) => {
     if (k === 'nacimiento' || k === 'ingreso') out[k] = formatFechaISO(socioRaw?.[k]);
     else out[k] = socioRaw?.[k] ?? '';
   });
@@ -106,6 +119,7 @@ const EditarSocio = () => {
     telefono_movil: '',
     telefono_fijo: '',
     comentario: '',
+    ultimo_contacto: '', // ✅ NUEVO
     nacimiento: '',
     id_estado: '',
     domicilio_cobro: '',
@@ -158,17 +172,18 @@ const EditarSocio = () => {
 
     const fetchSocio = async () => {
       try {
-        const data = await fetchJSONNoStore(
-          `${BASE_URL}/api.php?action=editar_socio&id=${id}`,
-          { signal: ctrl.signal }
-        );
+        const data = await fetchJSONNoStore(`${BASE_URL}/api.php?action=editar_socio&id=${id}`, {
+          signal: ctrl.signal,
+        });
         if (abortado) return;
         if (data?.exito && data?.socio) {
           const fm = socioToForm(data.socio);
           setFormData(fm);
           setDatosOriginales(fm);
           setLoadingSocio(false);
-          try { sessionStorage.setItem(`socio_prefetch_${id}`, JSON.stringify(data.socio)); } catch {}
+          try {
+            sessionStorage.setItem(`socio_prefetch_${id}`, JSON.stringify(data.socio));
+          } catch {}
         } else {
           if (!socioPrefetch) setLoadingSocio(false);
           showToast('Error al cargar datos del socio' + (data?.mensaje ? `: ${data.mensaje}` : ''), 'error');
@@ -185,7 +200,10 @@ const EditarSocio = () => {
     if (!pinto) setLoadingSocio(true);
     fetchSocio();
 
-    return () => { abortado = true; ctrl.abort(); };
+    return () => {
+      abortado = true;
+      ctrl.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -196,10 +214,7 @@ const EditarSocio = () => {
     const loadCE = async () => {
       try {
         setLoadingCE(true);
-        const json = await fetchJSONNoStore(
-          `${BASE_URL}/api.php?action=listas`,
-          { signal: ctrl.signal }
-        );
+        const json = await fetchJSONNoStore(`${BASE_URL}/api.php?action=listas`, { signal: ctrl.signal });
         if (abortado) return;
         if (json?.exito && json?.listas) {
           setCategorias(json.listas.categorias ?? []);
@@ -211,13 +226,20 @@ const EditarSocio = () => {
           setCategoriasMonto([]);
         }
       } catch {
-        if (!abortado) { setCategorias([]); setEstados([]); setCategoriasMonto([]); }
+        if (!abortado) {
+          setCategorias([]);
+          setEstados([]);
+          setCategoriasMonto([]);
+        }
       } finally {
         if (!abortado) setLoadingCE(false);
       }
     };
     loadCE();
-    return () => { abortado = true; ctrl.abort(); };
+    return () => {
+      abortado = true;
+      ctrl.abort();
+    };
   }, []);
 
   // ===== LAZY: Cobradores/Periodos cuando abrís Cobranza — FRESCO TAMBIÉN =====
@@ -229,22 +251,25 @@ const EditarSocio = () => {
       if (loadingCobradores || cobradores.length > 0) return;
       try {
         setLoadingCobradores(true);
-        const json = await fetchJSONNoStore(
-          `${BASE_URL}/api.php?action=listas`,
-          { signal: ctrl.signal }
-        );
+        const json = await fetchJSONNoStore(`${BASE_URL}/api.php?action=listas`, { signal: ctrl.signal });
         if (!cancel && json?.exito && json?.listas) {
           setCobradores(json.listas.cobradores ?? []);
           setPeriodos(json.listas.periodos ?? []);
         }
       } catch {
-        if (!cancel) { setCobradores([]); setPeriodos([]); }
+        if (!cancel) {
+          setCobradores([]);
+          setPeriodos([]);
+        }
       } finally {
         if (!cancel) setLoadingCobradores(false);
       }
     };
     loadCobradores();
-    return () => { cancel = true; ctrl.abort(); };
+    return () => {
+      cancel = true;
+      ctrl.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -252,13 +277,13 @@ const EditarSocio = () => {
   const handleNumberChange = useCallback((e) => {
     const { name, value } = e.target;
     const numericValue = value.replace(/[^0-9]/g, '');
-    setFormData(prev => (prev[name] === numericValue ? prev : { ...prev, [name]: numericValue }));
+    setFormData((prev) => (prev[name] === numericValue ? prev : { ...prev, [name]: numericValue }));
   }, []);
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     const v = typeof value === 'string' ? value.toUpperCase() : value;
-    setFormData(prev => (prev[name] === v ? prev : { ...prev, [name]: v }));
+    setFormData((prev) => (prev[name] === v ? prev : { ...prev, [name]: v }));
   }, []);
 
   const openDateWithGesture = (ref) => (e) => {
@@ -267,7 +292,9 @@ const EditarSocio = () => {
     e.preventDefault();
     el.focus({ preventScroll: true });
     if (typeof el.showPicker === 'function') {
-      try { el.showPicker(); } catch {}
+      try {
+        el.showPicker();
+      } catch {}
     } else {
       el.click();
     }
@@ -287,7 +314,7 @@ const EditarSocio = () => {
       setLoadingSubmit(true);
       const res = await fetch(`${BASE_URL}/api.php?action=editar_socio&ts=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // <- SIN "Cache-Control"
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, id_socio: id }),
         cache: 'no-store',
       });
@@ -317,7 +344,7 @@ const EditarSocio = () => {
           <Toast
             tipo={toast.type}
             mensaje={toast.message}
-            onClose={() => setToast(prev => ({ ...prev, show: false }))}
+            onClose={() => setToast((prev) => ({ ...prev, show: false }))}
             duracion={3000}
           />
         )}
@@ -330,10 +357,7 @@ const EditarSocio = () => {
               <p>Actualiza la información del socio</p>
             </div>
           </div>
-          <button
-            className="edit-back-btn"
-            onClick={() => navigate('/socios', { state: { refresh: true } })}
-          >
+          <button className="edit-back-btn" onClick={() => navigate('/socios', { state: { refresh: true } })}>
             <FontAwesomeIcon icon={faArrowLeft} />
             Volver
           </button>
@@ -342,10 +366,7 @@ const EditarSocio = () => {
         <form onSubmit={handleSubmit} className="edit-socio-form" ref={formRef}>
           {/* Pestañas */}
           <div className="edit-tabs">
-            <div
-              className={`edit-tab ${activeTab === 'datos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('datos')}
-            >
+            <div className={`edit-tab ${activeTab === 'datos' ? 'active' : ''}`} onClick={() => setActiveTab('datos')}>
               Datos Generales
             </div>
             <div
@@ -481,15 +502,19 @@ const EditarSocio = () => {
                           className="edit-socio-input"
                           disabled={!readyCategoriasEstados}
                         >
-                          <option value="" disabled hidden>Seleccione tipo de sangre</option>
-                          {categorias.map(c => (
-                            <option key={c.id} value={c.id}>{c.descripcion}</option>
+                          <option value="" disabled hidden>
+                            Seleccione tipo de sangre
+                          </option>
+                          {categorias.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.descripcion}
+                            </option>
                           ))}
                         </select>
                         <span className="edit-socio-input-highlight"></span>
                       </div>
 
-                      {/* Categoría (Monto) — FIX: siempre placeholder si está vacío/null */}
+                      {/* Categoría (Monto) */}
                       <div className="edit-socio-input-wrapper always-active has-value">
                         <label className="edit-socio-label">
                           <FontAwesomeIcon icon={faTags} className="input-icon" />
@@ -497,14 +522,15 @@ const EditarSocio = () => {
                         </label>
                         <select
                           name="id_cat_monto"
-                          value={formData.id_cat_monto || ''}  
+                          value={formData.id_cat_monto || ''}
                           onChange={handleChange}
                           className="edit-socio-input"
                           disabled={!readyCategoriasEstados}
                         >
-                          {/* Siempre mostramos el placeholder, aun con 1 sola opción */}
-                          <option value="" disabled hidden>Seleccione categoría/monto</option>
-                          {categoriasMonto.map(cm => (
+                          <option value="" disabled hidden>
+                            Seleccione categoría/monto
+                          </option>
+                          {categoriasMonto.map((cm) => (
                             <option key={cm.id_cat_monto} value={String(cm.id_cat_monto)}>
                               {cm.nombre_categoria} (${cm.monto_mensual})
                             </option>
@@ -526,9 +552,13 @@ const EditarSocio = () => {
                           className="edit-socio-input"
                           disabled={!readyCategoriasEstados}
                         >
-                          <option value="" disabled hidden>Seleccione estado</option>
-                          {estados.map(e => (
-                            <option key={e.id} value={e.id}>{e.descripcion}</option>
+                          <option value="" disabled hidden>
+                            Seleccione estado
+                          </option>
+                          {estados.map((e) => (
+                            <option key={e.id} value={e.id}>
+                              {e.descripcion}
+                            </option>
                           ))}
                         </select>
                         <span className="edit-socio-input-highlight"></span>
@@ -563,12 +593,7 @@ const EditarSocio = () => {
                           <FontAwesomeIcon icon={faHome} className="input-icon" />
                           Domicilio
                         </label>
-                        <input
-                          name="domicilio"
-                          value={formData.domicilio || ''}
-                          onChange={handleChange}
-                          className="edit-socio-input"
-                        />
+                        <input name="domicilio" value={formData.domicilio || ''} onChange={handleChange} className="edit-socio-input" />
                         <span className="edit-socio-input-highlight"></span>
                       </div>
 
@@ -664,8 +689,10 @@ const EditarSocio = () => {
                             {formData.id_cobrador ? `Actual: ${formData.id_cobrador}` : 'Cargando opciones...'}
                           </option>
                         )}
-                        {cobradores.map(c => (
-                          <option key={c.id} value={c.id}>{c.nombre}</option>
+                        {cobradores.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
                         ))}
                       </select>
                       <span className="edit-socio-input-highlight"></span>
@@ -674,7 +701,7 @@ const EditarSocio = () => {
                     <div className={`edit-socio-input-wrapper cometarios-e ${formData.comentario ? 'has-value' : ''}`}>
                       <label className="edit-socio-label">
                         <FontAwesomeIcon icon={faComment} className="input-icon" />
-                        Comentarios
+                        Observaciones
                       </label>
                       <textarea
                         name="comentario"
@@ -682,6 +709,25 @@ const EditarSocio = () => {
                         onChange={handleChange}
                         className="edit-socio-textarea"
                         rows="4"
+                      />
+                      <span className="edit-socio-input-highlight"></span>
+                    </div>
+
+                    {/* ✅ NUEVO: Último contacto (debajo de Observaciones) */}
+                    <div
+                      className={`edit-socio-input-wrapper cometarios-e ${formData.ultimo_contacto ? 'has-value' : ''}`}
+                    >
+                      <label className="edit-socio-label">
+                        <FontAwesomeIcon icon={faComment} className="input-icon" />
+                        Último contacto
+                      </label>
+                      <textarea
+                        name="ultimo_contacto"
+                        value={formData.ultimo_contacto || ''}
+                        onChange={handleChange}
+                        className="edit-socio-textarea"
+                        rows="3"
+                        placeholder=""
                       />
                       <span className="edit-socio-input-highlight"></span>
                     </div>
@@ -699,9 +745,7 @@ const EditarSocio = () => {
               title={loadingSocio ? 'Esperando datos del socio' : 'Guardar cambios'}
             >
               <FontAwesomeIcon icon={faSave} className="edit-socio-icon-button" />
-              <span className="edit-socio-button-text">
-                {loadingSubmit ? 'Guardando...' : 'Actualizar Socio'}
-              </span>
+              <span className="edit-socio-button-text">{loadingSubmit ? 'Guardando...' : 'Actualizar Socio'}</span>
             </button>
           </div>
         </form>

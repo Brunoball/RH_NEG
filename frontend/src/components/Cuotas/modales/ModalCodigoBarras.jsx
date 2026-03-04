@@ -25,7 +25,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   // MONTOS dinámicos (desde DB)
   const [montoMensual, setMontoMensual] = useState(0);
   const [montoAnual, setMontoAnual] = useState(0);
-  const [montosListos, setMontosListos] = useState(false); // ← NUEVO
+  const [montosListos, setMontosListos] = useState(false);
 
   // TOAST
   const [toastVisible, setToastVisible] = useState(false);
@@ -41,19 +41,29 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     if (inputRef.current) inputRef.current.focus();
   }, []);
 
-  // === Cargar MONTOS al tener socioEncontrado (igual que ModalPagos) ===
+  // === Cargar MONTOS al tener socioEncontrado (HISTÓRICO por AÑO + PERÍODO) ===
   useEffect(() => {
     const cargarMontos = async () => {
       setMontosListos(false);
+
       if (!socioEncontrado) {
         setMontoMensual(0);
         setMontoAnual(0);
         return;
       }
+
       try {
         const qs = new URLSearchParams();
+
+        // Preferimos pasar id_socio (así el backend resuelve id_cat_monto por socio)
+        if (socioEncontrado.id_socio) qs.set('id_socio', String(socioEncontrado.id_socio));
+
+        // ✅ CLAVE: pasar AÑO y PERÍODO del código escaneado
+        if (socioEncontrado.anio) qs.set('anio', String(socioEncontrado.anio));
+        if (socioEncontrado.id_periodo) qs.set('id_periodo', String(socioEncontrado.id_periodo));
+
+        // Si tu socio ya trae id_cat_monto, lo pasamos también (opcional)
         if (socioEncontrado.id_cat_monto) qs.set('id_cat_monto', String(socioEncontrado.id_cat_monto));
-        if (socioEncontrado.id_socio)     qs.set('id_socio',     String(socioEncontrado.id_socio));
 
         const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
         const data = await res.json();
@@ -66,13 +76,13 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
           setMontoMensual(0);
           setMontoAnual(0);
           setMontosListos(false);
-          mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos para la categoría del socio.');
+          mostrarToast('advertencia', data?.mensaje || 'No se pudieron obtener los montos históricos.');
         }
       } catch {
         setMontoMensual(0);
         setMontoAnual(0);
         setMontosListos(false);
-        mostrarToast('error', 'Error al consultar montos para la categoría del socio.');
+        mostrarToast('error', 'Error al consultar montos históricos.');
       }
     };
 
@@ -181,7 +191,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         return;
       }
 
-      // ⬅️ Verificar estado usando el AÑO correcto
+      // Verificar estado usando el AÑO correcto
       await verificarEstadoPeriodo(payload.id_socio, payload.id_periodo, payload.anio);
     } catch {
       setMensaje('⛔ Error al conectar con el servidor');
@@ -225,25 +235,24 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const { montoMostrar, anualConDescuento } = useMemo(() => {
     if (!socioEncontrado) return { montoMostrar: 0, anualConDescuento: false };
 
-    // Período NO anual: siempre "montoMensual" (monto por período)
+    // Período NO anual: siempre "montoMensual" (histórico por id_periodo/anio)
     if (Number(socioEncontrado.id_periodo) !== ANUAL_ID) {
       return { montoMostrar: Number(montoMensual) || 0, anualConDescuento: false };
     }
 
     // Período ANUAL:
     const hoy = new Date();
-    const mesActual = hoy.getMonth(); // 0 = enero, 1 = febrero, 2 = marzo...
+    const mesActual = hoy.getMonth(); // 0=ene
     const anioActual = hoy.getFullYear();
 
-    // El código trae AA → "anio" (YYYY) para el que se paga el anual
     const anioCodigo = Number(socioEncontrado.anio) || anioActual;
 
     // Si estamos en ENE/FEB del mismo año del código → descuento
     const esEneFeb = (mesActual === 0 || mesActual === 1) && anioActual === anioCodigo;
 
     if (esEneFeb) {
-      const prefer = Number(montoAnual) || 0;              // se asume "con descuento" desde el backend
-      const fallback = (Number(montoMensual) || 0) * 6;    // por si anual no viene
+      const prefer = Number(montoAnual) || 0;           // anual (histórico) para ese año/periodo
+      const fallback = (Number(montoMensual) || 0) * 6;
       return { montoMostrar: prefer || fallback, anualConDescuento: true };
     }
 
@@ -278,7 +287,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
       return;
     }
 
-    // === monto a enviar al backend (0 si es condonación)
+    // monto a enviar (0 si condonación)
     const monto = condonar ? 0 : (Number(montoMostrar) || 0);
     if (!condonar && (!monto || monto <= 0)) {
       mostrarToast('advertencia', 'El monto aún no está listo. Esperá un segundo e intentá nuevamente.');
@@ -292,9 +301,9 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id_socio: socioEncontrado.id_socio,
-          periodos: [socioEncontrado.id_periodo], // incluye 7 (anual)
+          periodos: [socioEncontrado.id_periodo],
           anio: socioEncontrado.anio,
-          monto,                            // <<< ENVÍO DEL MONTO (validado)
+          monto,
           ...(condonar ? { condonar: true } : {})
         })
       });
@@ -323,7 +332,6 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     }
   };
 
-  // Antes pagaba directo; ahora se confirma con revalidación
   const registrarPago = () => callRegistrar({ condonar: false });
 
   const abrirConfirmacionCondonar = () => setMostrarConfirmarCondonacion(true);
@@ -336,7 +344,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
   const abrirConfirmacionPago = () => setMostrarConfirmarPago(true);
   const cerrarConfirmacionPago = () => setMostrarConfirmarPago(false);
 
-  // Revalidación extra: no dejar continuar si montos no listos o monto 0
+  // Revalidación extra: si montos no listos o monto 0, reintenta trayéndolos con anio/periodo
   const confirmarPago = async () => {
     if (!montosListos) {
       mostrarToast('advertencia', 'Cargando montos… esperá un instante.');
@@ -345,13 +353,17 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     if (!montoMostrar || Number(montoMostrar) <= 0) {
       try {
         const qs = new URLSearchParams();
+        if (socioEncontrado?.id_socio) qs.set('id_socio', String(socioEncontrado.id_socio));
+        if (socioEncontrado?.anio) qs.set('anio', String(socioEncontrado.anio));
+        if (socioEncontrado?.id_periodo) qs.set('id_periodo', String(socioEncontrado.id_periodo));
         if (socioEncontrado?.id_cat_monto) qs.set('id_cat_monto', String(socioEncontrado.id_cat_monto));
-        if (socioEncontrado?.id_socio)     qs.set('id_socio',     String(socioEncontrado.id_socio));
+
         const res = await fetch(`${BASE_URL}/api.php?action=montos&${qs.toString()}`);
         const data = await res.json();
         if (data?.exito) {
           setMontoMensual(Number(data.mensual) || 0);
           setMontoAnual(Number(data.anual) || 0);
+          setMontosListos(true);
         }
       } catch {}
       mostrarToast('advertencia', 'Recalculando montos… intentá de nuevo.');
@@ -382,13 +394,13 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
     verificandoEstado ||
     loadingPago ||
     loadingCondonar ||
-    !montosListos || // ← NUEVO: no habilita hasta que los montos estén listos
+    !montosListos ||
     estadoPeriodo === 'bloqueado' ||
     estadoPeriodo === 'pagado' ||
     estadoPeriodo === 'condonado';
 
   const formatearARS = (n) =>
-    n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 });
+    Number(n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 });
 
   return (
     <div className="codb-modal-overlay">
@@ -411,7 +423,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   type="text"
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
-                  placeholder="Ej: 1251393  (P=1, AA=25, ID=1393)"
+                  placeholder="Ej: 3251393  (P=3, AA=25, ID=1393)"
                   className={`codb-search-input ${error ? 'codb-input-error' : ''}`}
                 />
                 <div className="codb-input-hint">
@@ -443,7 +455,7 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
                   <div className="codb-info-row">
                     <div className="codb-info-label"><FaCalendarAlt /> Período:</div>
                     <div className="codb-info-value codb-badge">
-                      {mostrarPeriodoFormateado(socioEncontrado.id_periodo)}
+                      {mostrarPeriodoFormateado(socioEncontrado.id_periodo)} / {socioEncontrado.anio}
                     </div>
                   </div>
                   <div className="codb-info-row">
@@ -518,12 +530,12 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
             <p className="soc-modal-texto-condonar">
               Vas a <strong>CONDONAR</strong> el período{' '}
               <span className="codb-confirm-pill">{mostrarPeriodoFormateado(socioEncontrado.id_periodo)}</span>{' '}
-              del socio <strong>{socioEncontrado.nombre}</strong> (ID {socioEncontrado.id_socio}).
+              del año <strong>{socioEncontrado.anio}</strong> del socio <strong>{socioEncontrado.nombre}</strong> (ID {socioEncontrado.id_socio}).
             </p>
             <div className="soc-modal-botones-condonar">
               <button
                 className="soc-boton-cancelar-condonar"
-                onClick={cerrarConfirmacionCondonar}
+                onClick={() => setMostrarConfirmarCondonacion(false)}
                 disabled={loadingCondonar}
               >
                 Cancelar
@@ -558,13 +570,13 @@ const ModalCodigoBarras = ({ onClose, periodo, onPagoRealizado }) => {
             <p className="soc-modal-texto-pagar">
               Vas a <strong>REGISTRAR EL PAGO</strong> del período{' '}
               <span className="codb-confirm-pill">{mostrarPeriodoFormateado(socioEncontrado.id_periodo)}</span>{' '}
-              del socio <strong>{socioEncontrado.nombre}</strong> (ID {socioEncontrado.id_socio}) por un monto de{' '}
+              del año <strong>{socioEncontrado.anio}</strong> del socio <strong>{socioEncontrado.nombre}</strong> (ID {socioEncontrado.id_socio}) por un monto de{' '}
               <strong>{formatearARS(montoMostrar)}</strong>.
             </p>
             <div className="soc-modal-botones-pagar">
               <button
                 className="soc-boton-cancelar-pagar"
-                onClick={cerrarConfirmacionPago}
+                onClick={() => setMostrarConfirmarPago(false)}
                 disabled={loadingPago}
               >
                 Cancelar

@@ -4,11 +4,10 @@ require_once __DIR__ . '/../../config/db.php';
 header('Content-Type: application/json');
 
 function aMayus($texto) {
-    return isset($texto) && $texto !== '' ? mb_strtoupper(trim($texto), 'UTF-8') : null;
+    return (isset($texto) && $texto !== '') ? mb_strtoupper(trim($texto), 'UTF-8') : null;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Obtener socio por ID
     $id = $_GET['id'] ?? null;
 
     if (!$id) {
@@ -29,8 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     } catch (PDOException $e) {
         echo json_encode(['exito' => false, 'mensaje' => 'Error: ' . $e->getMessage()]);
     }
+
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Actualizar socio
     $data = json_decode(file_get_contents("php://input"), true);
     $id = $data['id_socio'] ?? null;
 
@@ -40,11 +39,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     try {
-        // ⬅️ AÑADIMOS id_cat_monto A LOS CAMPOS EDITABLES
+        // ✅ Incluimos ultimo_contacto
         $campos = [
-            'nombre', 'id_cobrador', 'id_categoria', 'id_cat_monto', 'domicilio', 'numero',
-            'telefono_movil', 'telefono_fijo', 'comentario', 'nacimiento', 'id_estado',
-            'domicilio_cobro', 'dni', 'ingreso'
+            'nombre',
+            'id_cobrador',
+            'id_categoria',
+            'id_cat_monto',
+            'domicilio',
+            'numero',
+            'telefono_movil',
+            'telefono_fijo',
+            'comentario',
+            'ultimo_contacto', // ✅ NUEVO
+            'nacimiento',
+            'id_estado',
+            'domicilio_cobro',
+            'dni',
+            'ingreso'
         ];
 
         $set = [];
@@ -53,14 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         foreach ($campos as $campo) {
             $valor = $data[$campo] ?? null;
 
-            // Convertir campos vacíos a null
+            // Vacío -> NULL
             if ($valor === '') {
                 $valor = null;
             }
 
-            // Convertir a mayúsculas si es texto (excepto fechas y numéricos)
-            // NOTA: NO tocamos id_cat_monto (numérico), ni fechas/dnis/etc.
-            if (in_array($campo, ['nombre', 'domicilio', 'numero', 'telefono_movil', 'telefono_fijo', 'comentario', 'domicilio_cobro', 'deuda_2024'])) {
+            // Mayúsculas SOLO en texto
+            if (in_array($campo, ['nombre', 'domicilio', 'comentario', 'ultimo_contacto', 'domicilio_cobro'], true)) {
                 $valor = aMayus($valor);
             }
 
@@ -69,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         $valores[] = $id;
+
         $sql = "UPDATE socios SET " . implode(', ', $set) . " WHERE id_socio = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($valores);
@@ -77,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     } catch (PDOException $e) {
         echo json_encode(['exito' => false, 'mensaje' => 'ERROR AL ACTUALIZAR: ' . $e->getMessage()]);
     }
+
 } else {
     echo json_encode(['exito' => false, 'mensaje' => 'MÉTODO NO PERMITIDO']);
 }

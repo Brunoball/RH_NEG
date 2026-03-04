@@ -12,11 +12,11 @@ try {
     // Llamar con: action=contable&meta=years
     if (isset($_GET['meta']) && $_GET['meta'] === 'years') {
 
-        // Trae años desde pagos + pagos_inscripcion
+        // Trae años por ENTRADA (fecha_pago)
         $yearsStmt = $pdo->query("
             SELECT DISTINCT YEAR(fecha_pago) AS y
             FROM pagos
-            WHERE estado = 'pagado'
+            WHERE estado IN ('pagado','condonado')
 
             UNION
 
@@ -36,7 +36,7 @@ try {
             'anios'         => $aniosDisponibles,
             'total_socios'  => $totalSocios,
             'anio_aplicado' => 0, // no aplica en meta
-            'datos'         => [], // sin datos pesados
+            'datos'         => [],
             'condonados'    => [],
         ], JSON_UNESCAPED_UNICODE);
         exit;
@@ -46,7 +46,7 @@ try {
     $yearsStmt = $pdo->query("
         SELECT DISTINCT YEAR(fecha_pago) AS y
         FROM pagos
-        WHERE estado = 'pagado'
+        WHERE estado IN ('pagado','condonado')
 
         UNION
 
@@ -57,7 +57,7 @@ try {
     ");
     $aniosDisponibles = array_map('intval', $yearsStmt->fetchAll(PDO::FETCH_COLUMN));
 
-    // ===================== AÑO aplicado =====================
+    // ===================== AÑO aplicado (FILTRA POR fecha_pago) =====================
     $anioParam    = isset($_GET['anio']) ? (int)$_GET['anio'] : 0;
     $anioAplicado = $anioParam > 0 ? $anioParam : (!empty($aniosDisponibles) ? max($aniosDisponibles) : 0);
 
@@ -66,7 +66,6 @@ try {
     $rowTot      = $stmtTot->fetch(PDO::FETCH_ASSOC);
     $totalSocios = (int)($rowTot['c'] ?? 0);
 
-    // Si no hay pagos todavía, devolver estructura vacía
     if ($anioAplicado === 0) {
         echo json_encode([
             'exito'         => true,
@@ -79,13 +78,16 @@ try {
         exit;
     }
 
-    // ===================== Pagos 'pagado' del año (usa p.monto) =====================
+    // ===================== Pagos 'pagado' del año (por fecha_pago) =====================
+    // ✅ FIX CLAVE: anio_aplicado = p.anio_aplicado (no YEAR(fecha_pago))
     $sqlPagados = "
         SELECT
             p.id_pago,
             p.id_socio,
             p.id_periodo,
             p.fecha_pago,
+            p.anio_aplicado        AS anio_aplicado,
+            YEAR(p.fecha_pago)     AS anio_cobrado,
             p.estado,
             p.monto,
             p.id_medio_pago,
@@ -116,13 +118,16 @@ try {
     $stPag->execute();
     $pagos = $stPag->fetchAll(PDO::FETCH_ASSOC);
 
-    // ===================== Pagos 'condonados' (compat UI) =====================
+    // ===================== Pagos 'condonados' del año (por fecha_pago) =====================
+    // ✅ FIX CLAVE: anio_aplicado = p.anio_aplicado
     $sqlCond = "
         SELECT
             p.id_pago,
             p.id_socio,
             p.id_periodo,
             p.fecha_pago,
+            p.anio_aplicado        AS anio_aplicado,
+            YEAR(p.fecha_pago)     AS anio_cobrado,
             p.estado,
             p.monto,
             p.id_medio_pago,
@@ -153,14 +158,14 @@ try {
     $stCond->execute();
     $condonadosRaw = $stCond->fetchAll(PDO::FETCH_ASSOC);
 
-    // ===================== NUEVO: PAGOS INSCRIPCION DEL AÑO =====================
-    // Estructura: pagos_inscripcion(id_inscripcion, id_socio, monto, fecha_pago, id_medio_pago)
+    // ===================== PAGOS INSCRIPCION DEL AÑO =====================
     $sqlIns = "
         SELECT
             pi.id_inscripcion,
             pi.id_socio,
             pi.monto,
             pi.fecha_pago,
+            YEAR(pi.fecha_pago)    AS anio_aplicado,
             pi.id_medio_pago,
             mp.nombre              AS medio_pago_nombre,
             s.nombre               AS socio_nombre,
@@ -210,6 +215,8 @@ try {
             'Monto_Base_A'       => (float)($r['monto_base_a'] ?? 0),
             'Cobrador'           => (string)($r['cobrador_nombre'] ?? ''),
             'fechaPago'          => (string)($r['fecha_pago'] ?? ''),
+            // ✅ acá llega 2026 aunque fecha_pago sea 2025-12
+            'anio_aplicado'      => (int)($r['anio_aplicado'] ?? 0),
             'Mes_Pagado'         => $periodoNombre,
             'Estado'             => (string)$r['estado'],
             'Estado_Socio'       => (string)($r['socio_estado_desc'] ?? ''),
@@ -219,7 +226,7 @@ try {
         ];
     }
 
-    // ===================== NUEVO: inyectar INSCRIPCION como "período virtual" =====================
+    // ===================== INSCRIPCION como "período virtual" =====================
     if (!empty($inscripciones)) {
         $k = 'INSCRIPCION';
 
@@ -235,15 +242,16 @@ try {
                 'ID_Socio'           => (int)$r['id_socio'],
                 'Socio'              => (string)$r['socio_nombre'],
                 'Precio'             => (float)($r['monto'] ?? 0),
-                'Tipo_Precio'        => 'I',                 // I = Inscripción
+                'Tipo_Precio'        => 'I',
                 'Categoria_Id'       => (int)($r['socio_id_cat_monto'] ?? 0),
                 'Nombre_Categoria'   => (string)($r['nombre_categoria'] ?? ''),
                 'Monto_Base_M'       => (float)($r['monto_base_m'] ?? 0),
                 'Monto_Base_A'       => (float)($r['monto_base_a'] ?? 0),
                 'Cobrador'           => (string)($r['cobrador_nombre'] ?? ''),
                 'fechaPago'          => (string)($r['fecha_pago'] ?? ''),
+                'anio_aplicado'      => (int)($r['anio_aplicado'] ?? 0),
                 'Mes_Pagado'         => 'INSCRIPCION',
-                'Estado'             => 'inscripcion',       // o 'pagado' si querés tratarlo como pagado
+                'Estado'             => 'inscripcion',
                 'Estado_Socio'       => (string)($r['socio_estado_desc'] ?? ''),
                 'Estado_Socio_Id'    => (int)($r['socio_estado_id'] ?? 0),
                 'Medio_Pago_Id'      => (int)($r['id_medio_pago'] ?? 0),
@@ -260,6 +268,7 @@ try {
         'condonados'    => $condonadosRaw,
         'total_socios'  => $totalSocios,
         'anios'         => $aniosDisponibles,
+        // OJO: esto es el año seleccionado para filtrar por fecha_pago
         'anio_aplicado' => $anioAplicado
     ], JSON_UNESCAPED_UNICODE);
 

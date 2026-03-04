@@ -1,18 +1,19 @@
 <?php
+// modules/cuotas/cuotas.php  (o el archivo que usás para listar_anios + listado cuotas)
 require_once __DIR__ . '/../../config/db.php';
 header('Content-Type: application/json; charset=utf-8');
 
 const ID_CONTADO_ANUAL = 7;
 
 /* =========================================================
-   Endpoint: listar años con pagos
+   Endpoint: listar años con pagos (✅ por anio_aplicado)
 ========================================================= */
 if (isset($_GET['listar_anios'])) {
     try {
         $stmt = $pdo->query("
-            SELECT DISTINCT YEAR(fecha_pago) AS anio
+            SELECT DISTINCT anio_aplicado AS anio
               FROM pagos
-             WHERE fecha_pago IS NOT NULL
+             WHERE anio_aplicado IS NOT NULL AND anio_aplicado > 0
              ORDER BY anio DESC
         ");
         $rows  = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -29,8 +30,6 @@ if (isset($_GET['listar_anios'])) {
 
 /* =========================================================
    Helpers: períodos -> fecha de referencia
-   - Periodo 1..6 = bimestres (fin mes: 2,4,6,8,10,12)
-   - Anual = 31/12
 ========================================================= */
 function fechaReferenciaPorPeriodo(int $anio, int $idPeriodo): string {
     if ($idPeriodo === ID_CONTADO_ANUAL || $idPeriodo <= 0) {
@@ -46,7 +45,7 @@ function fechaReferenciaPorPeriodo(int $anio, int $idPeriodo): string {
 }
 
 /* =========================================================
-   Helpers de elegibilidad por ingreso (lo tuyo, igual)
+   Helpers de elegibilidad por ingreso
 ========================================================= */
 function obtenerMesNumero($nombreMes) {
     static $meses = [
@@ -147,15 +146,10 @@ try {
     $anioFiltro      = isset($_GET['anio']) ? (int)$_GET['anio'] : (int)date('Y');
     $idPeriodoFilter = isset($_GET['id_periodo']) ? (int)$_GET['id_periodo'] : 0;
 
-    // ✅ MODO CORRECTO (arregla el bug de duplicación)
-    // - si viene pagados=1 => solo pagados
-    // - si viene condonados=1 => solo condonados
-    // - si no viene ninguno => solo deudores
     $verPagados    = isset($_GET['pagados']);
     $verCondonados = isset($_GET['condonados']);
     $modo = $verPagados ? 'pagado' : ($verCondonados ? 'condonado' : 'deudor');
 
-    // incluir inactivos solo cuando estás mirando pagados/condonados
     $incluirInactivos = ($modo !== 'deudor');
 
     $fechaRefGlobal = fechaReferenciaPorPeriodo($anioFiltro, $idPeriodoFilter);
@@ -195,7 +189,7 @@ try {
                           FROM pagos p
                          WHERE p.id_socio = s.id_socio
                            AND p.id_periodo IN (:pp2, :anual2)
-                           AND YEAR(p.fecha_pago) = :anio2
+                           AND p.anio_aplicado = :anio2
                    )
             ";
         } else {
@@ -221,13 +215,13 @@ try {
     $periodosStmt = $pdo->query("SELECT id_periodo, nombre, meses FROM periodo ORDER BY id_periodo ASC");
     $periodos = $periodosStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    /* ===== PAGOS ===== */
+    /* ===== PAGOS (✅ por anio_aplicado) ===== */
     if ($idPeriodoFilter > 0 && $idPeriodoFilter !== ID_CONTADO_ANUAL) {
         $pagosStmt = $pdo->prepare("
-            SELECT id_socio, id_periodo, estado, fecha_pago
+            SELECT id_socio, id_periodo, estado, fecha_pago, anio_aplicado
               FROM pagos
              WHERE id_periodo IN (:pp, :anual)
-               AND YEAR(fecha_pago) = :anio
+               AND anio_aplicado = :anio
         ");
         $pagosStmt->bindValue(':pp', $idPeriodoFilter, PDO::PARAM_INT);
         $pagosStmt->bindValue(':anual', ID_CONTADO_ANUAL, PDO::PARAM_INT);
@@ -235,9 +229,9 @@ try {
         $pagosStmt->execute();
     } else {
         $pagosStmt = $pdo->prepare("
-            SELECT id_socio, id_periodo, estado, fecha_pago
+            SELECT id_socio, id_periodo, estado, fecha_pago, anio_aplicado
               FROM pagos
-             WHERE YEAR(fecha_pago) = :anio
+             WHERE anio_aplicado = :anio
         ");
         $pagosStmt->bindValue(':anio', $anioFiltro, PDO::PARAM_INT);
         $pagosStmt->execute();
@@ -290,7 +284,6 @@ try {
                 $origenAnual = true;
             }
 
-            // ✅ FILTRO POR MODO (FIX)
             if ($modo === 'pagado' && $estadoPago !== 'pagado') continue;
             if ($modo === 'condonado' && $estadoPago !== 'condonado') continue;
             if ($modo === 'deudor' && $estadoPago !== 'deudor') continue;
@@ -334,7 +327,7 @@ try {
     // —— PERÍODOS 1..6
     $periodos16 = array_values(array_filter(
         $periodos,
-        fn($p) => (int)$p['id_periodo'] !== ID_CONTADO_ANUAL
+        function($p){ return (int)$p['id_periodo'] !== ID_CONTADO_ANUAL; }
     ));
 
     foreach ($socios as $socio) {
@@ -347,7 +340,7 @@ try {
 
             if ($idPeriodoFilter > 0 && $idPeriodo !== $idPeriodoFilter) continue;
 
-            [, $mesFin] = obtenerRangoMeses($periodo['meses'] ?? '', $idPeriodo);
+            list(, $mesFin) = obtenerRangoMeses($periodo['meses'] ?? '', $idPeriodo);
             if (!socioElegibleEnPeriodo($socio['ingreso'] ?? null, $mesFin, $anioFiltro)) continue;
 
             $estadoPago  = 'deudor';
@@ -360,7 +353,6 @@ try {
                 $origenAnual = true;
             }
 
-            // ✅ FILTRO POR MODO (FIX)
             if ($modo === 'pagado' && $estadoPago !== 'pagado') continue;
             if ($modo === 'condonado' && $estadoPago !== 'condonado') continue;
             if ($modo === 'deudor' && $estadoPago !== 'deudor') continue;

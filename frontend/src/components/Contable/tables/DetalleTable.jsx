@@ -1,22 +1,31 @@
+// ✅ REEMPLAZAR COMPLETO
 // src/components/Contable/tables/DetalleTable.jsx
+
 import React, { memo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFilter, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import "../dashboard.css";
 
-/** Fila memoizada (mismo markup que tenías) */
+/** Fila memoizada */
 const GridRow = memo(function GridRow({ r, i, nfPesos }) {
   const montoNum =
     Number.isFinite(r?._precioNum) ? Number(r._precioNum) : Number(r?.Precio ?? 0) || 0;
   const montoFmt = nfPesos.format(montoNum);
 
-  const periodo = String(r?.Mes_Pagado || "").trim();
-  const isInscripcion = periodo.toUpperCase() === "INSCRIPCION";
+  const periodoRaw = String(r?.Mes_Pagado || "").trim();
+  const isInscripcion = periodoRaw.toUpperCase() === "INSCRIPCION";
 
-  // ✅ Si es INSCRIPCION => mostrar SOLO el monto (una sola vez)
-  // ✅ Si NO => mantener como antes: "CATEGORIA (monto)"
   const categoriaTxt = String(r?._categoriaTxt || "-").trim();
   const categoriaCell = isInscripcion ? `$${montoFmt}` : `${categoriaTxt} (${montoFmt})`;
+
+  // ✅ anio_aplicado viene REAL desde DB (p.anio_aplicado)
+  const anioAplicadoNum = Number(r?.anio_aplicado);
+  const anioAplicado =
+    Number.isFinite(anioAplicadoNum) && anioAplicadoNum > 0 ? String(anioAplicadoNum) : "";
+
+  // ✅ Periodo pago: "PERIODO (nombre) / anio_aplicado"
+  // (para anual pagado en 2025 pero aplicado 2026, va a mostrar 2026)
+  const periodoCell = `${periodoRaw || "-"}${anioAplicado ? ` / ${anioAplicado}` : ""}`;
 
   return (
     <div
@@ -41,7 +50,7 @@ const GridRow = memo(function GridRow({ r, i, nfPesos }) {
       </div>
 
       <div className="gridtable-cell centers" role="cell" data-label="Periodo pago">
-        {r?.Mes_Pagado || "-"}
+        {periodoCell}
       </div>
     </div>
   );

@@ -39,20 +39,6 @@ const construirListaAnios = (nowYear) => {
   return arr;
 };
 
-const ventanaAnualActiva = () => {
-  const hoy = new Date();
-  const y = hoy.getFullYear();
-  const startActual = new Date(y, 11, 15);
-  const endSiguiente = new Date(y + 1, 2, 1);
-  if (hoy >= startActual && hoy < endSiguiente) return true;
-
-  const startPrev = new Date(y - 1, 11, 15);
-  const endActual = new Date(y, 2, 1);
-  if (hoy >= startPrev && hoy < endActual) return true;
-
-  return false;
-};
-
 const parseIngresoYM = (fechaStr) => {
   if (!fechaStr) return null;
 
@@ -138,6 +124,7 @@ const ModalPagos = ({
 
   // Modo salida
   const [modoSalida, setModoSalida] = useState('imprimir');
+
   const [showConfirm, setShowConfirm] = useState(false);
 
   // anti-race montos
@@ -201,7 +188,6 @@ const ModalPagos = ({
             .filter((m) => Number.isFinite(m.id) && m.id > 0 && m.nombre);
 
           setMediosPago(medios);
-          // NO reseteamos si ya hay uno seleccionado (ej: inscripción pagada)
           setMedioPagoSeleccionado((prev) => prev || '');
           return;
         }
@@ -374,7 +360,6 @@ const ModalPagos = ({
           setInscripcionPagada(pagada);
           setInscripcionInfo(dataPagados.inscripcion || null);
 
-          // Si ya está pagada, mostramos el monto real y (si viene) el medio real
           if (pagada && dataPagados.inscripcion) {
             const m = Number(dataPagados.inscripcion.monto);
             if (Number.isFinite(m) && m > 0) setMontoInscripcion(m);
@@ -382,8 +367,6 @@ const ModalPagos = ({
             const idmp = Number(dataPagados.inscripcion.id_medio_pago);
             if (Number.isFinite(idmp) && idmp > 0) setMedioPagoSeleccionado(String(idmp));
           } else {
-            // si no está pagada, limpiamos selección de medio SOLO si estás en inscripción
-            // (y no tocamos si estás en cuotas/oficina)
             if (modoInicial === 'inscripcion') setMedioPagoSeleccionado('');
           }
         } else {
@@ -413,7 +396,6 @@ const ModalPagos = ({
     if (!inscripcionPagada) return;
     const idmp = Number(inscripcionInfo?.id_medio_pago);
     if (!Number.isFinite(idmp) || idmp <= 0) return;
-    // si aún no está seteado, lo seteamos
     setMedioPagoSeleccionado((prev) => prev || String(idmp));
   }, [inscripcionPagada, inscripcionInfo, mediosPago]);
 
@@ -430,8 +412,12 @@ const ModalPagos = ({
     if (anioTrabajo < anioIngreso) return [];
 
     return periodos.filter((p) => {
+      // ✅ IMPORTANTE:
+      // Mantenemos filtro por ingreso solo para bimestrales.
+      // CONTADO ANUAL siempre se deja pasar (sin filtros).
+      if (p.id === ID_CONTADO_ANUAL) return true;
+
       if (anioTrabajo === anioIngreso) {
-        if (p.id === ID_CONTADO_ANUAL) return false;
         const primerMes = obtenerPrimerMesDesdeNombre(p.nombre);
         const segundoMes = primerMes + 1;
         return mesIngreso <= segundoMes;
@@ -441,16 +427,11 @@ const ModalPagos = ({
   };
 
   const periodosBase = filtrarPeriodosPorIngreso();
-  const ingresoYM = parseIngresoYM(fechaIngreso);
-  const yearIsBeforeIngreso = ingresoYM ? anioTrabajo < ingresoYM.anio : false;
 
-  const ventanaFlag = ventanaAnualActiva();
+  // ✅ CONTADO ANUAL SIEMPRE DISPONIBLE (sin ventana por fecha)
   const periodosDisponibles = useMemo(() => {
-    return periodosBase.filter((p) => {
-      if (p.id === ID_CONTADO_ANUAL) return ventanaFlag && !yearIsBeforeIngreso;
-      return true;
-    });
-  }, [periodosBase, ventanaFlag, yearIsBeforeIngreso]);
+    return periodosBase;
+  }, [periodosBase]);
 
   const seleccionIncluyeAnual = seleccionados.includes(ID_CONTADO_ANUAL);
 
@@ -468,7 +449,7 @@ const ModalPagos = ({
 
   const togglePeriodo = async (id) => {
     if (id === ID_CONTADO_ANUAL) {
-      if (!ventanaFlag || yearIsBeforeIngreso) return;
+      // ✅ SIN RESTRICCIONES: anual siempre se puede seleccionar
       setSeleccionados((prev) => {
         const ya = prev.includes(ID_CONTADO_ANUAL);
         return ya ? [] : [ID_CONTADO_ANUAL];
@@ -503,7 +484,8 @@ const ModalPagos = ({
     [seleccionados]
   );
 
-  const aplicaAnualPorSeleccion = ventanaFlag && seleccionIncluyeAnual;
+  // ✅ Anual aplica SIEMPRE que esté seleccionado (sin ventana)
+  const aplicaAnualPorSeleccion = seleccionIncluyeAnual;
 
   const refrescarMontosDePeriodosSeleccionados = async () => {
     if (!socio) return;
@@ -626,7 +608,6 @@ const ModalPagos = ({
   }, [modo, montoInscripcion, condonar, aplicaAnualPorSeleccion, montoAnual, seleccionSinAnual, montosPorPeriodo]);
 
   const periodoTextoFinal = useMemo(() => {
-    // ✅ Inscripción SIN año (porque es una sola vez)
     if (modo === 'inscripcion') return `INSCRIPCIÓN`;
 
     if (aplicaAnualPorSeleccion) return `CONTADO ANUAL ${anioTrabajo}`;
@@ -650,7 +631,7 @@ const ModalPagos = ({
         id_periodo: 0,
         periodo_texto: `INSCRIPCIÓN`,
         importe_total: Number(total) || 0,
-        anio: nowYear, // fijo
+        anio: nowYear,
         medio_pago: medioTexto,
       };
     }
@@ -690,7 +671,6 @@ const ModalPagos = ({
 
     // ===== INSCRIPCIÓN =====
     if (modo === 'inscripcion') {
-      // ✅ si ya está pagada -> bloqueamos
       if (inscripcionPagada) {
         mostrarToast('advertencia', 'La inscripción ya figura como PAGADA. No se puede registrar de nuevo.');
         return;
@@ -706,7 +686,6 @@ const ModalPagos = ({
       try {
         const payload = {
           id_socio: idSocio,
-          // ✅ año fijo actual (solo para backend si lo usa)
           anio: nowYear,
           monto,
           id_medio_pago: Number(medioPagoSeleccionado) || null,
@@ -722,7 +701,6 @@ const ModalPagos = ({
 
         const data = await res.json();
         if (data?.exito) {
-          // ✅ marcamos como pagada y guardamos info básica
           setInscripcionPagada(true);
           setInscripcionInfo({
             monto,
@@ -932,7 +910,6 @@ const ModalPagos = ({
 
   const requiereMedio = modo === 'inscripcion' || esOficina;
 
-  // ✅ si inscripción ya pagada, bloquear confirmación en ese modo
   const bloquearInscripcion = modo === 'inscripcion' && inscripcionPagada;
 
   const deshabilitarConfirmar =
@@ -950,7 +927,6 @@ const ModalPagos = ({
     confirmar();
   };
 
-  // ✅ texto medio para mostrar cuando está pagada
   const medioInscripcionPagada = inscripcionPagada
     ? (medioPagoNombrePorId(inscripcionInfo?.id_medio_pago) || '')
     : '';
@@ -990,28 +966,26 @@ const ModalPagos = ({
               </div>
             </div>
 
-            {/* ✅ Selector modo */}
-{/* ✅ Selector modo (tabs) */}
-<div className="modo-tabs">
-  <button
-    type="button"
-    className={`modo-tab ${modo === "cuotas" ? "active" : ""}`}
-    onClick={() => setModo("cuotas")}
-    disabled={cargando}
-  >
-    Cuotas
-  </button>
+            {/* ✅ Selector modo (tabs) */}
+            <div className="modo-tabs">
+              <button
+                type="button"
+                className={`modo-tab ${modo === "cuotas" ? "active" : ""}`}
+                onClick={() => setModo("cuotas")}
+                disabled={cargando}
+              >
+                Cuotas
+              </button>
 
-  <button
-    type="button"
-    className={`modo-tab ${modo === "inscripcion" ? "active" : ""}`}
-    onClick={() => setModo("inscripcion")}
-    disabled={cargando}
-  >
-    Inscripción
-  </button>
-</div>
-
+              <button
+                type="button"
+                className={`modo-tab ${modo === "inscripcion" ? "active" : ""}`}
+                onClick={() => setModo("inscripcion")}
+                disabled={cargando}
+              >
+                Inscripción
+              </button>
+            </div>
 
             {/* ✅ condonar SOLO en cuotas */}
             {modo === 'cuotas' && (
@@ -1042,8 +1016,7 @@ const ModalPagos = ({
                         <button
                           key={y}
                           className={`year-item ${y === anioTrabajo ? 'active' : ''}`}
-                          disabled={ingresoYM ? y < ingresoYM.anio : false}
-                          title={ingresoYM && y < ingresoYM.anio ? 'Año anterior al ingreso del socio' : undefined}
+                          disabled={false}
                           onClick={() => {
                             setAnioTrabajo(y);
                             setShowYearPicker(false);
@@ -1057,75 +1030,72 @@ const ModalPagos = ({
                 </div>
               </div>
             )}
-{modo === 'inscripcion' && (
-  <div className="condonar-box is-active inscripcion-box">
-    {inscripcionPagada && (
-      <div className="inscripcion-paid-banner">
-        <span className="inscripcion-paid-left">Pagado</span>
-        <span className="inscripcion-paid-right">
-          {inscripcionInfo?.fecha_pago ? formatearFecha(inscripcionInfo.fecha_pago) : ''}
-        </span>
-      </div>
-    )}
 
-    <div className="inscripcion-row">
-      <div className="inscripcion-left">
-        <div className="inscripcion-label">
-          Monto de inscripción{" "}
-          <span className="inscripcion-label-muted">
-            {inscripcionPagada ? "(ya registrada)" : "(libre)"}
-          </span>
-        </div>
+            {modo === 'inscripcion' && (
+              <div className="condonar-box is-active inscripcion-box">
+                {inscripcionPagada && (
+                  <div className="inscripcion-paid-banner">
+                    <span className="inscripcion-paid-left">Pagado</span>
+                    <span className="inscripcion-paid-right">
+                      {inscripcionInfo?.fecha_pago ? formatearFecha(inscripcionInfo.fecha_pago) : ''}
+                    </span>
+                  </div>
+                )}
 
-        <input
-          type="text"
-          inputMode="numeric"
-          value={String(montoInscripcion)}
-          onChange={(e) => {
-            if (inscripcionPagada) return;
-            const v = e.target.value.replace(/[^\d]/g, "");
-            setMontoInscripcion(v ? Number(v) : 0);
-          }}
-          className={`medio-pago-select inscripcion-input ${inscripcionPagada ? "is-locked" : ""}`}
-          disabled={cargando || inscripcionPagada}
-          placeholder="Ej: 6000"
-        />
+                <div className="inscripcion-row">
+                  <div className="inscripcion-left">
+                    <div className="inscripcion-label">
+                      Monto de inscripción{" "}
+                      <span className="inscripcion-label-muted">
+                        {inscripcionPagada ? "(ya registrada)" : "(libre)"}
+                      </span>
+                    </div>
 
-        <div className="medio-pago-hint inscripcion-hint">
-          {inscripcionPagada
-            ? `Registrada${
-                inscripcionInfo?.monto ? ` por ${formatearARS(Number(inscripcionInfo.monto) || 0)}` : ""
-              }${medioInscripcionPagada ? ` • Medio: ${medioInscripcionPagada}` : ""}`
-            : "Se registra una sola vez por socio."}
-        </div>
-      </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={String(montoInscripcion)}
+                      onChange={(e) => {
+                        if (inscripcionPagada) return;
+                        const v = e.target.value.replace(/[^\d]/g, "");
+                        setMontoInscripcion(v ? Number(v) : 0);
+                      }}
+                      className={`medio-pago-select inscripcion-input ${inscripcionPagada ? "is-locked" : ""}`}
+                      disabled={cargando || inscripcionPagada}
+                      placeholder="Ej: 6000"
+                    />
 
-<div className="inscripcion-year-pill">
-  <FaCalendarAlt />
-  <span>{nowYear}</span> 
-</div>
+                    <div className="medio-pago-hint inscripcion-hint">
+                      {inscripcionPagada
+                        ? `Registrada${
+                            inscripcionInfo?.monto ? ` por ${formatearARS(Number(inscripcionInfo.monto) || 0)}` : ""
+                          }${medioInscripcionPagada ? ` • Medio: ${medioInscripcionPagada}` : ""}`
+                        : "Se registra una sola vez por socio."}
+                    </div>
+                  </div>
 
-    </div>
-  </div>
-)}
-
-
+                  <div className="inscripcion-year-pill">
+                    <FaCalendarAlt />
+                    <span>{nowYear}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ✅ MEDIO DE PAGO */}
             {mostrarSelectorMedioPago && (
               <div className="medio-pago-section">
                 <div className="section-header">
                   <h4 className="section-title">Medio de Pago*</h4>
-  {!medioPagoSeleccionado && (
-    <span className="required-badge">Requerido</span>
-  )}
-
+                  {!medioPagoSeleccionado && (
+                    <span className="required-badge">Requerido</span>
+                  )}
                 </div>
                 <div className="medio-pago-selector">
                   <select
                     value={medioPagoSeleccionado}
                     onChange={(e) => {
-                      if (modo === 'inscripcion' && inscripcionPagada) return; // ✅ bloqueado
+                      if (modo === 'inscripcion' && inscripcionPagada) return;
                       setMedioPagoSeleccionado(e.target.value);
                     }}
                     className="medio-pago-select"
@@ -1181,6 +1151,8 @@ const ModalPagos = ({
                           const estadoExacto = estadosPorPeriodo[periodo.id];
                           const yaMarcado = !!estadoExacto;
                           const checked = seleccionados.includes(periodo.id);
+
+                          // ✅ en anual, también queda bloqueado si ya está pagado/condonado
                           const disabled = yaMarcado || cargando;
 
                           const etiquetaEstado =

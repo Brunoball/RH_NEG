@@ -265,7 +265,7 @@ const Cuotas = () => {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState('');
 
   // Año y lista de años (del backend según pagos reales)
-  const [anioSeleccionado, setAnioSeleccionado] = useState('');
+  const [anioSeleccionado, setAnioSeleccionado] = useState(() => String(new Date().getFullYear()));
   const [anios, setAnios] = useState([]);
 
   const [mediosPago, setMediosPago] = useState([]);

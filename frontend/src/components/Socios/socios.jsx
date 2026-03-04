@@ -1,3 +1,4 @@
+// ✅ REEMPLAZAR COMPLETO
 // src/components/Socios/Socios.jsx
 import React, {
   useEffect,
@@ -317,9 +318,7 @@ const BarraSuperior = React.memo(
             <FaFilter className="soc-icono-boton" />
             <span>Aplicar Filtros</span>
             <FaChevronDown
-              className={`soc-chevron-icon ${
-                mostrarFiltros ? "soc-rotate" : ""
-              }`}
+              className={`soc-chevron-icon ${mostrarFiltros ? "soc-rotate" : ""}`}
             />
           </button>
 
@@ -519,7 +518,7 @@ const Socios = () => {
   const rol = (usuario?.rol || "vista").toLowerCase();
   const isAdmin = rol === "admin";
 
-  // === NUEVO: también guardamos cobradores y estados (si vienen del backend) ===
+  // === LISTAS (categorías, cobradores, estados) ===
   const [categorias, setCategorias] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [estados, setEstados] = useState([]);
@@ -535,12 +534,26 @@ const Socios = () => {
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
   const [animacionActiva, setAnimacionActiva] = useState(false);
+
+  // ✅ tablaVersion se usa SOLO para la animación, pero ahora el scroll se preserva con initialScrollOffset
   const [tablaVersion, setTablaVersion] = useState(0);
   const [needsRefresh, setNeedsRefresh] = useState(false);
 
   const filtrosRef = useRef(null);
   const listRef = useRef(null);
   const lastScrollOffsetRef = useRef(0);
+
+  // ✅ NUEVO: scroll inicial (react-window lo usa al montar)
+  const [initialScrollOffset, setInitialScrollOffset] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(SS_KEYS.SCROLL);
+      const n = Number(raw || "0");
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    } catch {
+      return 0;
+    }
+  });
+
   const navigate = useNavigate();
   const location = useLocation();
   const [isPending, startTransition] = useTransition();
@@ -766,27 +779,63 @@ const Socios = () => {
     };
   }, []);
 
-  /* ===== RESTAURAR SELECCIÓN/SCROLL ===== */
+  /* ===== RESTAURAR SELECCIÓN/SCROLL (INTELIGENTE) ===== */
   const restorePendingRef = useRef(false);
   const restoredOnceRef = useRef(false);
+
+  // ✅ helper: aplica scroll una vez que listRef existe (AutoSizer ya renderizó)
+  const applyScrollSmart = useCallback((idx, offset) => {
+    // intentamos varias veces por si AutoSizer tarda un frame
+    let tries = 0;
+    const maxTries = 8;
+
+    const tick = () => {
+      tries++;
+      const list = listRef.current;
+      if (!list) {
+        if (tries < maxTries) requestAnimationFrame(tick);
+        return;
+      }
+
+      if (Number.isFinite(idx) && idx >= 0) {
+        try {
+          list.scrollToItem(idx, "smart");
+          return;
+        } catch {}
+      }
+
+      if (Number.isFinite(offset) && offset >= 0) {
+        try {
+          list.scrollTo(offset);
+          return;
+        } catch {}
+      }
+    };
+
+    requestAnimationFrame(tick);
+  }, []);
 
   const goEditar = useCallback(
     (socio) => {
       try {
-        const currentOffset = lastScrollOffsetRef.current || 0;
+        const currentOffset = Number(lastScrollOffsetRef.current || 0);
+
+        // ✅ guardamos scroll + filtros + selección
         sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
         sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
         sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
+        sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
         sessionStorage.setItem(
           `socio_prefetch_${socio.id_socio}`,
           JSON.stringify(socio)
         );
       } catch {}
+
       navigate(`/socios/editar/${socio.id_socio}`, {
         state: { refresh: true, socio },
       });
     },
-    [navigate]
+    [navigate, filtros]
   );
 
   const locationRef = useRef(location);
@@ -798,7 +847,12 @@ const Socios = () => {
     const state = locationRef.current.state;
     if (state && state.refresh) {
       setNeedsRefresh(true);
+
+      // ✅ al volver, queremos restaurar scroll/sel
       restorePendingRef.current = true;
+      restoredOnceRef.current = false;
+
+      // limpiamos el state para no loop
       navigate(locationRef.current.pathname, {
         replace: true,
         state: {},
@@ -842,8 +896,6 @@ const Socios = () => {
         );
         const dataPag = await rPag.json();
 
-        // Se asume que el endpoint devuelve { exito: true, estados: [...] }
-        // con campos: id_socio, deuda_periodos (o similar), estado_pago: 'AL_DIA' | 'DEBE_1_2' | 'DEBE_3_MAS'
         if (dataPag?.exito && Array.isArray(dataPag.estados)) {
           for (const row of dataPag.estados) {
             const id = String(row.id_socio);
@@ -867,7 +919,7 @@ const Socios = () => {
           const ingresoStr = s?.ingreso ? String(s.ingreso) : "";
           const _ingresoTs = parseDateToTs(ingresoStr);
 
-          // ===== NUEVO: deuda de meses/periodos y estado de pago desde el endpoint =====
+          // ===== deuda y estado pago
           let _deudaMeses = 0;
           let _estadoPago = "al-dia";
 
@@ -875,15 +927,10 @@ const Socios = () => {
           if (info) {
             _deudaMeses = Number(info.deuda) || 0;
 
-            if (info.estado === "DEBE_1_2") {
-              _estadoPago = "debe-1-2";
-            } else if (info.estado === "DEBE_3_MAS") {
-              _estadoPago = "debe-3+";
-            } else {
-              _estadoPago = "al-dia";
-            }
+            if (info.estado === "DEBE_1_2") _estadoPago = "debe-1-2";
+            else if (info.estado === "DEBE_3_MAS") _estadoPago = "debe-3+";
+            else _estadoPago = "al-dia";
           } else {
-            // Fallback: por si el backend en el futuro manda deuda dentro de "socios"
             const d = getDeudaMesesFromSocio(s);
             _deudaMeses = d;
             _estadoPago = getEstadoPago(d);
@@ -972,11 +1019,11 @@ const Socios = () => {
     }
   }, [needsRefresh, cargarDatos]);
 
+  // ✅ RESTAURACIÓN: al terminar de cargar, re-montamos la lista con initialScrollOffset
   useEffect(() => {
     if (!restorePendingRef.current) return;
     if (restoredOnceRef.current) return;
     if (cargando) return;
-    if (!listRef.current) return;
 
     try {
       const rawFilters = sessionStorage.getItem(SS_KEYS.FILTERS);
@@ -987,13 +1034,19 @@ const Socios = () => {
       }
 
       const selId = sessionStorage.getItem(SS_KEYS.SEL_ID);
-      const savedOffset = Number(
-        sessionStorage.getItem(SS_KEYS.SCROLL) || "0"
-      );
+      const savedOffsetRaw = sessionStorage.getItem(SS_KEYS.SCROLL);
+      const savedOffset = Number(savedOffsetRaw || "0");
+      const safeOffset =
+        Number.isFinite(savedOffset) && savedOffset >= 0 ? savedOffset : 0;
+
+      // ✅ esto hace que, cuando la List se monte (por key), arranque desde el offset guardado
+      setInitialScrollOffset(safeOffset);
+
+      // armamos la lista actual (con filtros restaurados)
+      const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
 
       const currentList = (() => {
         let arr = socios.filter((s) => s._isActive);
-        const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
 
         if (parsed.showAll) return arr;
 
@@ -1021,7 +1074,6 @@ const Socios = () => {
           const q = String(parsed.busqueda).toLowerCase();
           arr = arr.filter((s) => s._name.includes(q));
         }
-        // Rango fechas al restaurar
         if (parsed.fechaDesde || parsed.fechaHasta) {
           const tsDesde = parseDateToTs(parsed.fechaDesde);
           const tsHastaRaw = parseDateToTs(parsed.fechaHasta);
@@ -1038,29 +1090,35 @@ const Socios = () => {
         return arr;
       })();
 
+      // si está el socio, preferimos ubicarlo (más “inteligente” que el offset)
       if (selId) {
         const idx = currentList.findIndex(
           (s) => String(s.id_socio) === String(selId)
         );
         if (idx >= 0) {
           setSocioSeleccionado(currentList[idx]);
-          requestAnimationFrame(() => {
-            listRef.current?.scrollToItem?.(idx, "smart");
-          });
+          applyScrollSmart(idx, safeOffset);
         } else {
-          requestAnimationFrame(() => {
-            listRef.current?.scrollTo?.(savedOffset);
-          });
+          applyScrollSmart(-1, safeOffset);
         }
+      } else {
+        applyScrollSmart(-1, safeOffset);
       }
 
+      // ✅ marcamos restaurado
       restoredOnceRef.current = true;
       restorePendingRef.current = false;
+
+      // limpiamos
       sessionStorage.removeItem(SS_KEYS.SEL_ID);
-      sessionStorage.removeItem(SS_KEYS.SCROLL);
       sessionStorage.removeItem(SS_KEYS.TS);
-    } catch {}
-  }, [cargando, socios, filtros]);
+      // (dejamos SCROLL para fallback inicial; si querés, podés borrarlo también)
+    } catch {
+      // si falla, al menos evitamos loop
+      restoredOnceRef.current = true;
+      restorePendingRef.current = false;
+    }
+  }, [cargando, socios, filtros, applyScrollSmart]);
 
   /* ===== LOOKUPS para export ===== */
   const mapCategorias = useMemo(() => {
@@ -1092,22 +1150,17 @@ const Socios = () => {
 
   /* ===== HANDLERS / EXPORTACIÓN ===== */
   const manejarSeleccion = useCallback((socio) => {
-    setSocioSeleccionado((prev) =>
-      prev?._idStr !== socio._idStr ? socio : null
-    );
+    setSocioSeleccionado((prev) => (prev?._idStr !== socio._idStr ? socio : null));
   }, []);
 
   const eliminarSocio = useCallback(
     async (id) => {
       try {
-        const response = await fetch(
-          `${BASE_URL}/api.php?action=eliminar_socio`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_socio: id }),
-          }
-        );
+        const response = await fetch(`${BASE_URL}/api.php?action=eliminar_socio`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_socio: id }),
+        });
         const data = await response.json();
         if (data.exito) {
           setSocios((prev) => prev.filter((s) => s.id_socio !== id));
@@ -1129,14 +1182,11 @@ const Socios = () => {
   const darDeBajaSocio = useCallback(
     async (id, motivo) => {
       try {
-        const response = await fetch(
-          `${BASE_URL}/api.php?action=dar_baja_socio`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_socio: id, motivo }),
-          }
-        );
+        const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_socio: id, motivo }),
+        });
         const data = await response.json();
         if (data.exito) {
           setSocios((prev) => prev.filter((s) => s.id_socio !== id));
@@ -1161,25 +1211,17 @@ const Socios = () => {
       return;
     }
     if (!showAll && activeFiltersCount === 0) {
-      mostrarToast(
-        'Aplicá al menos un filtro o "Mostrar todos" para exportar.',
-        "error"
-      );
+      mostrarToast('Aplicá al menos un filtro o "Mostrar todos" para exportar.', "error");
       return;
     }
     if (sociosFiltrados.length === 0) {
-      mostrarToast(
-        "No hay socios que coincidan con los filtros actuales.",
-        "error"
-      );
+      mostrarToast("No hay socios que coincidan con los filtros actuales.", "error");
       return;
     }
 
     const datos = sociosFiltrados.map((s) => {
-      const catTxt =
-        mapCategorias.get(String(s.id_categoria)) ?? s.id_categoria;
-      const cobTxt =
-        mapCobradores.get(String(s.id_cobrador)) ?? s.id_cobrador;
+      const catTxt = mapCategorias.get(String(s.id_categoria)) ?? s.id_categoria;
+      const cobTxt = mapCobradores.get(String(s.id_cobrador)) ?? s.id_cobrador;
       const estTxt = mapEstados.get(String(s.id_estado)) ?? s.id_estado;
 
       return {
@@ -1209,9 +1251,7 @@ const Socios = () => {
     );
 
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], {
-      type: "application/octet-stream",
-    });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(blob, "Socios.xlsx");
   }, [
     socios,
@@ -1234,7 +1274,6 @@ const Socios = () => {
     const shouldAnimate = animacionActiva && index < MAX_CASCADE;
     const animationDelay = shouldAnimate ? `${index * 0.035}s` : "0s";
 
-    // Clase según estado de pago
     const estadoPago = socio._estadoPago; // 'al-dia', 'debe-1-2', 'debe-3+'
     const estadoPagoClass =
       estadoPago === "al-dia"
@@ -1255,12 +1294,8 @@ const Socios = () => {
           animationDuration: shouldAnimate ? ".3s" : "0s",
           opacity: shouldAnimate ? 0 : 1,
         }}
-        className={`soc-tabla-fila ${
-          esFilaPar ? "soc-row-even" : "soc-row-odd"
-        } ${
-          socioSeleccionado?._idStr === socio._idStr
-            ? "soc-fila-seleccionada"
-            : ""
+        className={`soc-tabla-fila ${esFilaPar ? "soc-row-even" : "soc-row-odd"} ${
+          socioSeleccionado?._idStr === socio._idStr ? "soc-fila-seleccionada" : ""
         } ${estadoPagoClass}`}
         onClick={() => manejarSeleccion(socio)}
       >
@@ -1268,19 +1303,11 @@ const Socios = () => {
           {socio.id_socio}
         </div>
 
-        <div
-          className="soc-col-nombre"
-          data-label="Socio"
-          title={socio.nombre}
-        >
+        <div className="soc-col-nombre" data-label="Socio" title={socio.nombre}>
           {socio.nombre}
         </div>
 
-        <div
-          className="soc-col-domicilio"
-          data-label="Domicilio"
-          title={socio._dom}
-        >
+        <div className="soc-col-domicilio" data-label="Domicilio" title={socio._dom}>
           {socio._dom}
         </div>
 
@@ -1297,7 +1324,6 @@ const Socios = () => {
         <div className="soc-col-acciones">
           {socioSeleccionado?._idStr === socio._idStr && (
             <div className="soc-iconos-acciones">
-              {/* Siempre visible */}
               <FaInfoCircle
                 title="Ver información"
                 onClick={(e) => {
@@ -1308,7 +1334,6 @@ const Socios = () => {
                 className="soc-icono"
               />
 
-              {/* Solo ADMIN: Editar / Eliminar / Dar de baja */}
               {isAdmin && (
                 <>
                   <FaEdit
@@ -1350,7 +1375,11 @@ const Socios = () => {
 
   const Outer = useMemo(() => {
     return React.forwardRef((props, ref) => (
-      <div ref={ref} {...props} style={{ ...props.style, overflowX: "hidden" }} />
+      <div
+        ref={ref}
+        {...props}
+        style={{ ...props.style, overflowX: "hidden" }}
+      />
     ));
   }, []);
 
@@ -1360,24 +1389,13 @@ const Socios = () => {
   const limpiarChip = useCallback(
     (tipo) => {
       setFiltros((prev) => {
-        if (tipo === "busqueda")
-          return { ...prev, busqueda: "", showAll: prev.showAll };
+        if (tipo === "busqueda") return { ...prev, busqueda: "", showAll: prev.showAll };
         if (tipo === "id") return { ...prev, busquedaId: "", showAll: false };
-        if (tipo === "letra")
-          return { ...prev, letraSeleccionada: "TODOS", showAll: false };
+        if (tipo === "letra") return { ...prev, letraSeleccionada: "TODOS", showAll: false };
         if (tipo === "categoria")
-          return {
-            ...prev,
-            categoriaSeleccionada: "OPCIONES",
-            showAll: false,
-          };
+          return { ...prev, categoriaSeleccionada: "OPCIONES", showAll: false };
         if (tipo === "fecha")
-          return {
-            ...prev,
-            fechaDesde: "",
-            fechaHasta: "",
-            showAll: false,
-          };
+          return { ...prev, fechaDesde: "", fechaHasta: "", showAll: false };
         if (tipo === "showAll") return { ...prev, showAll: false };
         return prev;
       });
@@ -1402,14 +1420,10 @@ const Socios = () => {
       arr.push({ key: "letra", label: `Letra: ${letraSeleccionada}` });
     }
     if (categoriaSeleccionada && categoriaSeleccionada !== "OPCIONES") {
-      const found = categorias.find(
-        (c) => String(c.id) === String(categoriaSeleccionada)
-      );
+      const found = categorias.find((c) => String(c.id) === String(categoriaSeleccionada));
       arr.push({
         key: "categoria",
-        label: `Categoría: ${
-          found ? found.descripcion : categoriaSeleccionada
-        }`,
+        label: `Categoría: ${found ? found.descripcion : categoriaSeleccionada}`,
       });
     }
     if (fechaDesde || fechaHasta) {
@@ -1443,9 +1457,7 @@ const Socios = () => {
           <Toast
             tipo={toast.tipo}
             mensaje={toast.mensaje}
-            onClose={() =>
-              setToast({ mostrar: false, tipo: "", mensaje: "" })
-            }
+            onClose={() => setToast({ mostrar: false, tipo: "", mensaje: "" })}
             duracion={3000}
           />
         )}
@@ -1469,7 +1481,6 @@ const Socios = () => {
 
         <div className="soc-tabla-container">
           <div className="soc-tabla-header-container" style={{ position: "relative" }}>
-            {/* NUEVO: Contenedor unificado para contador + indicadores + chips */}
             <div className="soc-header-meta">
               <div className="soc-contador">
                 <FaUsers className="soc-contador-icono" size={14} />
@@ -1488,16 +1499,9 @@ const Socios = () => {
               </div>
 
               <div className="soc-header-meta-right">
-
-
-                {/* Isla de chips */}
                 <div className="soc-filters-island">
                   {chips.map((ch) => (
-                    <div
-                      key={ch.key}
-                      className="soc-chip"
-                      title={ch.label}
-                    >
+                    <div key={ch.key} className="soc-chip" title={ch.label}>
                       <span>{ch.label}</span>
                       <button
                         onClick={(e) => {
@@ -1512,7 +1516,7 @@ const Socios = () => {
                     </div>
                   ))}
                 </div>
-                                {/* Leyenda de estado de pago */}
+
                 <div className="soc-legenda-pagos">
                   <span className="soc-legenda-item">
                     <span className="soc-legenda-dot soc-legenda-dot--al-dia" />
@@ -1530,7 +1534,6 @@ const Socios = () => {
               </div>
             </div>
 
-            {/* Header de la tabla */}
             <div className="soc-tabla-header">
               <div className="soc-col-id">ID</div>
               <div className="soc-col-nombre">Apellido y Nombre</div>
@@ -1540,18 +1543,13 @@ const Socios = () => {
             </div>
           </div>
 
-          {/* Lista */}
           <div
-            className={`soc-list-container ${
-              animacionActiva ? "soc-cascade-animation" : ""
-            }`}
+            className={`soc-list-container ${animacionActiva ? "soc-cascade-animation" : ""}`}
             style={{ flex: 1, overflow: "hidden", position: "relative" }}
           >
             {!showAll && activeFiltersCount === 0 ? (
               <div className="soc-boton-mostrar-container">
-                <div className="soc-mensaje-inicial">
-                  Aplicá al menos un filtro para ver socios
-                </div>
+                <div className="soc-mensaje-inicial">Aplicá al menos un filtro para ver socios</div>
                 <button
                   className="soc-boton-mostrar-todos"
                   onClick={() => {
@@ -1579,17 +1577,14 @@ const Socios = () => {
                 <p className="soc-texto-cargando">Cargando socios...</p>
               </div>
             ) : socios.length === 0 ? (
-              <div className="soc-sin-resultados">
-                No hay socios registrados
-              </div>
+              <div className="soc-sin-resultados">No hay socios registrados</div>
             ) : sociosFiltrados.length === 0 ? (
-              <div className="soc-sin-resultados">
-                No hay resultados con los filtros actuales
-              </div>
+              <div className="soc-sin-resultados">No hay resultados con los filtros actuales</div>
             ) : (
               <AutoSizer>
                 {({ height, width }) => (
                   <List
+                    // ✅ clave: si remonta por animación / cambio de item size, arranca desde initialScrollOffset
                     key={`${tablaVersion}-${dynamicItemSize}`}
                     ref={listRef}
                     height={height}
@@ -1600,9 +1595,14 @@ const Socios = () => {
                     overscanCount={4}
                     outerElementType={Outer}
                     itemKey={(index, data) => data[index]._idStr}
-                    onScroll={({ scrollOffset }) =>
-                      (lastScrollOffsetRef.current = scrollOffset)
-                    }
+                    initialScrollOffset={initialScrollOffset}
+                    onScroll={({ scrollOffset }) => {
+                      lastScrollOffsetRef.current = scrollOffset;
+                      // ✅ persistimos SIEMPRE el scroll actual para que al volver no salte arriba
+                      try {
+                        sessionStorage.setItem(SS_KEYS.SCROLL, String(scrollOffset));
+                      } catch {}
+                    }}
                   >
                     {Row}
                   </List>
@@ -1612,17 +1612,12 @@ const Socios = () => {
           </div>
         </div>
 
-        {/* Barra inferior */}
         <div className="soc-barra-inferior">
-          <button
-            className="soc-boton soc-boton-volver"
-            onClick={() => navigate("/panel")}
-          >
+          <button className="soc-boton soc-boton-volver" onClick={() => navigate("/panel")}>
             <FaArrowLeft className="soc-boton-icono" /> Volver
           </button>
 
           <div className="soc-botones-derecha">
-            {/* Agregar Socio: solo ADMIN */}
             {isAdmin && (
               <button
                 className="soc-boton soc-boton-agregar"
@@ -1645,24 +1640,16 @@ const Socios = () => {
               <FaFileExcel className="soc-boton-icono" /> Exportar a Excel
             </button>
 
-            <button
-              className="soc-boton soc-boton-baja"
-              onClick={() => navigate("/socios/baja")}
-            >
+            <button className="soc-boton soc-boton-baja" onClick={() => navigate("/socios/baja")}>
               <FaUserSlash className="soc-boton-icono" /> Dados de Baja
             </button>
 
-            {/* 🔹 Nuevo: botón Familias */}
-            <button
-              className="soc-boton soc-boton-Familia"
-              onClick={() => navigate("/familias")}
-            >
+            <button className="soc-boton soc-boton-Familia" onClick={() => navigate("/familias")}>
               <FaUsers className="soc-boton-icono" /> Familias
             </button>
           </div>
         </div>
 
-        {/* Modales */}
         {ReactDOM.createPortal(
           <ModalEliminarSocio
             mostrar={mostrarModalEliminar}
