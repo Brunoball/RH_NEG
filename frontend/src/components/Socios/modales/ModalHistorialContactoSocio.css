@@ -1,0 +1,234 @@
+/* ModalHistorialContactoSocio.css */
+
+.mhc-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.52);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  padding: 16px;
+  backdrop-filter: blur(5px);
+  animation: mhc-fadeIn 0.3s ease-out;
+}
+
+.mhc-container {
+  background: var(--princ-glass);
+  border-radius: var(--princ-border-radius-xl);
+  width: 100%;
+  max-width: 860px;
+  max-height: 86vh;
+  box-shadow: var(--princ-shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: mhc-slideUp 0.3s ease-out;
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ── Header ── */
+.mhc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(90deg, var(--princ-primary), var(--princ-secondary));
+  color: white;
+  border-top-left-radius: var(--princ-border-radius-xl);
+  border-top-right-radius: var(--princ-border-radius-xl);
+  position: relative;
+  z-index: 1;
+}
+
+.mhc-header-content {
+  flex: 1;
+}
+
+.mhc-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: white;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.mhc-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  opacity: 0.9;
+  font-weight: 400;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.mhc-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: 16px;
+  border-radius: 50%;
+  transition: var(--princ-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mhc-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  transform: rotate(90deg);
+}
+
+/* ── Body ── */
+.mhc-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+}
+
+/* ── Lista de registros ── */
+.mhc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Card de cada contacto ── */
+.mhc-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+  border: 1px solid var(--princ-glass-border);
+  border-radius: var(--princ-border-radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--princ-shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mhc-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mhc-date {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--princ-gray-900);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── Badge de estado ── */
+.mhc-badge {
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.mhc-badge--contactado {
+  background: #edf8f1;
+  color: #1e7e34;
+  border-color: #b7e4c7;
+}
+
+.mhc-badge--pendiente {
+  background: #fff4e8;
+  color: #b25b00;
+  border-color: #ffd7b0;
+}
+
+.mhc-badge--no-contactado {
+  background: #fdeeee;
+  color: #c0392b;
+  border-color: #f5c2c0;
+}
+
+.mhc-badge--sin-gestion {
+  background: #f3f4f6;
+  color: #4b5563;
+  border-color: #e5e7eb;
+}
+
+.mhc-detail {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--princ-gray-600);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── Empty / loading state ── */
+.mhc-empty {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--princ-gray-600);
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── Footer ── */
+.mhc-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+  border-top: 1px solid var(--princ-glass-border);
+}
+
+.mhc-btn-primary {
+  border: none;
+  background: linear-gradient(90deg, var(--princ-primary), var(--princ-secondary));
+  color: white;
+  border-radius: var(--princ-border-radius-lg);
+  padding: 10px 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  transition: var(--princ-transition);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.mhc-btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Animations ── */
+@keyframes mhc-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes mhc-slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 576px) {
+  .mhc-title  { font-size: 1.2rem; }
+  .mhc-header { padding: 16px; }
+  .mhc-body   { padding: 16px; }
+  .mhc-footer { padding: 12px 16px 16px; }
+}

@@ -1051,6 +1051,7 @@
   align-items: center;
   justify-content: flex-end;
   max-width: 60%;
+  margin-right: auto;
 }
 
 /* Mobile: apilamos todo bonito */
