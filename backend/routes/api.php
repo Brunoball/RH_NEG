@@ -83,6 +83,14 @@ try {
             require_once __DIR__ . '/../modules/socios/dar_alta_socio.php';
             exit;
 
+        case 'actualizar_contacto_socio':
+            require_once __DIR__ . '/../modules/socios/actualizar_contacto_socio.php';
+            exit;
+
+        case 'obtener_historial_contactos_socio':
+            require_once __DIR__ . '/../modules/socios/obtener_historial_contactos_socio.php';
+            exit;
+
         case 'estado_pagos_socios':
             require __DIR__ . '/../modules/socios/estado_pagos_socios.php';
             break;

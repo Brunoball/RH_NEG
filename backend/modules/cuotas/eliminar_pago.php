@@ -1,5 +1,7 @@
 <?php
 // modules/cuotas/eliminar_pago.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../../config/db.php';
 
 header("Access-Control-Allow-Origin: *");
@@ -9,110 +11,164 @@ header('Content-Type: application/json; charset=utf-8');
 
 const ID_CONTADO_ANUAL = 7;
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+  http_response_code(200);
+  exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
-  echo json_encode(['exito' => false, 'mensaje' => 'Método no permitido']);
+  echo json_encode([
+    'exito' => false,
+    'mensaje' => 'Método no permitido'
+  ], JSON_UNESCAPED_UNICODE);
   exit;
 }
 
-$in         = json_decode(file_get_contents("php://input"), true) ?? [];
-$id_socio   = (int)($in['id_socio']   ?? 0);
-$id_periodo = (int)($in['id_periodo'] ?? 0);
-$anio       = (int)($in['anio']       ?? 0);
-
-if ($id_socio <= 0 || $id_periodo <= 0 || $anio <= 0) {
-  http_response_code(400);
-  echo json_encode(['exito' => false, 'mensaje' => 'Datos incompletos (id_socio, id_periodo, anio)']);
-  exit;
-}
-
-function respond_json($code, $arr) {
+function respond_json(int $code, array $arr): void
+{
   http_response_code($code);
   echo json_encode($arr, JSON_UNESCAPED_UNICODE);
   exit;
 }
 
+$in = json_decode(file_get_contents("php://input"), true) ?? [];
+
+$id_socio   = (int)($in['id_socio'] ?? 0);
+$id_periodo = (int)($in['id_periodo'] ?? 0);
+$anio       = (int)($in['anio'] ?? 0);
+
+if ($id_socio <= 0 || $id_periodo <= 0 || $anio <= 0) {
+  respond_json(400, [
+    'exito' => false,
+    'mensaje' => 'Datos incompletos (id_socio, id_periodo, anio)'
+  ]);
+}
+
 try {
-  // Aísla la transacción y evita carreras entre lecturas/borrados
   $pdo->exec("SET TRANSACTION ISOLATION LEVEL READ COMMITTED");
   $pdo->beginTransaction();
 
-  // 1) Intento de pago DIRECTO (lock FOR UPDATE)
-  $selDirecto = $pdo->prepare("
-    SELECT id_pago
-      FROM pagos
-     WHERE id_socio = ?
-       AND id_periodo = ?
-       AND YEAR(fecha_pago) = ?
-     LIMIT 1
-     FOR UPDATE
-  ");
-  $selDirecto->execute([$id_socio, $id_periodo, $anio]);
+  /**
+   * Busca un pago exacto:
+   * - primero por anio_aplicado (estructura nueva)
+   * - fallback por YEAR(fecha_pago) si anio_aplicado viene 0 o null (compatibilidad vieja)
+   */
+  $sqlBuscarPago = "
+    SELECT
+      id_pago,
+      id_socio,
+      id_periodo,
+      anio_aplicado,
+      fecha_pago,
+      estado
+    FROM pagos
+    WHERE id_socio = :id_socio
+      AND id_periodo = :id_periodo
+      AND (
+        anio_aplicado = :anio
+        OR (
+          (anio_aplicado IS NULL OR anio_aplicado = 0)
+          AND fecha_pago IS NOT NULL
+          AND YEAR(fecha_pago) = :anio_fecha
+        )
+      )
+    ORDER BY id_pago DESC
+    LIMIT 1
+    FOR UPDATE
+  ";
+
+  // 1) Intentar eliminar pago directo del período seleccionado
+  $selDirecto = $pdo->prepare($sqlBuscarPago);
+  $selDirecto->execute([
+    ':id_socio'   => $id_socio,
+    ':id_periodo' => $id_periodo,
+    ':anio'       => $anio,
+    ':anio_fecha' => $anio,
+  ]);
   $rowDirecto = $selDirecto->fetch(PDO::FETCH_ASSOC);
 
   if ($rowDirecto && isset($rowDirecto['id_pago'])) {
-    $idp = (int)$rowDirecto['id_pago'];
-    $del = $pdo->prepare("DELETE FROM pagos WHERE id_pago = ? LIMIT 1");
-    $del->execute([$idp]);
+    $idPago = (int)$rowDirecto['id_pago'];
+
+    $del = $pdo->prepare("DELETE FROM pagos WHERE id_pago = :id_pago LIMIT 1");
+    $del->execute([':id_pago' => $idPago]);
 
     if ($del->rowCount() > 0) {
       $pdo->commit();
+
       respond_json(200, [
-        'exito'            => true,
-        'mensaje'          => 'Se eliminó el pago del período seleccionado.',
-        'deleted_from'     => 'directo',
+        'exito' => true,
+        'mensaje' => 'Se eliminó el pago del período seleccionado.',
+        'deleted_from' => 'directo',
         'affected_periods' => [$id_periodo],
-        'anio'             => $anio,
+        'anio' => $anio,
+        'id_pago_eliminado' => $idPago,
       ]);
-    } else {
-      // Si otro proceso lo borró entre SELECT y DELETE
-      $pdo->rollBack();
-      respond_json(409, ['exito' => false, 'mensaje' => 'El pago directo ya no existe.']);
     }
+
+    $pdo->rollBack();
+    respond_json(409, [
+      'exito' => false,
+      'mensaje' => 'El pago directo ya no existe.'
+    ]);
   }
 
-  // 2) Intento de pago ANUAL de ese año (lock FOR UPDATE)
-  $selAnual = $pdo->prepare("
-    SELECT id_pago
-      FROM pagos
-     WHERE id_socio = ?
-       AND id_periodo = ?
-       AND YEAR(fecha_pago) = ?
-     LIMIT 1
-     FOR UPDATE
-  ");
-  $selAnual->execute([$id_socio, ID_CONTADO_ANUAL, $anio]);
+  // 2) Si no existe directo, intentar eliminar anual del mismo año
+  $selAnual = $pdo->prepare($sqlBuscarPago);
+  $selAnual->execute([
+    ':id_socio'   => $id_socio,
+    ':id_periodo' => ID_CONTADO_ANUAL,
+    ':anio'       => $anio,
+    ':anio_fecha' => $anio,
+  ]);
   $rowAnual = $selAnual->fetch(PDO::FETCH_ASSOC);
 
   if ($rowAnual && isset($rowAnual['id_pago'])) {
-    $idp = (int)$rowAnual['id_pago'];
-    $delAnual = $pdo->prepare("DELETE FROM pagos WHERE id_pago = ? LIMIT 1");
-    $delAnual->execute([$idp]);
+    $idPagoAnual = (int)$rowAnual['id_pago'];
+
+    $delAnual = $pdo->prepare("DELETE FROM pagos WHERE id_pago = :id_pago LIMIT 1");
+    $delAnual->execute([':id_pago' => $idPagoAnual]);
 
     if ($delAnual->rowCount() > 0) {
       $pdo->commit();
+
       respond_json(200, [
-        'exito'            => true,
-        'mensaje'          => 'Se eliminó el pago ANUAL del socio. Impacta en todos los períodos del año.',
-        'deleted_from'     => 'anual',
+        'exito' => true,
+        'mensaje' => 'Se eliminó el pago ANUAL del socio. Impacta en todos los períodos del año.',
+        'deleted_from' => 'anual',
         'affected_periods' => [ID_CONTADO_ANUAL, 1, 2, 3, 4, 5, 6],
-        'anio'             => $anio,
+        'anio' => $anio,
+        'id_pago_eliminado' => $idPagoAnual,
       ]);
-    } else {
-      $pdo->rollBack();
-      respond_json(409, ['exito' => false, 'mensaje' => 'No se pudo eliminar el pago anual (ya no existe).']);
     }
+
+    $pdo->rollBack();
+    respond_json(409, [
+      'exito' => false,
+      'mensaje' => 'No se pudo eliminar el pago anual (ya no existe).'
+    ]);
   }
 
-  // 3) Nada que borrar en ese año
   $pdo->rollBack();
-  respond_json(404, [
-    'exito'   => false,
-    'mensaje' => 'No existe un pago registrado para el período/año indicado ni un pago anual en ese año.',
-  ]);
 
+  respond_json(404, [
+    'exito' => false,
+    'mensaje' => 'No existe un pago registrado para el período/año indicado ni un pago anual en ese año.',
+    'debug' => [
+      'id_socio' => $id_socio,
+      'id_periodo' => $id_periodo,
+      'id_periodo_anual' => ID_CONTADO_ANUAL,
+      'anio' => $anio
+    ]
+  ]);
 } catch (Throwable $e) {
-  if ($pdo->inTransaction()) $pdo->rollBack();
-  respond_json(500, ['exito' => false, 'mensaje' => 'Error al eliminar: ' . $e->getMessage()]);
+  if ($pdo->inTransaction()) {
+    $pdo->rollBack();
+  }
+
+  respond_json(500, [
+    'exito' => false,
+    'mensaje' => 'Error al eliminar: ' . $e->getMessage()
+  ]);
 }

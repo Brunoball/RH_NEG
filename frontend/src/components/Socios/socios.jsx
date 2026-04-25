@@ -29,11 +29,16 @@ import {
   FaFilter,
   FaChevronDown,
   FaCalendarAlt,
+  FaPhoneAlt,
 } from "react-icons/fa";
 import "./Socios.css";
+import "./modales/ModalCumple18Socio.css";
 import ModalEliminarSocio from "./modales/ModalEliminarSocio";
 import ModalInfoSocio from "./modales/ModalInfoSocio";
 import ModalDarBajaSocio from "./modales/ModalDarBajaSocio";
+import ModalRegistrarContactoSocio from "./modales/ModalRegistrarContactoSocio";
+import ModalHistorialContactoSocio from "./modales/ModalHistorialContactoSocio";
+import ModalCumple18Socio from "./modales/ModalCumple18Socio";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import Toast from "../Global/Toast";
@@ -82,7 +87,9 @@ const SS_KEYS = {
   TS: "socios_last_ts",
   FILTERS: "socios_last_filters",
 };
-const LS_FILTERS = "filtros_socios_v2"; // nueva versión (con showAll)
+const LS_FILTERS = "filtros_socios_v4"; // nueva versión (con filtro de deuda/pagos + showAll)
+const LS_CUMPLE_18_CERRADOS = "socios_cumple_18_cerrados_v1";
+
 
 /* ============================
    HELPERS
@@ -100,7 +107,7 @@ const getFirstLetter = (name) => {
 };
 const parseDateToTs = (d) => {
   if (!d) return null;
-  const parts = String(d).split("-");
+  const parts = String(d).slice(0, 10).split("-");
   if (parts.length === 3) {
     const [yy, mm, dd] = parts.map(Number);
     const ts = new Date(yy, mm - 1, dd).getTime();
@@ -109,6 +116,60 @@ const parseDateToTs = (d) => {
   const ts = new Date(d).getTime();
   return Number.isFinite(ts) ? ts : null;
 };
+
+const getLocalToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
+
+const readJsonLocalStorage = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJsonLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+};
+
+const isDateInCurrentYear = (value) => {
+  const s = String(value ?? "").slice(0, 10);
+  if (!s) return false;
+  const [yy] = s.split("-");
+  return Number(yy) === new Date().getFullYear();
+};
+
+const getCumple18Info = (nacimiento, today = getLocalToday()) => {
+  const s = String(nacimiento ?? "").slice(0, 10);
+  if (!s) return null;
+
+  const [yy, mm, dd] = s.split("-").map(Number);
+  if (!yy || !mm || !dd) return null;
+
+  const birthday18 = new Date(yy + 18, mm - 1, dd);
+  if (Number.isNaN(birthday18.getTime())) return null;
+
+  const todayClean = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Se muestra únicamente durante el año en el que cumple 18, desde el día del cumpleaños.
+  // Así no aparecen socios que cumplieron 18 en años anteriores.
+  if (birthday18.getFullYear() !== todayClean.getFullYear()) return null;
+  if (todayClean.getTime() < birthday18.getTime()) return null;
+
+  return {
+    anio: birthday18.getFullYear(),
+    fechaCumple18: birthday18.toISOString().slice(0, 10),
+    fechaCumple18Label: formatDateDisplay(birthday18.toISOString().slice(0, 10)),
+  };
+};
+
+const getCumple18DismissKey = (socio, info) =>
+  `${info?.anio || new Date().getFullYear()}:${socio?.id_socio || socio?._idStr || ""}`;
 
 // Normaliza la cantidad de meses/periodos adeudados que viene del backend
 const getDeudaMesesFromSocio = (s) => {
@@ -135,6 +196,134 @@ const getEstadoPago = (deudaMeses) => {
   return "debe-3+";
 };
 
+const normalizeDeudaPagoFilter = (value) =>
+  String(value ?? "TODOS")
+    .trim()
+    .toUpperCase();
+
+const socioCumpleFiltroDeudaPago = (socio, filtro) => {
+  const valor = normalizeDeudaPagoFilter(filtro);
+  if (!valor || valor === "TODOS") return true;
+
+  const estado = String(socio?._estadoPago ?? "").trim();
+
+  if (valor === "AL_DIA") return estado === "al-dia";
+  if (valor === "DEBE_1_2") return estado === "debe-1-2";
+  if (valor === "DEBE_3_MAS") return estado === "debe-3+";
+
+  return true;
+};
+
+const getLabelDeudaPago = (value) => {
+  const normalizado = normalizeDeudaPagoFilter(value);
+
+  if (normalizado === "AL_DIA") return "Al día";
+  if (normalizado === "DEBE_1_2") return "Debe 1 o 2 meses";
+  if (normalizado === "DEBE_3_MAS") return "Debe 3 meses o más";
+
+  return "Todos";
+};
+
+const CONTACTO_ESTADO_LABELS = {
+  SIN_GESTION: "Sin gestión",
+  CONTACTADO: "Contactado",
+  PENDIENTE: "Pendiente",
+  NO_CONTACTADO: "No contactó",
+};
+
+const normalizeContactoEstado = (value) => {
+  const v = String(value ?? "")
+    .trim()
+    .toUpperCase();
+
+  if (!v) return "SIN_GESTION";
+  if (v === "VOLVER_A_LLAMAR") return "PENDIENTE";
+  if (v === "TELEFONO_INVALIDO") return "NO_CONTACTADO";
+  if (v === "CONTACTADO" || v === "PENDIENTE" || v === "NO_CONTACTADO" || v === "SIN_GESTION") {
+    return v;
+  }
+
+  return "SIN_GESTION";
+};
+
+const formatDateDisplay = (value) => {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  const [yy, mm, dd] = s.split("-");
+  if (yy && mm && dd) return `${dd}/${mm}/${yy}`;
+  return s;
+};
+
+const getDaysDiffFromToday = (dateStr) => {
+  const ts = parseDateToTs(dateStr);
+  if (ts == null) return null;
+  const today = new Date();
+  const todayTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.floor((todayTs - ts) / (1000 * 60 * 60 * 24));
+};
+
+const buildContactoResumen = (fecha, estado) => {
+  const fechaTxt = formatDateDisplay(fecha);
+  const estadoNorm = normalizeContactoEstado(estado);
+  const estadoTxt = CONTACTO_ESTADO_LABELS[estadoNorm] || "Sin gestión";
+
+  if (fechaTxt) return `${fechaTxt} · ${estadoTxt}`;
+  if (estadoNorm !== "SIN_GESTION") return estadoTxt;
+  return "Sin gestión registrada";
+};
+
+const getContactoMeta = (fecha, estado) => {
+  const estadoNorm = normalizeContactoEstado(estado);
+
+  if ((!fecha || !String(fecha).trim()) && estadoNorm === "SIN_GESTION") {
+    return {
+      tone: "sin-gestion",
+      background: "",
+      border: "",
+      text: "Sin gestión registrada",
+      badge: "Sin gestión",
+    };
+  }
+
+  if (estadoNorm === "CONTACTADO") {
+    return {
+      tone: "contactado",
+      background: "#edf8f1",
+      border: "#27ae60",
+      text: "Contactado",
+      badge: "Contactado",
+    };
+  }
+
+  if (estadoNorm === "PENDIENTE") {
+    return {
+      tone: "pendiente",
+      background: "#fff4e8",
+      border: "#f2994a",
+      text: "Pendiente",
+      badge: "Pendiente",
+    };
+  }
+
+  if (estadoNorm === "NO_CONTACTADO") {
+    return {
+      tone: "no-contactado",
+      background: "#fdeeee",
+      border: "#eb5757",
+      text: "No contactó",
+      badge: "No contactó",
+    };
+  }
+
+  return {
+    tone: "sin-gestion",
+    background: "",
+    border: "",
+    text: "Sin gestión registrada",
+    badge: "Sin gestión",
+  };
+};
+
 /* ============================
    BARRA SUPERIOR
 ============================ */
@@ -146,6 +335,8 @@ const BarraSuperior = React.memo(
     busquedaId,
     letraSeleccionada,
     categoriaSeleccionada,
+    estadoSeleccionado,
+    deudaPagoSeleccionado,
     fechaDesde,
     fechaHasta,
     setFiltros,
@@ -153,17 +344,24 @@ const BarraSuperior = React.memo(
     mostrarFiltros,
     setMostrarFiltros,
     categorias,
+    estados,
     startTransition,
   }) => {
     const [mostrarSubmenuAlfabetico, setMostrarSubmenuAlfabetico] =
       useState(false);
     const [mostrarSubmenuCategoria, setMostrarSubmenuCategoria] =
       useState(false);
+    const [mostrarSubmenuEstado, setMostrarSubmenuEstado] =
+      useState(false);
+    const [mostrarSubmenuDeudaPago, setMostrarSubmenuDeudaPago] =
+      useState(false);
     const [mostrarSubmenuFecha, setMostrarSubmenuFecha] = useState(false);
 
     const toggleSubmenu = useCallback((cual) => {
       setMostrarSubmenuAlfabetico(cual === "alfabetico" ? (v) => !v : false);
       setMostrarSubmenuCategoria(cual === "categoria" ? (v) => !v : false);
+      setMostrarSubmenuEstado(cual === "estado" ? (v) => !v : false);
+      setMostrarSubmenuDeudaPago(cual === "deudaPago" ? (v) => !v : false);
       setMostrarSubmenuFecha(cual === "fecha" ? (v) => !v : false);
     }, []);
 
@@ -197,6 +395,36 @@ const BarraSuperior = React.memo(
       [setFiltros, setMostrarFiltros, startTransition]
     );
 
+    const handleEstadoClick = useCallback(
+      (value) => {
+        startTransition(() => {
+          setFiltros((prev) => ({
+            ...prev,
+            estadoSeleccionado: value,
+            showAll: false,
+          }));
+        });
+        setMostrarSubmenuEstado(false);
+        setMostrarFiltros(false);
+      },
+      [setFiltros, setMostrarFiltros, startTransition]
+    );
+
+    const handleDeudaPagoClick = useCallback(
+      (value) => {
+        startTransition(() => {
+          setFiltros((prev) => ({
+            ...prev,
+            deudaPagoSeleccionado: value,
+            showAll: false,
+          }));
+        });
+        setMostrarSubmenuDeudaPago(false);
+        setMostrarFiltros(false);
+      },
+      [setFiltros, setMostrarFiltros, startTransition]
+    );
+
     const handleMostrarTodos = useCallback(() => {
       startTransition(() => {
         setFiltros((prev) => ({
@@ -205,6 +433,8 @@ const BarraSuperior = React.memo(
           busquedaId: "",
           letraSeleccionada: "TODOS",
           categoriaSeleccionada: "OPCIONES",
+          estadoSeleccionado: "TODOS",
+          deudaPagoSeleccionado: "TODOS",
           fechaDesde: "",
           fechaHasta: "",
           showAll: true,
@@ -213,6 +443,8 @@ const BarraSuperior = React.memo(
       });
       setMostrarSubmenuAlfabetico(false);
       setMostrarSubmenuCategoria(false);
+      setMostrarSubmenuEstado(false);
+      setMostrarSubmenuDeudaPago(false);
       setMostrarSubmenuFecha(false);
       setMostrarFiltros(false);
     }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
@@ -310,6 +542,8 @@ const BarraSuperior = React.memo(
               if (!mostrarFiltros) {
                 setMostrarSubmenuAlfabetico(false);
                 setMostrarSubmenuCategoria(false);
+                setMostrarSubmenuEstado(false);
+                setMostrarSubmenuDeudaPago(false);
                 setMostrarSubmenuFecha(false);
               }
             }}
@@ -392,6 +626,91 @@ const BarraSuperior = React.memo(
                           title={`Filtrar por ${cat.descripcion}`}
                         >
                           {cat.descripcion}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ESTADO */}
+              <div
+                className="soc-filtros-menu-item"
+                onClick={() => toggleSubmenu("estado")}
+              >
+                <span>Estado</span>
+                <FaChevronDown
+                  className={`soc-chevron-icon ${
+                    mostrarSubmenuEstado ? "soc-rotate" : ""
+                  }`}
+                />
+              </div>
+              {mostrarSubmenuEstado && (
+                <div className="soc-filtros-submenu">
+                  <div className="soc-submenu-lista">
+                    {estados.map((estado) => {
+                      const estadoId = String(estado.id ?? estado.id_estado ?? "");
+                      const estadoLabel = String(
+                        estado.descripcion ?? estado.nombre ?? estadoId
+                      );
+                      const active = String(estadoSeleccionado) === estadoId;
+
+                      return (
+                        <div
+                          key={estadoId}
+                          className={`soc-filtros-submenu-item ${
+                            active ? "active" : ""
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEstadoClick(estadoId);
+                          }}
+                          title={`Filtrar por ${estadoLabel}`}
+                        >
+                          {estadoLabel}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* DEUDAS / PAGOS */}
+              <div
+                className="soc-filtros-menu-item"
+                onClick={() => toggleSubmenu("deudaPago")}
+              >
+                <span>Deudas / pagos</span>
+                <FaChevronDown
+                  className={`soc-chevron-icon ${
+                    mostrarSubmenuDeudaPago ? "soc-rotate" : ""
+                  }`}
+                />
+              </div>
+              {mostrarSubmenuDeudaPago && (
+                <div className="soc-filtros-submenu">
+                  <div className="soc-submenu-lista">
+                    {[
+                      { id: "AL_DIA", label: "Al día" },
+                      { id: "DEBE_1_2", label: "Debe 1 o 2 meses" },
+                      { id: "DEBE_3_MAS", label: "Debe 3 meses o más" },
+                    ].map((opcion) => {
+                      const active =
+                        normalizeDeudaPagoFilter(deudaPagoSeleccionado) === opcion.id;
+
+                      return (
+                        <div
+                          key={opcion.id}
+                          className={`soc-filtros-submenu-item ${
+                            active ? "active" : ""
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeudaPagoClick(opcion.id);
+                          }}
+                          title={`Filtrar por ${opcion.label}`}
+                        >
+                          {opcion.label}
                         </div>
                       );
                     })}
@@ -531,7 +850,20 @@ const Socios = () => {
   const [socioInfo, setSocioInfo] = useState(null);
   const [mostrarModalDarBaja, setMostrarModalDarBaja] = useState(false);
   const [socioDarBaja, setSocioDarBaja] = useState(null);
+  const [mostrarModalContacto, setMostrarModalContacto] = useState(false);
+  const [socioContacto, setSocioContacto] = useState(null);
+  const [guardandoContacto, setGuardandoContacto] = useState(false);
+  const [mostrarModalHistorialContacto, setMostrarModalHistorialContacto] = useState(false);
+  const [socioHistorialContacto, setSocioHistorialContacto] = useState(null);
+  const [historialContactos, setHistorialContactos] = useState([]);
+  const [cargandoHistorialContactos, setCargandoHistorialContactos] = useState(false);
+  const [cumple18Pendientes, setCumple18Pendientes] = useState([]);
+  const [socioCumple18EnfocadoId, setSocioCumple18EnfocadoId] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
+
+  const cumple18Actual = cumple18Pendientes[0] || null;
+  const socioCumple18Alerta = cumple18Actual?.socio || null;
+  const cumple18InfoAlerta = cumple18Actual?.info || null;
 
   const [animacionActiva, setAnimacionActiva] = useState(false);
 
@@ -575,6 +907,8 @@ const Socios = () => {
             busquedaId: "",
             letraSeleccionada: "TODOS",
             categoriaSeleccionada: "OPCIONES",
+            estadoSeleccionado: "TODOS",
+            deudaPagoSeleccionado: "TODOS",
             fechaDesde: "",
             fechaHasta: "",
             showAll: false,
@@ -585,6 +919,8 @@ const Socios = () => {
         busquedaId: "",
         letraSeleccionada: "TODOS",
         categoriaSeleccionada: "OPCIONES",
+        estadoSeleccionado: "TODOS",
+        deudaPagoSeleccionado: "TODOS",
         fechaDesde: "",
         fechaHasta: "",
         showAll: false,
@@ -596,6 +932,8 @@ const Socios = () => {
     busquedaId,
     letraSeleccionada,
     categoriaSeleccionada,
+    estadoSeleccionado,
+    deudaPagoSeleccionado,
     fechaDesde,
     fechaHasta,
     showAll,
@@ -661,6 +999,10 @@ const Socios = () => {
       byLetter: letraSeleccionada && letraSeleccionada !== "TODOS",
       byCategory:
         categoriaSeleccionada && categoriaSeleccionada !== "OPCIONES",
+      byState: estadoSeleccionado && estadoSeleccionado !== "TODOS",
+      byDebtPayment:
+        deudaPagoSeleccionado &&
+        normalizeDeudaPagoFilter(deudaPagoSeleccionado) !== "TODOS",
       byDate: !!(fechaDesde || fechaHasta),
     }),
     [
@@ -668,6 +1010,8 @@ const Socios = () => {
       deferredBusqueda,
       letraSeleccionada,
       categoriaSeleccionada,
+      estadoSeleccionado,
+      deudaPagoSeleccionado,
       fechaDesde,
       fechaHasta,
     ]
@@ -695,9 +1039,19 @@ const Socios = () => {
 
     if (activeFilters.byCategory) {
       arr = arr.filter(
-        (s) =>
-          String(s.id_categoria) === String(categoriaSeleccionada) &&
-          Number(s.id_estado) === 2
+        (s) => String(s.id_categoria) === String(categoriaSeleccionada)
+      );
+    }
+
+    if (activeFilters.byState) {
+      arr = arr.filter(
+        (s) => String(s.id_estado) === String(estadoSeleccionado)
+      );
+    }
+
+    if (activeFilters.byDebtPayment) {
+      arr = arr.filter((s) =>
+        socioCumpleFiltroDeudaPago(s, deudaPagoSeleccionado)
       );
     }
 
@@ -731,6 +1085,8 @@ const Socios = () => {
     busquedaId,
     letraSeleccionada,
     categoriaSeleccionada,
+    estadoSeleccionado,
+    deudaPagoSeleccionado,
     deferredBusqueda,
     showAll,
     fechaDesde,
@@ -936,6 +1292,29 @@ const Socios = () => {
             _estadoPago = getEstadoPago(d);
           }
 
+          const _ultimoContactoFechaReal = s?.ultimo_contacto_fecha
+            ? String(s.ultimo_contacto_fecha).slice(0, 10)
+            : "";
+
+          // Reset anual visual: el historial queda guardado, pero el color/estado visual
+          // solo se pinta si el último contacto pertenece al año actual.
+          const _contactoEsDelAnioActual = isDateInCurrentYear(_ultimoContactoFechaReal);
+          const _ultimoContactoFecha = _contactoEsDelAnioActual ? _ultimoContactoFechaReal : "";
+          const _ultimoContactoEstado = _contactoEsDelAnioActual
+            ? normalizeContactoEstado(s?.ultimo_contacto_estado)
+            : "SIN_GESTION";
+          const _ultimoContactoNota = _contactoEsDelAnioActual
+            ? String(s?.ultimo_contacto ?? "").trim()
+            : "";
+          const _contactoMeta = getContactoMeta(
+            _ultimoContactoFecha,
+            _ultimoContactoEstado
+          );
+          const _ultimoContactoResumen = buildContactoResumen(
+            _ultimoContactoFecha,
+            _ultimoContactoEstado
+          );
+
           return {
             ...s,
             _idStr,
@@ -947,6 +1326,12 @@ const Socios = () => {
             _ingresoTs,
             _deudaMeses,
             _estadoPago,
+            _ultimoContactoFechaReal,
+            _ultimoContactoFecha,
+            _ultimoContactoEstado,
+            _ultimoContactoNota,
+            _contactoMeta,
+            _ultimoContactoResumen,
           };
         });
         setSocios(enriched);
@@ -1019,6 +1404,32 @@ const Socios = () => {
     }
   }, [needsRefresh, cargarDatos]);
 
+  useEffect(() => {
+    if (!Array.isArray(socios) || socios.length === 0) {
+      setCumple18Pendientes([]);
+      setSocioCumple18EnfocadoId(null);
+      return;
+    }
+
+    const cerrados = readJsonLocalStorage(LS_CUMPLE_18_CERRADOS, {});
+    const today = getLocalToday();
+
+    const pendientes = socios
+      .filter((s) => s?._isActive)
+      .map((s) => ({ socio: s, info: getCumple18Info(s.nacimiento, today) }))
+      .filter((item) => {
+        if (!item.info) return false;
+        const key = getCumple18DismissKey(item.socio, item.info);
+        return !cerrados[key];
+      });
+
+    setCumple18Pendientes(pendientes);
+
+    if (pendientes.length === 0) {
+      setSocioCumple18EnfocadoId(null);
+    }
+  }, [socios]);
+
   // ✅ RESTAURACIÓN: al terminar de cargar, re-montamos la lista con initialScrollOffset
   useEffect(() => {
     if (!restorePendingRef.current) return;
@@ -1065,9 +1476,23 @@ const Socios = () => {
         ) {
           arr = arr.filter(
             (s) =>
-              String(s.id_categoria) ===
-                String(parsed.categoriaSeleccionada) &&
-              Number(s.id_estado) === 2
+              String(s.id_categoria) === String(parsed.categoriaSeleccionada)
+          );
+        }
+        if (
+          parsed.estadoSeleccionado &&
+          parsed.estadoSeleccionado !== "TODOS"
+        ) {
+          arr = arr.filter(
+            (s) => String(s.id_estado) === String(parsed.estadoSeleccionado)
+          );
+        }
+        if (
+          parsed.deudaPagoSeleccionado &&
+          normalizeDeudaPagoFilter(parsed.deudaPagoSeleccionado) !== "TODOS"
+        ) {
+          arr = arr.filter((s) =>
+            socioCumpleFiltroDeudaPago(s, parsed.deudaPagoSeleccionado)
           );
         }
         if (parsed.busqueda) {
@@ -1153,6 +1578,69 @@ const Socios = () => {
     setSocioSeleccionado((prev) => (prev?._idStr !== socio._idStr ? socio : null));
   }, []);
 
+  const enfocarSocioEnTabla = useCallback(
+    (socio) => {
+      if (!socio?.id_socio) return;
+
+      setBusquedaInput("");
+      startTransition(() => {
+        setFiltros({
+          busqueda: "",
+          busquedaId: "",
+          letraSeleccionada: "TODOS",
+          categoriaSeleccionada: "OPCIONES",
+          estadoSeleccionado: "TODOS",
+          deudaPagoSeleccionado: "TODOS",
+          fechaDesde: "",
+          fechaHasta: "",
+          showAll: true,
+        });
+      });
+
+      const idBuscado = String(socio.id_socio);
+      setSocioCumple18EnfocadoId(idBuscado);
+
+      setTimeout(() => {
+        const activos = socios.filter((s) => s._isActive);
+        const idx = activos.findIndex((s) => String(s.id_socio) === idBuscado);
+        const socioFinal = activos[idx] || socio;
+
+        setSocioSeleccionado(socioFinal);
+
+        if (idx >= 0) {
+          try {
+            listRef.current?.scrollToItem?.(idx, "center");
+          } catch {}
+        }
+      }, 120);
+    },
+    [socios, setFiltros, startTransition]
+  );
+
+  const cerrarAlertaCumple18 = useCallback(() => {
+    if (!socioCumple18Alerta || !cumple18InfoAlerta) return;
+
+    const cerrados = readJsonLocalStorage(LS_CUMPLE_18_CERRADOS, {});
+    const key = getCumple18DismissKey(socioCumple18Alerta, cumple18InfoAlerta);
+
+    cerrados[key] = {
+      id_socio: socioCumple18Alerta.id_socio,
+      nombre: socioCumple18Alerta.nombre || "",
+      cerrado_en: new Date().toISOString(),
+    };
+
+    writeJsonLocalStorage(LS_CUMPLE_18_CERRADOS, cerrados);
+
+    // Al cerrar la notificación actual, se elimina de la cola.
+    // Si hay otra atrás, pasa automáticamente a ser la nueva notificación visible.
+    setCumple18Pendientes((prev) => prev.slice(1));
+
+    // Solo limpiamos el resaltado si estaba marcado el socio que se acaba de cerrar.
+    if (String(socioCumple18EnfocadoId || "") === String(socioCumple18Alerta.id_socio || "")) {
+      setSocioCumple18EnfocadoId(null);
+    }
+  }, [socioCumple18Alerta, cumple18InfoAlerta, socioCumple18EnfocadoId]);
+
   const eliminarSocio = useCallback(
     async (id) => {
       try {
@@ -1205,6 +1693,159 @@ const Socios = () => {
     [mostrarToast, triggerCascade]
   );
 
+  const guardarContactoSocio = useCallback(
+    async (payload) => {
+      if (!socioContacto?.id_socio) return;
+
+      setGuardandoContacto(true);
+      try {
+        const response = await fetch(
+          `${BASE_URL}/api.php?action=actualizar_contacto_socio`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_socio: socioContacto.id_socio,
+              ultimo_contacto_fecha: payload.ultimo_contacto_fecha,
+              ultimo_contacto_estado: payload.ultimo_contacto_estado,
+              ultimo_contacto: payload.ultimo_contacto,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!data?.exito) {
+          mostrarToast(data?.mensaje || "No se pudo guardar el contacto", "error");
+          return;
+        }
+
+        const row = data?.socio || {
+          id_socio: socioContacto.id_socio,
+          ultimo_contacto_fecha: payload.ultimo_contacto_fecha,
+          ultimo_contacto_estado: payload.ultimo_contacto_estado,
+          ultimo_contacto: payload.ultimo_contacto,
+        };
+
+        const patch = {
+          ultimo_contacto_fecha:
+            row.ultimo_contacto_fecha || payload.ultimo_contacto_fecha || "",
+          ultimo_contacto_estado: normalizeContactoEstado(
+            row.ultimo_contacto_estado || payload.ultimo_contacto_estado
+          ),
+          ultimo_contacto: row.ultimo_contacto ?? payload.ultimo_contacto ?? "",
+        };
+
+        patch._ultimoContactoFecha = patch.ultimo_contacto_fecha;
+        patch._ultimoContactoEstado = patch.ultimo_contacto_estado;
+        patch._ultimoContactoNota = String(patch.ultimo_contacto || "").trim();
+        patch._contactoMeta = getContactoMeta(
+          patch._ultimoContactoFecha,
+          patch._ultimoContactoEstado
+        );
+        patch._ultimoContactoResumen = buildContactoResumen(
+          patch._ultimoContactoFecha,
+          patch._ultimoContactoEstado
+        );
+
+        setSocios((prev) =>
+          prev.map((s) =>
+            String(s.id_socio) === String(socioContacto.id_socio) ? { ...s, ...patch } : s
+          )
+        );
+
+        setSocioSeleccionado((prev) =>
+          prev && String(prev.id_socio) === String(socioContacto.id_socio)
+            ? { ...prev, ...patch }
+            : prev
+        );
+
+        setSocioInfo((prev) =>
+          prev && String(prev.id_socio) === String(socioContacto.id_socio)
+            ? { ...prev, ...patch }
+            : prev
+        );
+
+        setSocioContacto((prev) =>
+          prev && String(prev.id_socio) === String(socioContacto.id_socio)
+            ? { ...prev, ...patch }
+            : prev
+        );
+
+        if (
+          mostrarModalHistorialContacto &&
+          socioHistorialContacto &&
+          String(socioHistorialContacto.id_socio) === String(socioContacto.id_socio)
+        ) {
+          const nuevoRegistro = data?.contacto || {
+            id_contacto: data?.socio?.id_ultimo_contacto || Date.now(),
+            id_socio: socioContacto.id_socio,
+            fecha_contacto: patch._ultimoContactoFecha,
+            estado_contacto: patch._ultimoContactoEstado,
+            detalle_contacto: patch._ultimoContactoNota,
+            created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+          };
+
+          setHistorialContactos((prev) => [
+            nuevoRegistro,
+            ...prev.filter((item) => String(item.id_contacto) !== String(nuevoRegistro.id_contacto)),
+          ]);
+        }
+
+        mostrarToast("Último contacto guardado correctamente");
+        setMostrarModalContacto(false);
+        setSocioContacto(null);
+      } catch {
+        mostrarToast("Error de red al guardar el último contacto", "error");
+      } finally {
+        setGuardandoContacto(false);
+      }
+    },
+    [
+      mostrarToast,
+      socioContacto,
+      mostrarModalHistorialContacto,
+      socioHistorialContacto,
+    ]
+  );
+
+
+  const abrirHistorialContacto = useCallback(
+    async (socioBase) => {
+      if (!socioBase?.id_socio) return;
+
+      setSocioHistorialContacto(socioBase);
+      setHistorialContactos([]);
+      setMostrarModalHistorialContacto(true);
+      setCargandoHistorialContactos(true);
+
+      try {
+        const response = await fetch(
+          `${BASE_URL}/api.php?action=obtener_historial_contactos_socio&id_socio=${encodeURIComponent(
+            socioBase.id_socio
+          )}`,
+          { cache: "no-store" }
+        );
+
+        const data = await response.json();
+
+        if (!data?.exito) {
+          mostrarToast(data?.mensaje || "No se pudo obtener el historial", "error");
+          setHistorialContactos([]);
+          return;
+        }
+
+        setHistorialContactos(Array.isArray(data.historial) ? data.historial : []);
+      } catch {
+        mostrarToast("Error de red al obtener el historial", "error");
+        setHistorialContactos([]);
+      } finally {
+        setCargandoHistorialContactos(false);
+      }
+    },
+    [mostrarToast]
+  );
+
   const exportarExcel = useCallback(() => {
     if (socios.length === 0) {
       mostrarToast("No hay socios registrados para exportar.", "error");
@@ -1238,7 +1879,18 @@ const Socios = () => {
         Fecha_Nacimiento: s.nacimiento,
         Ingreso: s.ingreso,
         Activo: s.activo,
+        Estado_pago: getLabelDeudaPago(
+          s._estadoPago === "al-dia"
+            ? "AL_DIA"
+            : s._estadoPago === "debe-1-2"
+            ? "DEBE_1_2"
+            : "DEBE_3_MAS"
+        ),
         Deuda_meses: s._deudaMeses ?? 0,
+        Ultimo_contacto_fecha: s._ultimoContactoFecha || "",
+        Ultimo_contacto_estado:
+          CONTACTO_ESTADO_LABELS[s._ultimoContactoEstado] || "Sin gestión",
+        Ultimo_contacto_nota: s._ultimoContactoNota || "",
       };
     });
 
@@ -1270,19 +1922,15 @@ const Socios = () => {
   const RowBase = ({ index, style, data }) => {
     const socio = data[index];
     const esFilaPar = (index & 1) === 0;
+    const esSocioCumple18Enfocado =
+      socioCumple18EnfocadoId && String(socio.id_socio) === String(socioCumple18EnfocadoId);
 
     const shouldAnimate = animacionActiva && index < MAX_CASCADE;
     const animationDelay = shouldAnimate ? `${index * 0.035}s` : "0s";
-
-    const estadoPago = socio._estadoPago; // 'al-dia', 'debe-1-2', 'debe-3+'
-    const estadoPagoClass =
-      estadoPago === "al-dia"
-        ? "soc-estado-al-dia"
-        : estadoPago === "debe-1-2"
-        ? "soc-estado-debe-1-2"
-        : estadoPago === "debe-3+"
-        ? "soc-estado-debe-3-mas"
-        : "";
+    const contactoMeta = socio._contactoMeta || getContactoMeta(
+      socio._ultimoContactoFecha,
+      socio._ultimoContactoEstado
+    );
 
     return (
       <div
@@ -1293,11 +1941,23 @@ const Socios = () => {
           animationFillMode: "forwards",
           animationDuration: shouldAnimate ? ".3s" : "0s",
           opacity: shouldAnimate ? 0 : 1,
+          backgroundColor: esSocioCumple18Enfocado
+            ? "#eaf3ff"
+            : contactoMeta.background || undefined,
+          borderLeft: esSocioCumple18Enfocado
+            ? "6px solid #2563eb"
+            : contactoMeta.border
+            ? `5px solid ${contactoMeta.border}`
+            : undefined,
+          boxShadow: esSocioCumple18Enfocado
+            ? "inset 0 0 0 2px rgba(37, 99, 235, 0.28), 0 6px 18px rgba(37, 99, 235, 0.16)"
+            : undefined,
         }}
         className={`soc-tabla-fila ${esFilaPar ? "soc-row-even" : "soc-row-odd"} ${
           socioSeleccionado?._idStr === socio._idStr ? "soc-fila-seleccionada" : ""
-        } ${estadoPagoClass}`}
+        } ${esSocioCumple18Enfocado ? "soc-fila-cumple18-enfocada" : ""}`}
         onClick={() => manejarSeleccion(socio)}
+        title={socio._ultimoContactoResumen || "Sin gestión registrada"}
       >
         <div className="soc-col-id" data-label="ID" title={socio.id_socio}>
           {socio.id_socio}
@@ -1313,12 +1973,41 @@ const Socios = () => {
 
         <div className="soc-col-comentario" data-label="Comentario">
           {socio.comentario ? (
-            <span title={socio.comentario}>
+            <div title={socio.comentario}>
               {socio.comentario.length > 36
                 ? `${socio.comentario.substring(0, 36)}…`
                 : socio.comentario}
-            </span>
+            </div>
           ) : null}
+
+          <div
+            style={{
+              marginTop: socio.comentario ? 4 : 0,
+              fontSize: 11,
+              lineHeight: 1.25,
+              color: "#4f4f4f",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              flexWrap: "wrap",
+            }}
+            title={
+              socio._ultimoContactoNota
+                ? `${socio._ultimoContactoResumen} · ${socio._ultimoContactoNota}`
+                : socio._ultimoContactoResumen
+            }
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                backgroundColor: contactoMeta.border || "#bdbdbd",
+              }}
+            />
+            <span>{socio._ultimoContactoResumen || "Sin gestión registrada"}</span>
+          </div>
         </div>
 
         <div className="soc-col-acciones">
@@ -1336,6 +2025,15 @@ const Socios = () => {
 
               {isAdmin && (
                 <>
+                  <FaPhoneAlt
+                    title="Registrar último contacto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSocioContacto(socio);
+                      setMostrarModalContacto(true);
+                    }}
+                    className="soc-icono"
+                  />
                   <FaEdit
                     title="Editar"
                     onClick={(e) => {
@@ -1394,6 +2092,10 @@ const Socios = () => {
         if (tipo === "letra") return { ...prev, letraSeleccionada: "TODOS", showAll: false };
         if (tipo === "categoria")
           return { ...prev, categoriaSeleccionada: "OPCIONES", showAll: false };
+        if (tipo === "estado")
+          return { ...prev, estadoSeleccionado: "TODOS", showAll: false };
+        if (tipo === "deudaPago")
+          return { ...prev, deudaPagoSeleccionado: "TODOS", showAll: false };
         if (tipo === "fecha")
           return { ...prev, fechaDesde: "", fechaHasta: "", showAll: false };
         if (tipo === "showAll") return { ...prev, showAll: false };
@@ -1426,6 +2128,24 @@ const Socios = () => {
         label: `Categoría: ${found ? found.descripcion : categoriaSeleccionada}`,
       });
     }
+    if (estadoSeleccionado && estadoSeleccionado !== "TODOS") {
+      const foundEstado = estados.find(
+        (e) => String(e.id ?? e.id_estado ?? "") === String(estadoSeleccionado)
+      );
+      arr.push({
+        key: "estado",
+        label: `Estado: ${foundEstado ? (foundEstado.descripcion ?? foundEstado.nombre) : estadoSeleccionado}`,
+      });
+    }
+    if (
+      deudaPagoSeleccionado &&
+      normalizeDeudaPagoFilter(deudaPagoSeleccionado) !== "TODOS"
+    ) {
+      arr.push({
+        key: "deudaPago",
+        label: `Deudas / pagos: ${getLabelDeudaPago(deudaPagoSeleccionado)}`,
+      });
+    }
     if (fechaDesde || fechaHasta) {
       const etiqueta =
         fechaDesde && fechaHasta
@@ -1442,7 +2162,10 @@ const Socios = () => {
     busquedaId,
     letraSeleccionada,
     categoriaSeleccionada,
+    estadoSeleccionado,
     categorias,
+    estados,
+    deudaPagoSeleccionado,
     fechaDesde,
     fechaHasta,
   ]);
@@ -1469,6 +2192,8 @@ const Socios = () => {
           busquedaId={busquedaId}
           letraSeleccionada={letraSeleccionada}
           categoriaSeleccionada={categoriaSeleccionada}
+          estadoSeleccionado={estadoSeleccionado}
+          deudaPagoSeleccionado={deudaPagoSeleccionado}
           fechaDesde={fechaDesde}
           fechaHasta={fechaHasta}
           setFiltros={setFiltros}
@@ -1476,6 +2201,7 @@ const Socios = () => {
           mostrarFiltros={mostrarFiltros}
           setMostrarFiltros={setMostrarFiltros}
           categorias={categorias}
+          estados={estados}
           startTransition={startTransition}
         />
 
@@ -1517,19 +2243,39 @@ const Socios = () => {
                   ))}
                 </div>
 
-                <div className="soc-legenda-pagos">
-                  <span className="soc-legenda-item">
-                    <span className="soc-legenda-dot soc-legenda-dot--al-dia" />
-                    Al día
-                  </span>
-                  <span className="soc-legenda-item">
-                    <span className="soc-legenda-dot soc-legenda-dot--debe-1-2" />
-                    Debe 1–2 meses
-                  </span>
-                  <span className="soc-legenda-item">
-                    <span className="soc-legenda-dot soc-legenda-dot--debe-3-mas" />
-                    Debe 3+ meses
-                  </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginTop: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 12, opacity: 0.8 }}>Último contacto:</span>
+                  {[
+                    { color: "#27ae60", label: "Contactado" },
+                    { color: "#f2994a", label: "Pendiente" },
+                    { color: "#eb5757", label: "No contactó" },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                      title={item.label}
+                    >
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 999,
+                          backgroundColor: item.color,
+                          display: "inline-block",
+                        }}
+                      />
+                      <span style={{ fontSize: 12 }}>{item.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1560,6 +2306,8 @@ const Socios = () => {
                         busquedaId: "",
                         letraSeleccionada: "TODOS",
                         categoriaSeleccionada: "OPCIONES",
+                        estadoSeleccionado: "TODOS",
+                        deudaPagoSeleccionado: "TODOS",
                         fechaDesde: "",
                         fechaHasta: "",
                         showAll: true,
@@ -1651,6 +2399,18 @@ const Socios = () => {
         </div>
 
         {ReactDOM.createPortal(
+          <ModalCumple18Socio
+            mostrar={Boolean(socioCumple18Alerta)}
+            socio={socioCumple18Alerta}
+            info={cumple18InfoAlerta}
+            cantidadPendiente={cumple18Pendientes.length}
+            onClose={cerrarAlertaCumple18}
+            onVerSocio={() => enfocarSocioEnTabla(socioCumple18Alerta)}
+          />,
+          document.body
+        )}
+
+        {ReactDOM.createPortal(
           <ModalEliminarSocio
             mostrar={mostrarModalEliminar}
             socio={socioAEliminar}
@@ -1684,6 +2444,40 @@ const Socios = () => {
               setSocioDarBaja(null);
             }}
             onDarBaja={darDeBajaSocio}
+          />,
+          document.body
+        )}
+
+        {ReactDOM.createPortal(
+          <ModalRegistrarContactoSocio
+            mostrar={mostrarModalContacto}
+            socio={socioContacto}
+            guardando={guardandoContacto}
+            onClose={() => {
+              if (guardandoContacto) return;
+              setMostrarModalContacto(false);
+              setSocioContacto(null);
+            }}
+            onGuardar={guardarContactoSocio}
+            onOpenHistorial={() => {
+              if (!socioContacto) return;
+              abrirHistorialContacto(socioContacto);
+            }}
+          />,
+          document.body
+        )}
+
+        {ReactDOM.createPortal(
+          <ModalHistorialContactoSocio
+            mostrar={mostrarModalHistorialContacto}
+            socio={socioHistorialContacto}
+            registros={historialContactos}
+            cargando={cargandoHistorialContactos}
+            onClose={() => {
+              setMostrarModalHistorialContacto(false);
+              setSocioHistorialContacto(null);
+              setHistorialContactos([]);
+            }}
           />,
           document.body
         )}
