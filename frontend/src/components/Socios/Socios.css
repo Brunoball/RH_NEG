@@ -657,8 +657,6 @@
     background: transparent !important;
   }
 
-
-
   .soc-tabla-fila > .soc-col-id,
   .soc-tabla-fila > .soc-col-nombre,
   .soc-tabla-fila > .soc-col-domicilio,
@@ -741,7 +739,7 @@
   }
 }
 
-/* ======== NUEVO: Estructura etiqueta (izq) / valor (der) en móvil ======== */
+/* ======== Estructura etiqueta (izq) / valor (der) en móvil ======== */
 @media (max-width: 768px){
   .soc-tabla-fila > .soc-col-id,
   .soc-tabla-fila > .soc-col-nombre,
@@ -754,7 +752,7 @@
     width: 100%;
     padding: 8px 0;
     border-bottom: 1px dashed rgba(226,232,240,.9);
-    text-align: right;                /* valor a la derecha */
+    text-align: right;
   }
   .soc-tabla-fila > .soc-col-comentario{ border-bottom: none; }
 
@@ -762,12 +760,12 @@
   .soc-tabla-fila > .soc-col-nombre::before,
   .soc-tabla-fila > .soc-col-domicilio::before,
   .soc-tabla-fila > .soc-col-comentario::before{
-    content: attr(data-label);        /* usa data-label del JSX */
+    content: attr(data-label);
     flex: 0 0 auto;
     color: var(--soc-dark);
     font-weight: 700;
     letter-spacing: .2px;
-    text-align: left;                 /* etiqueta a la izquierda */
+    text-align: left;
   }
 
   .soc-tabla-fila > .soc-col-comentario span{
@@ -778,39 +776,35 @@
   .soc-tabla-fila > .soc-col-acciones::before{ content: none; }
 }
 
-/* Fondo suave detrás de la lista, para que se note el “aire” */
+/* Fondo suave detrás de la lista */
 .soc-list-container {
   background: #f8fafc;
 }
 
 /* ===== MÓVIL ===== */
 @media (max-width: 768px) {
-  /* La fila de react-window recibe padding para simular el espacio entre tarjetas */
   .soc-tabla-fila {
-    padding: 8px 10px;           /* “aire” vertical/horizontal entre tarjetas */
-    box-sizing: border-box;      /* importante para no desbordar */
+    padding: 8px 10px;
+    box-sizing: border-box;
   }
 
-  /* La tarjeta interna: acá va el look de “card” */
   .soc-row-card {
     display: flex;
     flex-direction: column;
-    gap: 6px;                    /* separación entre “campos” dentro de la tarjeta */
-    height: 100%;                /* ocupa todo el alto que le da react-window */
+    gap: 6px;
+    height: 100%;
     padding: 12px;
     background: #ffffff;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); /* sombra leve */
-    border-left: 4px solid var(--emp-primary, #2563EB); /* borde azul “badge” */
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    border-left: 4px solid var(--emp-primary, #2563EB);
   }
 
-  /* Opcional: que la fila seleccionada se destaque más */
   .soc-fila-seleccionada .soc-row-card {
     box-shadow: 0 4px 14px rgba(2, 132, 199, 0.18);
-    border-left-color: #0ea5e9; /* azul celeste */
+    border-left-color: #0ea5e9;
   }
 
-  /* Columnas apiladas tipo “etiqueta: valor” en móvil */
   .soc-col-id,
   .soc-col-nombre,
   .soc-col-domicilio,
@@ -824,18 +818,17 @@
     font-size: 0.95rem;
     padding: 0 8px;
   }
-.soc-tabla-fila > div:last-child{ justify-content: center;}
-  /* Muestra la etiqueta del data-label en móvil antes del valor */
+  .soc-tabla-fila > div:last-child{ justify-content: center;}
+
   .soc-col-id::before,
   .soc-col-nombre::before,
   .soc-col-domicilio::before,
   .soc-col-comentario::before {
     content: attr(data-label);
     font-weight: 600;
-    color: #475569; /* slate-600 */
+    color: #475569;
   }
 
-  /* Acciones: fila de iconos con separación */
   .soc-col-acciones {
     margin-top: 4px;
   }
@@ -843,15 +836,14 @@
     display: flex;
     gap: 12px;
   }
-    #idicon{ left: .5rem !important;}
-    #idcontpad{padding: 0;
-}
+  #idicon{ left: .5rem !important;}
+  #idcontpad{ padding: 0; }
 }
 
-/* ===== ESCRITORIO (por si querés mantener el look actual) ===== */
+/* ===== ESCRITORIO ===== */
 @media (min-width: 769px) {
   .soc-row-card {
-    display: contents; /* no altera el layout de columnas de la tabla de escritorio */
+    display: contents;
   }
 }
 
@@ -912,106 +904,42 @@
   background: #0ea5e9;
   color: white;
 }
+
 .soc-boton-Familia{
   background-color: var(--princ-dark);
   color: white;
 }
 
 /* ===== ESTADOS DE PAGO: borde izquierdo por estado ===== */
-
-/* De base, todas las filas tienen un borde izquierdo transparente */
 .soc-tabla-fila {
   border-left: 4px solid transparent;
 }
 
-/* Verde: al día */
 .soc-tabla-fila.soc-estado-al-dia {
   border-left-color: #16a34a;
 }
 
-/* Amarillo: debe 1–2 meses */
 .soc-tabla-fila.soc-estado-debe-1-2 {
   border-left-color: #f59e0b;
 }
 
-/* Rojo: debe 3+ meses */
 .soc-tabla-fila.soc-estado-debe-3-mas {
   border-left-color: #ef4444;
 }
 
-/* No pintamos el fondo por estado, dejamos el de filas pares/impares */
 .soc-tabla-fila.soc-estado-al-dia,
 .soc-tabla-fila.soc-estado-debe-1-2,
 .soc-tabla-fila.soc-estado-debe-3-mas {
   background-color: inherit !important;
 }
 
-/* Y las celdas no fuerzan ningún color de fondo extra */
 .soc-tabla-fila.soc-estado-al-dia > *,
 .soc-tabla-fila.soc-estado-debe-1-2 > *,
 .soc-tabla-fila.soc-estado-debe-3-mas > * {
   background-color: transparent !important;
 }
 
-/* Leyenda estado de pago (chips arriba de la tabla) */
-.soc-legenda-pagos {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-  padding: 4px 8px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 999px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
-}
-
-.soc-legenda-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--soc-dark);
-  padding: 4px 8px;
-  border-radius: 999px;
-}
-
-.soc-legenda-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
-}
-
-/* Colores de los puntitos */
-.soc-legenda-dot--al-dia {
-  background-color: #16a34a; /* verde */
-}
-
-.soc-legenda-dot--debe-1-2 {
-  background-color: #f59e0b; /* amarillo */
-}
-
-.soc-legenda-dot--debe-3-mas {
-  background-color: #ef4444; /* rojo */
-}
-
-/* Ajustes para mobile */
-@media (max-width: 768px) {
-  .soc-legenda-pagos {
-    margin-left: 0;
-    margin-top: 4px;
-    padding: 4px 6px;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-
-  .soc-legenda-item {
-    font-size: 0.75rem;
-    padding: 2px 6px;
-  }
-}
-/* Wrapper para contador + indicadores + chips */
+/* ===== WRAPPER CONTADOR + INDICADORES + CHIPS ===== */
 .soc-header-meta {
   display: flex;
   align-items: center;
@@ -1020,16 +948,15 @@
   padding: 4px 0 2px;
 }
 
-/* Contenedor derecho: indicadores + chips */
 .soc-header-meta-right {
   display: flex;
   align-items: center;
   gap: 10px;
   justify-content: flex-end;
   flex: 1;
+  flex-wrap: wrap;
 }
 
-/* Ajuste: el contador ya no necesita border-bottom tan largo */
 .soc-contador {
   display: flex;
   align-items: center;
@@ -1043,7 +970,6 @@
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
-/* La isla de chips ya no necesita posición absoluta */
 .soc-filters-island {
   display: flex;
   flex-wrap: wrap;
@@ -1054,7 +980,6 @@
   margin-right: auto;
 }
 
-/* Mobile: apilamos todo bonito */
 @media (max-width: 768px) {
   .soc-header-meta {
     flex-direction: column;
@@ -1072,5 +997,77 @@
   .soc-filters-island {
     max-width: 100%;
     justify-content: flex-start;
+  }
+}
+
+/* ===== LEYENDA ÚLTIMO CONTACTO ===== */
+.soc-contacto-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.soc-contacto-legend__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--soc-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.soc-contacto-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background-color: var(--legend-bg);
+  border: 1px solid var(--legend-color);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+
+.soc-contacto-legend__item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.soc-contacto-legend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--legend-color);
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.soc-contacto-legend__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--legend-color);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .soc-contacto-legend {
+    justify-content: flex-start;
+    margin-top: 4px;
+    gap: 5px;
+  }
+  .soc-contacto-legend__title {
+    width: 100%;
+    margin-bottom: 2px;
+    margin-right: 0;
+  }
+  .soc-contacto-legend__item {
+    padding: 3px 8px 3px 6px;
+  }
+  .soc-contacto-legend__label {
+    font-size: 11px;
   }
 }

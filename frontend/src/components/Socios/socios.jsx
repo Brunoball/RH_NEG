@@ -87,7 +87,7 @@ const SS_KEYS = {
   TS: "socios_last_ts",
   FILTERS: "socios_last_filters",
 };
-const LS_FILTERS = "filtros_socios_v4"; // nueva versión (con filtro de deuda/pagos + showAll)
+const LS_FILTERS = "filtros_socios_v4";
 const LS_CUMPLE_18_CERRADOS = "socios_cumple_18_cerrados_v1";
 
 
@@ -156,8 +156,6 @@ const getCumple18Info = (nacimiento, today = getLocalToday()) => {
 
   const todayClean = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Se muestra únicamente durante el año en el que cumple 18, desde el día del cumpleaños.
-  // Así no aparecen socios que cumplieron 18 en años anteriores.
   if (birthday18.getFullYear() !== todayClean.getFullYear()) return null;
   if (todayClean.getTime() < birthday18.getTime()) return null;
 
@@ -171,7 +169,6 @@ const getCumple18Info = (nacimiento, today = getLocalToday()) => {
 const getCumple18DismissKey = (socio, info) =>
   `${info?.anio || new Date().getFullYear()}:${socio?.id_socio || socio?._idStr || ""}`;
 
-// Normaliza la cantidad de meses/periodos adeudados que viene del backend
 const getDeudaMesesFromSocio = (s) => {
   const raw =
     s.deuda_meses ??
@@ -185,10 +182,6 @@ const getDeudaMesesFromSocio = (s) => {
   return n;
 };
 
-// Devuelve el estado de pago en base a la deuda
-//  - 'al-dia'       => 0 meses / periodos
-//  - 'debe-1-2'     => 1 o 2
-//  - 'debe-3+'      => 3 o más
 const getEstadoPago = (deudaMeses) => {
   const d = Number(deudaMeses);
   if (!Number.isFinite(d) || d <= 0) return "al-dia";
@@ -449,7 +442,6 @@ const BarraSuperior = React.memo(
       setMostrarFiltros(false);
     }, [setFiltros, setMostrarFiltros, setBusquedaInput, startTransition]);
 
-    // Abrir calendario cuando el usuario hace click o da foco al input
     const openPickerOnEvent = useCallback((e) => {
       try {
         e.target.showPicker?.();
@@ -826,7 +818,6 @@ const BarraSuperior = React.memo(
 const Socios = () => {
   const [socios, setSocios] = useState([]);
 
-  // === ROL DEL USUARIO (admin/vista) ===
   const usuario = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("usuario"));
@@ -837,7 +828,6 @@ const Socios = () => {
   const rol = (usuario?.rol || "vista").toLowerCase();
   const isAdmin = rol === "admin";
 
-  // === LISTAS (categorías, cobradores, estados) ===
   const [categorias, setCategorias] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [estados, setEstados] = useState([]);
@@ -866,8 +856,6 @@ const Socios = () => {
   const cumple18InfoAlerta = cumple18Actual?.info || null;
 
   const [animacionActiva, setAnimacionActiva] = useState(false);
-
-  // ✅ tablaVersion se usa SOLO para la animación, pero ahora el scroll se preserva con initialScrollOffset
   const [tablaVersion, setTablaVersion] = useState(0);
   const [needsRefresh, setNeedsRefresh] = useState(false);
 
@@ -875,7 +863,6 @@ const Socios = () => {
   const listRef = useRef(null);
   const lastScrollOffsetRef = useRef(0);
 
-  // ✅ NUEVO: scroll inicial (react-window lo usa al montar)
   const [initialScrollOffset, setInitialScrollOffset] = useState(() => {
     try {
       const raw = sessionStorage.getItem(SS_KEYS.SCROLL);
@@ -896,7 +883,6 @@ const Socios = () => {
     mensaje: "",
   });
 
-  // Filtros
   const [filtros, setFiltros] = useState(() => {
     try {
       const saved = localStorage.getItem(LS_FILTERS);
@@ -939,7 +925,6 @@ const Socios = () => {
     showAll,
   } = filtros;
 
-  // Input controlado + debounce
   const [busquedaInput, setBusquedaInput] = useState(filtros.busqueda || "");
   const deferredBusqueda = useDeferredValue(busquedaInput);
 
@@ -959,7 +944,6 @@ const Socios = () => {
     return () => clearTimeout(t);
   }, [busquedaInput, startTransition]);
 
-  // Persistencia
   useEffect(() => {
     try {
       sessionStorage.setItem(SS_KEYS.FILTERS, JSON.stringify(filtros));
@@ -967,7 +951,6 @@ const Socios = () => {
     } catch {}
   }, [filtros]);
 
-  // Restaurar de sessionStorage al montar
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(SS_KEYS.FILTERS);
@@ -984,14 +967,12 @@ const Socios = () => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
 
-  /* ===== PRE-INDEXACIÓN ===== */
   const idxById = useMemo(() => {
     const m = new Map();
     for (const s of socios) m.set(String(s._idStr), s);
     return m;
   }, [socios]);
 
-  /* ===== FILTRADO ===== */
   const activeFilters = useMemo(
     () => ({
       byId: !!busquedaId,
@@ -1060,7 +1041,6 @@ const Socios = () => {
       arr = arr.filter((s) => s._name.includes(q));
     }
 
-    // RANGO FECHAS (ingreso)
     if (activeFilters.byDate) {
       const tsDesde = parseDateToTs(fechaDesde);
       const tsHastaRaw = parseDateToTs(fechaHasta);
@@ -1093,7 +1073,6 @@ const Socios = () => {
     fechaHasta,
   ]);
 
-  /* ===== ANIMACIÓN ENTRADA ===== */
   const allowCascade = sociosFiltrados.length <= CASCADE_DISABLE_ABOVE;
   const triggerCascade = useCallback(
     (duration = 360) => {
@@ -1115,7 +1094,6 @@ const Socios = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sociosFiltrados.length]);
 
-  /* ===== EVENTOS GLOBALES ===== */
   useEffect(() => {
     const handleClickOutsideFiltros = (event) => {
       if (filtrosRef.current && !filtrosRef.current.contains(event.target)) {
@@ -1135,13 +1113,10 @@ const Socios = () => {
     };
   }, []);
 
-  /* ===== RESTAURAR SELECCIÓN/SCROLL (INTELIGENTE) ===== */
   const restorePendingRef = useRef(false);
   const restoredOnceRef = useRef(false);
 
-  // ✅ helper: aplica scroll una vez que listRef existe (AutoSizer ya renderizó)
   const applyScrollSmart = useCallback((idx, offset) => {
-    // intentamos varias veces por si AutoSizer tarda un frame
     let tries = 0;
     const maxTries = 8;
 
@@ -1176,7 +1151,6 @@ const Socios = () => {
       try {
         const currentOffset = Number(lastScrollOffsetRef.current || 0);
 
-        // ✅ guardamos scroll + filtros + selección
         sessionStorage.setItem(SS_KEYS.SEL_ID, String(socio.id_socio));
         sessionStorage.setItem(SS_KEYS.SCROLL, String(currentOffset));
         sessionStorage.setItem(SS_KEYS.TS, String(Date.now()));
@@ -1203,12 +1177,9 @@ const Socios = () => {
     const state = locationRef.current.state;
     if (state && state.refresh) {
       setNeedsRefresh(true);
-
-      // ✅ al volver, queremos restaurar scroll/sel
       restorePendingRef.current = true;
       restoredOnceRef.current = false;
 
-      // limpiamos el state para no loop
       navigate(locationRef.current.pathname, {
         replace: true,
         state: {},
@@ -1217,9 +1188,6 @@ const Socios = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ============================
-             FETCH
-  ============================ */
   const fetchAbortRef = useRef({ socios: null, listas: null });
 
   const cargarDatos = useCallback(async () => {
@@ -1233,14 +1201,12 @@ const Socios = () => {
       const ctrlSoc = new AbortController();
       fetchAbortRef.current.socios = ctrlSoc;
 
-      // 1) SOCIOS
       const rSoc = await fetch(`${BASE_URL}/api.php?action=socios`, {
         signal: ctrlSoc.signal,
         cache: "no-store",
       });
       const data = await rSoc.json();
 
-      // 2) ESTADO DE PAGOS (nuevo)
       let mapEstadosPagos = new Map();
       try {
         const rPag = await fetch(
@@ -1275,7 +1241,6 @@ const Socios = () => {
           const ingresoStr = s?.ingreso ? String(s.ingreso) : "";
           const _ingresoTs = parseDateToTs(ingresoStr);
 
-          // ===== deuda y estado pago
           let _deudaMeses = 0;
           let _estadoPago = "al-dia";
 
@@ -1296,8 +1261,6 @@ const Socios = () => {
             ? String(s.ultimo_contacto_fecha).slice(0, 10)
             : "";
 
-          // Reset anual visual: el historial queda guardado, pero el color/estado visual
-          // solo se pinta si el último contacto pertenece al año actual.
           const _contactoEsDelAnioActual = isDateInCurrentYear(_ultimoContactoFechaReal);
           const _ultimoContactoFecha = _contactoEsDelAnioActual ? _ultimoContactoFechaReal : "";
           const _ultimoContactoEstado = _contactoEsDelAnioActual
@@ -1343,7 +1306,6 @@ const Socios = () => {
         setSocios([]);
       }
 
-      // 3) LISTAS (categorías, cobradores, estados)
       try {
         const ctrlLis = new AbortController();
         fetchAbortRef.current.listas = ctrlLis;
@@ -1430,7 +1392,6 @@ const Socios = () => {
     }
   }, [socios]);
 
-  // ✅ RESTAURACIÓN: al terminar de cargar, re-montamos la lista con initialScrollOffset
   useEffect(() => {
     if (!restorePendingRef.current) return;
     if (restoredOnceRef.current) return;
@@ -1450,10 +1411,8 @@ const Socios = () => {
       const safeOffset =
         Number.isFinite(savedOffset) && savedOffset >= 0 ? savedOffset : 0;
 
-      // ✅ esto hace que, cuando la List se monte (por key), arranque desde el offset guardado
       setInitialScrollOffset(safeOffset);
 
-      // armamos la lista actual (con filtros restaurados)
       const parsed = rawFilters ? JSON.parse(rawFilters) : filtros;
 
       const currentList = (() => {
@@ -1515,7 +1474,6 @@ const Socios = () => {
         return arr;
       })();
 
-      // si está el socio, preferimos ubicarlo (más “inteligente” que el offset)
       if (selId) {
         const idx = currentList.findIndex(
           (s) => String(s.id_socio) === String(selId)
@@ -1530,22 +1488,17 @@ const Socios = () => {
         applyScrollSmart(-1, safeOffset);
       }
 
-      // ✅ marcamos restaurado
       restoredOnceRef.current = true;
       restorePendingRef.current = false;
 
-      // limpiamos
       sessionStorage.removeItem(SS_KEYS.SEL_ID);
       sessionStorage.removeItem(SS_KEYS.TS);
-      // (dejamos SCROLL para fallback inicial; si querés, podés borrarlo también)
     } catch {
-      // si falla, al menos evitamos loop
       restoredOnceRef.current = true;
       restorePendingRef.current = false;
     }
   }, [cargando, socios, filtros, applyScrollSmart]);
 
-  /* ===== LOOKUPS para export ===== */
   const mapCategorias = useMemo(() => {
     const m = new Map();
     for (const c of categorias)
@@ -1573,7 +1526,6 @@ const Socios = () => {
     return m;
   }, [estados]);
 
-  /* ===== HANDLERS / EXPORTACIÓN ===== */
   const manejarSeleccion = useCallback((socio) => {
     setSocioSeleccionado((prev) => (prev?._idStr !== socio._idStr ? socio : null));
   }, []);
@@ -1631,11 +1583,8 @@ const Socios = () => {
 
     writeJsonLocalStorage(LS_CUMPLE_18_CERRADOS, cerrados);
 
-    // Al cerrar la notificación actual, se elimina de la cola.
-    // Si hay otra atrás, pasa automáticamente a ser la nueva notificación visible.
     setCumple18Pendientes((prev) => prev.slice(1));
 
-    // Solo limpiamos el resaltado si estaba marcado el socio que se acaba de cerrar.
     if (String(socioCumple18EnfocadoId || "") === String(socioCumple18Alerta.id_socio || "")) {
       setSocioCumple18EnfocadoId(null);
     }
@@ -1809,7 +1758,6 @@ const Socios = () => {
     ]
   );
 
-
   const abrirHistorialContacto = useCallback(
     async (socioBase) => {
       if (!socioBase?.id_socio) return;
@@ -1971,6 +1919,7 @@ const Socios = () => {
           {socio._dom}
         </div>
 
+        {/* ✅ COLUMNA COMENTARIO: solo muestra el comentario, sin resumen de gestión */}
         <div className="soc-col-comentario" data-label="Comentario">
           {socio.comentario ? (
             <div title={socio.comentario}>
@@ -1979,35 +1928,6 @@ const Socios = () => {
                 : socio.comentario}
             </div>
           ) : null}
-
-          <div
-            style={{
-              marginTop: socio.comentario ? 4 : 0,
-              fontSize: 11,
-              lineHeight: 1.25,
-              color: "#4f4f4f",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              flexWrap: "wrap",
-            }}
-            title={
-              socio._ultimoContactoNota
-                ? `${socio._ultimoContactoResumen} · ${socio._ultimoContactoNota}`
-                : socio._ultimoContactoResumen
-            }
-          >
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                backgroundColor: contactoMeta.border || "#bdbdbd",
-              }}
-            />
-            <span>{socio._ultimoContactoResumen || "Sin gestión registrada"}</span>
-          </div>
         </div>
 
         <div className="soc-col-acciones">
@@ -2081,9 +2001,6 @@ const Socios = () => {
     ));
   }, []);
 
-  /* ============================
-          RENDER + ISLA
-  ============================ */
   const limpiarChip = useCallback(
     (tipo) => {
       setFiltros((prev) => {
@@ -2170,7 +2087,6 @@ const Socios = () => {
     fechaHasta,
   ]);
 
-  // ItemSize responsivo
   const dynamicItemSize = useResponsiveItemSize(!!socioSeleccionado);
 
   return (
@@ -2243,37 +2159,21 @@ const Socios = () => {
                   ))}
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    marginTop: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 12, opacity: 0.8 }}>Último contacto:</span>
+                {/* ✅ INDICADORES DE ÚLTIMO CONTACTO — estilo mejorado */}
+                <div className="soc-contacto-legend">
+                  <span className="soc-contacto-legend__title">Último contacto</span>
                   {[
-                    { color: "#27ae60", label: "Contactado" },
-                    { color: "#f2994a", label: "Pendiente" },
-                    { color: "#eb5757", label: "No contactó" },
+                    { color: "#27ae60", colorBg: "#edf8f1", label: "Contactado" },
+                    { color: "#f2994a", colorBg: "#fff4e8", label: "Pendiente" },
+                    { color: "#eb5757", colorBg: "#fdeeee", label: "No contactó" },
                   ].map((item) => (
                     <div
                       key={item.label}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                      title={item.label}
+                      className="soc-contacto-legend__item"
+                      style={{ "--legend-color": item.color, "--legend-bg": item.colorBg }}
                     >
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 999,
-                          backgroundColor: item.color,
-                          display: "inline-block",
-                        }}
-                      />
-                      <span style={{ fontSize: 12 }}>{item.label}</span>
+                      <span className="soc-contacto-legend__dot" />
+                      <span className="soc-contacto-legend__label">{item.label}</span>
                     </div>
                   ))}
                 </div>
@@ -2332,7 +2232,6 @@ const Socios = () => {
               <AutoSizer>
                 {({ height, width }) => (
                   <List
-                    // ✅ clave: si remonta por animación / cambio de item size, arranca desde initialScrollOffset
                     key={`${tablaVersion}-${dynamicItemSize}`}
                     ref={listRef}
                     height={height}
@@ -2346,7 +2245,6 @@ const Socios = () => {
                     initialScrollOffset={initialScrollOffset}
                     onScroll={({ scrollOffset }) => {
                       lastScrollOffsetRef.current = scrollOffset;
-                      // ✅ persistimos SIEMPRE el scroll actual para que al volver no salte arriba
                       try {
                         sessionStorage.setItem(SS_KEYS.SCROLL, String(scrollOffset));
                       } catch {}

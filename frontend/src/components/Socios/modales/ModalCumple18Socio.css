@@ -1,7 +1,7 @@
 .cumple18-toast-wrap {
   position: fixed;
   right: 22px;
-  bottom: 66px;
+  bottom: 86px;
   width: min(420px, calc(100vw - 28px));
   z-index: 12000;
 }
@@ -79,7 +79,7 @@
 }
 
 .cumple18-toast__content {
-  padding-right: 18px;
+  padding-right: 28px;
 }
 
 .cumple18-toast__topline {
