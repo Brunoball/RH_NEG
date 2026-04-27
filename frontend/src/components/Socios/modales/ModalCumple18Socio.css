@@ -384,3 +384,140 @@
     width: 100%;
   }
 }
+/* Wrap: animación de salida/entrada lateral */
+.cumple18-toast-wrap {
+  position: fixed;
+  right: 22px;
+  bottom: 86px;
+  width: min(420px, calc(100vw - 28px));
+  z-index: 12000;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 1, 1),
+              opacity 0.3s ease;
+}
+
+.cumple18-toast-wrap--hidden {
+  transform: translateX(calc(100% + 40px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Botón minimizar — aparece en el borde izquierdo del toast */
+.cumple18-toast__minimize {
+  position: absolute;
+  top: 50%;
+  left: -16px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 44px;
+  border: none;
+  border-radius: 10px 0 0 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.16s ease, color 0.16s ease, width 0.16s ease;
+}
+
+.cumple18-toast__minimize:hover {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fff;
+}
+
+/* Pestaña lateral cuando está minimizado */
+.cumple18-tab {
+  position: fixed;
+  right: 0;
+  bottom: 120px;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 36px;
+  padding: 12px 0;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  background: #d97706;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
+  transition: width 0.18s ease, background 0.18s ease;
+  animation: cumple18-tab-in 0.22s ease-out both;
+}
+
+.cumple18-tab:hover {
+  width: 44px;
+  background: #b45309;
+}
+
+.cumple18-tab__icon {
+  font-size: 16px;
+}
+
+.cumple18-tab__chevron {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+@keyframes cumple18-tab-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 640px) {
+  .cumple18-tab {
+    bottom: 90px;
+  }
+}/* Botón minimizar (dentro del toast) */
+.cumple18-toast__minimize {
+  position: absolute;
+  top: 50%;
+  left: -36px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 52px;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  display: grid;
+  place-items: center;
+  background: #d97706;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
+  transition: width 0.18s ease, background 0.18s ease;
+}
+
+.cumple18-toast__minimize:hover {
+
+  background: #b45309;
+}
+
+/* Pestaña lateral (idéntica, solo cambia el ícono en el JSX) */
+.cumple18-tab {
+  position: fixed;
+  right: 0;
+  bottom: 120px;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 52px;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  background: #d97706;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
+  transition: width 0.18s ease, background 0.18s ease;
+  animation: cumple18-tab-in 0.22s ease-out both;
+}
+
+.cumple18-tab:hover {
+  width: 44px;
+  background: #b45309;
+}

@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { FaBirthdayCake, FaTimes, FaEye, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaBirthdayCake,
+  FaTimes,
+  FaEye,
+  FaExclamationTriangle,
+  FaChevronRight,
+  FaChevronLeft,
+} from "react-icons/fa";
 
 const formatFecha = (value) => {
   const s = String(value ?? "").slice(0, 10);
@@ -11,7 +18,6 @@ const formatFecha = (value) => {
 
 const ModalConfirmarCierreCumple18 = ({ socio, cantidadPendiente = 0, onCancelar, onConfirmar }) => {
   const quedanAtras = Number(cantidadPendiente) > 1;
-
   return (
     <div className="cumple18-confirm-overlay" role="presentation" onClick={onCancelar}>
       <div
@@ -24,35 +30,23 @@ const ModalConfirmarCierreCumple18 = ({ socio, cantidadPendiente = 0, onCancelar
         <div className="cumple18-confirm__icon">
           <FaExclamationTriangle />
         </div>
-
         <div className="cumple18-confirm__content">
           <h3>¿Cerrar esta notificación?</h3>
           <p>
             Si confirmás el cierre, esta alerta no se volverá a mostrar para{" "}
             <strong>{socio?.nombre || "este socio"}</strong>.
           </p>
-
           {quedanAtras && (
             <p className="cumple18-confirm__hint">
               Cuando cierres esta, se va a mostrar automáticamente la siguiente notificación pendiente.
             </p>
           )}
         </div>
-
         <div className="cumple18-confirm__actions">
-          <button
-            type="button"
-            className="cumple18-confirm__btn cumple18-confirm__btn--secondary"
-            onClick={onCancelar}
-          >
+          <button type="button" className="cumple18-confirm__btn cumple18-confirm__btn--secondary" onClick={onCancelar}>
             Cancelar
           </button>
-
-          <button
-            type="button"
-            className="cumple18-confirm__btn cumple18-confirm__btn--danger"
-            onClick={onConfirmar}
-          >
+          <button type="button" className="cumple18-confirm__btn cumple18-confirm__btn--danger" onClick={onConfirmar}>
             Sí, cerrar
           </button>
         </div>
@@ -70,9 +64,11 @@ const ModalCumple18Socio = ({
   onVerSocio,
 }) => {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [oculto, setOculto] = useState(false);
 
   useEffect(() => {
     setMostrarConfirmacion(false);
+    setOculto(false);
   }, [socio?.id_socio]);
 
   if (!mostrar || !socio) return null;
@@ -80,14 +76,8 @@ const ModalCumple18Socio = ({
   const totalPendientes = Number(cantidadPendiente) || 1;
   const hayMasAtras = totalPendientes > 1;
 
-  const pedirConfirmacionCierre = () => {
-    setMostrarConfirmacion(true);
-  };
-
-  const cancelarCierre = () => {
-    setMostrarConfirmacion(false);
-  };
-
+  const pedirConfirmacionCierre = () => setMostrarConfirmacion(true);
+  const cancelarCierre = () => setMostrarConfirmacion(false);
   const confirmarCierre = () => {
     setMostrarConfirmacion(false);
     onClose?.();
@@ -95,11 +85,26 @@ const ModalCumple18Socio = ({
 
   return (
     <>
-      <div className="cumple18-toast-wrap">
+      {/* Pestaña cuando está minimizado */}
+      {oculto && (
+        <button
+          type="button"
+          className="cumple18-tab"
+          onClick={() => setOculto(false)}
+          aria-label="Mostrar notificación de cumpleaños 18"
+          title="Ver alerta de cumpleaños"
+        >
+          <FaBirthdayCake className="cumple18-tab__icon" />
+          <FaChevronLeft className="cumple18-tab__chevron" />
+        </button>
+      )}
+
+      <div className={`cumple18-toast-wrap${oculto ? " cumple18-toast-wrap--hidden" : ""}`}>
         {hayMasAtras && <div className="cumple18-toast-shadow cumple18-toast-shadow--two" />}
         {hayMasAtras && <div className="cumple18-toast-shadow cumple18-toast-shadow--one" />}
 
         <div className="cumple18-toast" role="alert" aria-live="assertive">
+          {/* Botón cerrar definitivo */}
           <button
             type="button"
             className="cumple18-toast__close"
@@ -110,6 +115,17 @@ const ModalCumple18Socio = ({
             <FaTimes />
           </button>
 
+          {/* Botón minimizar — esquina superior izquierda del contenido */}
+          <button
+            type="button"
+            className="cumple18-toast__minimize"
+            onClick={() => setOculto(true)}
+            title="Minimizar"
+            aria-label="Minimizar notificación"
+          >
+            <FaChevronRight />
+          </button>
+
           <div className="cumple18-toast__icon">
             <FaBirthdayCake />
           </div>
@@ -117,11 +133,8 @@ const ModalCumple18Socio = ({
           <div className="cumple18-toast__content">
             <div className="cumple18-toast__topline">
               <span className="cumple18-toast__eyebrow">Notificación importante</span>
-
               {hayMasAtras && (
-                <span className="cumple18-toast__counter">
-                  1 de {totalPendientes}
-                </span>
+                <span className="cumple18-toast__counter">1 de {totalPendientes}</span>
               )}
             </div>
 
@@ -150,7 +163,6 @@ const ModalCumple18Socio = ({
               >
                 <FaEye /> Ver socio
               </button>
-
               <button
                 type="button"
                 className="cumple18-toast__btn cumple18-toast__btn--secondary"
