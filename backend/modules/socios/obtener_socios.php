@@ -15,7 +15,11 @@ header('Expires: 0');
  * y además trae:
  * - familia: nombre de la familia si existe
  * - estado_descripcion: descripción del estado (ACTIVO / PASIVO)
- * - último contacto desde socios_contactos usando socios.id_ultimo_contacto
+ * - edad_actual: edad calculada desde nacimiento
+ * - último contacto desde socios.id_ultimo_contacto.
+ *
+ * Si por algún motivo socios.id_ultimo_contacto está vacío pero existe historial,
+ * toma como respaldo el último registro de socios_contactos para ese socio.
  *
  * Reset anual de colores/contacto:
  * - El historial completo queda en socios_contactos.
@@ -32,33 +36,43 @@ function obtenerSociosPorEstado(PDO $pdo, int $estadoActivo): array
             f.nombre_familia AS familia,
             e.descripcion AS estado_descripcion,
 
-            sc.id_contacto AS contacto_id,
+            CASE
+                WHEN s.nacimiento IS NOT NULL
+                THEN TIMESTAMPDIFF(YEAR, s.nacimiento, CURDATE())
+                ELSE NULL
+            END AS edad_actual,
 
-            sc.detalle_contacto AS ultimo_contacto_real,
-            DATE(sc.fecha_contacto) AS ultimo_contacto_fecha_real,
-            sc.estado_contacto AS ultimo_contacto_estado_real,
+            COALESCE(sc_guardado.id_contacto, sc_auto.id_contacto) AS contacto_id,
+
+            COALESCE(sc_guardado.detalle_contacto, sc_auto.detalle_contacto) AS ultimo_contacto_real,
+            DATE(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)) AS ultimo_contacto_fecha_real,
+            COALESCE(sc_guardado.estado_contacto, sc_auto.estado_contacto) AS ultimo_contacto_estado_real,
 
             CASE
-                WHEN sc.fecha_contacto IS NOT NULL AND YEAR(sc.fecha_contacto) = YEAR(CURDATE())
-                THEN sc.detalle_contacto
+                WHEN COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto) IS NOT NULL
+                 AND YEAR(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)) = YEAR(CURDATE())
+                THEN COALESCE(sc_guardado.detalle_contacto, sc_auto.detalle_contacto)
                 ELSE NULL
             END AS ultimo_contacto,
 
             CASE
-                WHEN sc.fecha_contacto IS NOT NULL AND YEAR(sc.fecha_contacto) = YEAR(CURDATE())
-                THEN DATE(sc.fecha_contacto)
+                WHEN COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto) IS NOT NULL
+                 AND YEAR(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)) = YEAR(CURDATE())
+                THEN DATE(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto))
                 ELSE NULL
             END AS ultimo_contacto_fecha,
 
             CASE
-                WHEN sc.fecha_contacto IS NOT NULL AND YEAR(sc.fecha_contacto) = YEAR(CURDATE())
-                THEN sc.estado_contacto
+                WHEN COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto) IS NOT NULL
+                 AND YEAR(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)) = YEAR(CURDATE())
+                THEN COALESCE(sc_guardado.estado_contacto, sc_auto.estado_contacto)
                 ELSE 'SIN_GESTION'
             END AS ultimo_contacto_estado,
 
             CASE
-                WHEN sc.fecha_contacto IS NOT NULL AND YEAR(sc.fecha_contacto) = YEAR(CURDATE())
-                THEN sc.fecha_contacto
+                WHEN COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto) IS NOT NULL
+                 AND YEAR(COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)) = YEAR(CURDATE())
+                THEN COALESCE(sc_guardado.fecha_contacto, sc_auto.fecha_contacto)
                 ELSE NULL
             END AS ultimo_contacto_fecha_hora
 
@@ -67,8 +81,16 @@ function obtenerSociosPorEstado(PDO $pdo, int $estadoActivo): array
             ON f.id_familia = s.id_familia
         LEFT JOIN estado e
             ON e.id_estado = s.id_estado
-        LEFT JOIN socios_contactos sc
-            ON sc.id_contacto = s.id_ultimo_contacto
+        LEFT JOIN socios_contactos sc_guardado
+            ON sc_guardado.id_contacto = s.id_ultimo_contacto
+        LEFT JOIN (
+            SELECT id_socio, MAX(id_contacto) AS id_contacto
+            FROM socios_contactos
+            GROUP BY id_socio
+        ) ult_sc
+            ON ult_sc.id_socio = s.id_socio
+        LEFT JOIN socios_contactos sc_auto
+            ON sc_auto.id_contacto = ult_sc.id_contacto
 
         WHERE s.activo = :activo
         ORDER BY s.id_socio ASC

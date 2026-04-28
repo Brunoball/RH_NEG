@@ -4,6 +4,15 @@
   bottom: 86px;
   width: min(420px, calc(100vw - 28px));
   z-index: 12000;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.3s ease;
+}
+
+.cumple18-toast-wrap--hidden {
+  transform: translateX(calc(100% + 40px));
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cumple18-toast-shadow {
@@ -57,13 +66,42 @@
   background: rgba(17, 24, 39, 0.06);
   color: #6b7280;
   cursor: pointer;
-  transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .cumple18-toast__close:hover {
   transform: scale(1.04);
   background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
+}
+
+.cumple18-toast__minimize {
+  position: absolute;
+  top: 50%;
+  left: -36px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 52px;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  display: grid;
+  place-items: center;
+  background: #d97706;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
+  transition:
+    width 0.18s ease,
+    background 0.18s ease;
+}
+
+.cumple18-toast__minimize:hover {
+  width: 42px;
+  background: #b45309;
 }
 
 .cumple18-toast__icon {
@@ -87,7 +125,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .cumple18-toast__eyebrow {
@@ -101,53 +139,66 @@
 
 .cumple18-toast__counter {
   flex: 0 0 auto;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: rgba(37, 99, 235, 0.1);
   color: #1d4ed8;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
 }
 
 .cumple18-toast h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  line-height: 1.2;
+  margin: 0 0 12px;
+  font-size: 20px;
+  line-height: 1.15;
   color: #111827;
 }
 
-.cumple18-toast p {
+.cumple18-toast__socio-card {
+  padding: 13px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 8px 18px rgba(17, 24, 39, 0.05);
+}
+
+.cumple18-toast__socio-name {
+  margin-bottom: 6px;
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cumple18-toast__socio-text {
   margin: 0;
   font-size: 14px;
-  line-height: 1.45;
-  color: #374151;
+  line-height: 1.42;
+  color: #4b5563;
+}
+
+.cumple18-toast__socio-text strong {
+  color: #111827;
 }
 
 .cumple18-toast__details {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 11px;
 }
 
 .cumple18-toast__details span {
-  padding: 5px 9px;
+  padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(245, 158, 11, 0.22);
-  font-size: 12px;
-  font-weight: 700;
-  color: #4b5563;
-}
-
-.cumple18-toast__queue-hint {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  background: rgba(37, 99, 235, 0.08);
-  color: #1d4ed8;
+  background: #ffffff;
+  border: 1px solid rgba(245, 158, 11, 0.25);
   font-size: 12px;
   font-weight: 800;
+  color: #4b5563;
 }
 
 .cumple18-toast__actions {
@@ -157,18 +208,27 @@
   margin-top: 14px;
 }
 
+.cumple18-toast__actions--compact {
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .cumple18-toast__btn {
   border: none;
-  border-radius: 12px;
-  padding: 9px 13px;
+  border-radius: 13px;
+  padding: 10px 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+  white-space: nowrap;
 }
 
 .cumple18-toast__btn:hover {
@@ -194,12 +254,60 @@
   background: #e5e7eb;
 }
 
-.cumple18-toast small {
-  display: block;
-  margin-top: 10px;
-  font-size: 11px;
-  line-height: 1.35;
-  color: #6b7280;
+.cumple18-toast__arrow-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1d4ed8;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.cumple18-toast__arrow-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.cumple18-tab {
+  position: fixed;
+  right: 0;
+  bottom: 120px;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 52px;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  background: #d97706;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
+  transition:
+    width 0.18s ease,
+    background 0.18s ease;
+  animation: cumple18-tab-in 0.22s ease-out both;
+}
+
+.cumple18-tab:hover {
+  width: 44px;
+  background: #b45309;
+}
+
+.cumple18-tab__icon {
+  font-size: 16px;
 }
 
 @keyframes cumple18-slide-in {
@@ -207,9 +315,22 @@
     opacity: 0;
     transform: translateY(12px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cumple18-tab-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -288,7 +409,10 @@
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .cumple18-confirm__btn:hover {
@@ -315,8 +439,13 @@
 }
 
 @keyframes cumple18-confirm-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes cumple18-confirm-pop {
@@ -324,6 +453,7 @@
     opacity: 0;
     transform: translateY(8px) scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -355,12 +485,48 @@
     padding-right: 16px;
   }
 
+  .cumple18-toast h3 {
+    font-size: 18px;
+  }
+
+  .cumple18-toast__socio-card {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .cumple18-toast__actions--compact {
+    display: grid;
+    grid-template-columns: 38px 1fr 1fr 38px;
+    gap: 8px;
+  }
+
+  .cumple18-toast__btn {
+    width: 100%;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .cumple18-toast__arrow-btn {
+    width: 38px;
+    height: 38px;
+  }
+
   .cumple18-toast-shadow--one {
     transform: translate(-7px, -7px) scale(0.98);
   }
 
   .cumple18-toast-shadow--two {
     transform: translate(-12px, -12px) scale(0.96);
+  }
+
+  .cumple18-toast__minimize {
+    left: -32px;
+    width: 32px;
+    height: 48px;
+  }
+
+  .cumple18-tab {
+    bottom: 90px;
   }
 
   .cumple18-confirm {
@@ -384,140 +550,21 @@
     width: 100%;
   }
 }
-/* Wrap: animación de salida/entrada lateral */
-.cumple18-toast-wrap {
-  position: fixed;
-  right: 22px;
-  bottom: 86px;
-  width: min(420px, calc(100vw - 28px));
-  z-index: 12000;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 1, 1),
-              opacity 0.3s ease;
-}
 
-.cumple18-toast-wrap--hidden {
-  transform: translateX(calc(100% + 40px));
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Botón minimizar — aparece en el borde izquierdo del toast */
-.cumple18-toast__minimize {
-  position: absolute;
-  top: 50%;
-  left: -16px;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 44px;
-  border: none;
-  border-radius: 10px 0 0 10px;
-  display: grid;
-  place-items: center;
-  background: rgba(245, 158, 11, 0.18);
-  color: #b45309;
-  cursor: pointer;
-  font-size: 11px;
-  transition: background 0.16s ease, color 0.16s ease, width 0.16s ease;
-}
-
-.cumple18-toast__minimize:hover {
-  background: rgba(245, 158, 11, 0.35);
-  color: #fff;
-}
-
-/* Pestaña lateral cuando está minimizado */
-.cumple18-tab {
-  position: fixed;
-  right: 0;
-  bottom: 120px;
-  z-index: 12000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 36px;
-  padding: 12px 0;
-  border: none;
-  border-radius: 12px 0 0 12px;
-  background: #d97706;
-  color: #ffffff;
-  cursor: pointer;
-  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
-  transition: width 0.18s ease, background 0.18s ease;
-  animation: cumple18-tab-in 0.22s ease-out both;
-}
-
-.cumple18-tab:hover {
-  width: 44px;
-  background: #b45309;
-}
-
-.cumple18-tab__icon {
-  font-size: 16px;
-}
-
-.cumple18-tab__chevron {
-  font-size: 11px;
-  opacity: 0.75;
-}
-
-@keyframes cumple18-tab-in {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-@media (max-width: 640px) {
-  .cumple18-tab {
-    bottom: 90px;
+@media (max-width: 430px) {
+  .cumple18-toast__actions--compact {
+    grid-template-columns: 34px 1fr 1fr 34px;
   }
-}/* Botón minimizar (dentro del toast) */
-.cumple18-toast__minimize {
-  position: absolute;
-  top: 50%;
-  left: -36px;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 52px;
-  border: none;
-  border-radius: 12px 0 0 12px;
-  display: grid;
-  place-items: center;
-  background: #d97706;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 16px;
-  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
-  transition: width 0.18s ease, background 0.18s ease;
-}
 
-.cumple18-toast__minimize:hover {
+  .cumple18-toast__arrow-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 12px;
+  }
 
-  background: #b45309;
-}
-
-/* Pestaña lateral (idéntica, solo cambia el ícono en el JSX) */
-.cumple18-tab {
-  position: fixed;
-  right: 0;
-  bottom: 120px;
-  z-index: 12000;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 52px;
-  border: none;
-  border-radius: 12px 0 0 12px;
-  background: #d97706;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 16px;
-  box-shadow: -4px 4px 18px rgba(217, 119, 6, 0.35);
-  transition: width 0.18s ease, background 0.18s ease;
-  animation: cumple18-tab-in 0.22s ease-out both;
-}
-
-.cumple18-tab:hover {
-  width: 44px;
-  background: #b45309;
+  .cumple18-toast__btn {
+    min-height: 34px;
+    font-size: 11px;
+    padding: 8px 8px;
+  }
 }
