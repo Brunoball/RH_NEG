@@ -145,17 +145,16 @@ html { font-size: 16px; }
 /* ---------- Floating label centrado (COMPLETO) ---------- */
 .edit-socio-input-wrapper{
   position: relative; width:100%;
-  /* Control de altura del wrapper y del “flote” */
-  min-height: 56px;                 /* asegura buen centrado visual */
-  --label-float-y: -1.4em;          /* cuánto sube el label */
-  --label-float-scale: .85;         /* escala al flotar */
+  min-height: 56px;
+  --label-float-y: -1.4em;
+  --label-float-scale: .85;
 }
 
 /* Reposo: centrado vertical */
 .edit-socio-label{
   position:absolute;
   top:50%; left:1em;
-  transform: translateY(-50%);      /* ← centra vertical */
+  transform: translateY(-50%);
   font-size:.85em;
   color: var(--edit-gray-500);
   pointer-events:none;
@@ -264,6 +263,28 @@ html { font-size: 16px; }
   background: rgba(255,255,255,.95);
 }
 
+/* ✅ Fila de comentarios en Cobranza: Observaciones + Último contacto lado a lado */
+.edit-cobranza-comentarios-row {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  align-items: flex-start;
+}
+.edit-cobranza-comentarios-row > .edit-socio-input-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+/* El label en textarea necesita flotar desde arriba, no desde el centro */
+.edit-cobranza-comentarios-row .edit-socio-input-wrapper .edit-socio-label {
+  top: 1em;
+  transform: none;
+}
+.edit-cobranza-comentarios-row .edit-socio-input-wrapper.has-value .edit-socio-label,
+.edit-cobranza-comentarios-row .edit-socio-input-wrapper:focus-within .edit-socio-label {
+  top: 0;
+  transform: translateY(var(--label-float-y)) scale(var(--label-float-scale));
+}
+
 /* Botón guardar */
 .edit-socio-buttons-container{ position:sticky; bottom:0; padding:.5rem 2rem 1rem; }
 .edit-socio-button{
@@ -319,7 +340,9 @@ html { font-size: 16px; }
     gap:var(--spacing-md); padding:var(--spacing-md);
   }
   .edit-back-btn{ width:100%; justify-content:center; margin-top:var(--spacing-sm); }
-  .edit-socio-group-row, .edit-socio-domicilio-group{
+  .edit-socio-group-row,
+  .edit-socio-domicilio-group,
+  .edit-cobranza-comentarios-row {
     flex-direction:column; gap:1.2rem;
   }
 }

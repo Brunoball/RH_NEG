@@ -37,7 +37,7 @@ const FORM_KEYS = [
   'telefono_movil',
   'telefono_fijo',
   'comentario',
-  'ultimo_contacto', // ✅ NUEVO
+  'ultimo_contacto',
   'nacimiento',
   'id_estado',
   'domicilio_cobro',
@@ -45,7 +45,6 @@ const FORM_KEYS = [
   'ingreso',
 ];
 
-/* ====== Helper fetch sin cache + cache-buster ====== */
 async function fetchJSONNoStore(url, options = {}) {
   const sep = url.includes('?') ? '&' : '?';
   const full = `${url}${sep}ts=${Date.now()}`;
@@ -54,7 +53,6 @@ async function fetchJSONNoStore(url, options = {}) {
   return res.json();
 }
 
-// ---- Helpers de fecha muy livianos
 const formatFechaISO = (fecha) => {
   if (!fecha || fecha === '0000-00-00' || fecha === 'NULL') return '';
   if (typeof fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) return fecha;
@@ -100,15 +98,12 @@ const EditarSocio = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // refs
   const formRef = useRef(null);
   const nacimientoRef = useRef(null);
   const ingresoRef = useRef(null);
 
-  // pestañas
   const [activeTab, setActiveTab] = useState('datos');
 
-  // estado formulario
   const [formData, setFormData] = useState(() => ({
     nombre: '',
     id_cobrador: '',
@@ -119,7 +114,7 @@ const EditarSocio = () => {
     telefono_movil: '',
     telefono_fijo: '',
     comentario: '',
-    ultimo_contacto: '', // ✅ NUEVO
+    ultimo_contacto: '',
     nacimiento: '',
     id_estado: '',
     domicilio_cobro: '',
@@ -128,24 +123,20 @@ const EditarSocio = () => {
   }));
   const [datosOriginales, setDatosOriginales] = useState({});
 
-  // listas
   const [categorias, setCategorias] = useState([]);
   const [categoriasMonto, setCategoriasMonto] = useState([]);
   const [estados, setEstados] = useState([]);
   const [cobradores, setCobradores] = useState([]);
   const [periodos, setPeriodos] = useState([]);
 
-  // loading flags
   const [loadingSocio, setLoadingSocio] = useState(true);
-  const [loadingCE, setLoadingCE] = useState(true); // Categorías + Estados (+ Cat_Monto)
+  const [loadingCE, setLoadingCE] = useState(true);
   const [loadingCobradores, setLoadingCobradores] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
 
-  // toast
   const [toast, setToast] = useState({ show: false, message: '', type: 'exito' });
   const showToast = useCallback((message, type = 'exito') => setToast({ show: true, message, type }), []);
 
-  // ===== Prefetch (si vino desde Socios.jsx) =====
   const socioPrefetch = useMemo(() => {
     const sFromState = location?.state && location.state.socio ? location.state.socio : null;
     if (sFromState) return sFromState;
@@ -156,7 +147,6 @@ const EditarSocio = () => {
     return null;
   }, [location?.state, id]);
 
-  // ===== CARGA INICIAL (SOCIO) =====
   useEffect(() => {
     let abortado = false;
     const ctrl = new AbortController();
@@ -207,7 +197,6 @@ const EditarSocio = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ===== Listas base (categorías/estados/categorías_monto) — SIEMPRE FRESCAS =====
   useEffect(() => {
     let abortado = false;
     const ctrl = new AbortController();
@@ -242,7 +231,6 @@ const EditarSocio = () => {
     };
   }, []);
 
-  // ===== LAZY: Cobradores/Periodos cuando abrís Cobranza — FRESCO TAMBIÉN =====
   useEffect(() => {
     let cancel = false;
     const ctrl = new AbortController();
@@ -273,7 +261,6 @@ const EditarSocio = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // === Handlers ===
   const handleNumberChange = useCallback((e) => {
     const { name, value } = e.target;
     const numericValue = value.replace(/[^0-9]/g, '');
@@ -300,7 +287,6 @@ const EditarSocio = () => {
     }
   };
 
-  // === Submit (sin Cache-Control en headers) ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formNormalizado = normalizar(formData);
@@ -333,7 +319,6 @@ const EditarSocio = () => {
     }
   };
 
-  // estados visuales
   const readyPrimerPestana = !loadingSocio;
   const readyCategoriasEstados = !loadingCE;
 
@@ -698,38 +683,38 @@ const EditarSocio = () => {
                       <span className="edit-socio-input-highlight"></span>
                     </div>
 
-                    <div className={`edit-socio-input-wrapper cometarios-e ${formData.comentario ? 'has-value' : ''}`}>
-                      <label className="edit-socio-label">
-                        <FontAwesomeIcon icon={faComment} className="input-icon" />
-                        Observaciones
-                      </label>
-                      <textarea
-                        name="comentario"
-                        value={formData.comentario || ''}
-                        onChange={handleChange}
-                        className="edit-socio-textarea"
-                        rows="4"
-                      />
-                      <span className="edit-socio-input-highlight"></span>
-                    </div>
+                    {/* ✅ Observaciones y Último contacto lado a lado */}
+                    <div className="edit-cobranza-comentarios-row">
+                      <div className={`edit-socio-input-wrapper cometarios-e ${formData.comentario ? 'has-value' : ''}`}>
+                        <label className="edit-socio-label">
+                          <FontAwesomeIcon icon={faComment} className="input-icon" />
+                          Observaciones
+                        </label>
+                        <textarea
+                          name="comentario"
+                          value={formData.comentario || ''}
+                          onChange={handleChange}
+                          className="edit-socio-textarea"
+                          rows="4"
+                        />
+                        <span className="edit-socio-input-highlight"></span>
+                      </div>
 
-                    {/* ✅ NUEVO: Último contacto (debajo de Observaciones) */}
-                    <div
-                      className={`edit-socio-input-wrapper cometarios-e ${formData.ultimo_contacto ? 'has-value' : ''}`}
-                    >
-                      <label className="edit-socio-label">
-                        <FontAwesomeIcon icon={faComment} className="input-icon" />
-                        Último contacto
-                      </label>
-                      <textarea
-                        name="ultimo_contacto"
-                        value={formData.ultimo_contacto || ''}
-                        onChange={handleChange}
-                        className="edit-socio-textarea"
-                        rows="3"
-                        placeholder=""
-                      />
-                      <span className="edit-socio-input-highlight"></span>
+                      <div className={`edit-socio-input-wrapper cometarios-e ${formData.ultimo_contacto ? 'has-value' : ''}`}>
+                        <label className="edit-socio-label">
+                          <FontAwesomeIcon icon={faComment} className="input-icon" />
+                          Último contacto
+                        </label>
+                        <textarea
+                          name="ultimo_contacto"
+                          value={formData.ultimo_contacto || ''}
+                          onChange={handleChange}
+                          className="edit-socio-textarea"
+                          rows="4"
+                          placeholder=""
+                        />
+                        <span className="edit-socio-input-highlight"></span>
+                      </div>
                     </div>
                   </div>
                 )}

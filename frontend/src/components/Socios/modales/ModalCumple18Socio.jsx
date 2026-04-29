@@ -8,6 +8,8 @@ import {
   FaChevronLeft,
 } from "react-icons/fa";
 
+import Toast from "../../Global/Toast.jsx";
+
 const formatFecha = (value) => {
   const s = String(value ?? "").slice(0, 10);
   if (!s) return "";
@@ -34,26 +36,26 @@ const ModalConfirmarCierreCumple18 = ({
         className="cumple18-confirm"
         role="dialog"
         aria-modal="true"
-        aria-label="Confirmar cierre de alerta"
+        aria-label="Confirmar eliminación de tarjeta"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cumple18-confirm__icon">
-          <FaExclamationTriangle />
+        <div className="cumple18-confirm__icon-wrap">
+          <FaExclamationTriangle className="cumple18-confirm__icon" />
         </div>
 
-        <div className="cumple18-confirm__content">
-          <h3>¿Cerrar esta tarjeta?</h3>
-          <p>
-            Si confirmás, esta tarjeta dejará de mostrarse para{" "}
-            <strong>{socio?.nombre || "este socio"}</strong> durante este año.
+        <h3 className="cumple18-confirm__title">Eliminar tarjeta</h3>
+
+        <p className="cumple18-confirm__text">
+          ¿Estás seguro que deseas eliminar la tarjeta de{" "}
+          <strong>{socio?.nombre || "este socio"}</strong>? Dejará de
+          mostrarse durante este año.
+        </p>
+
+        {quedanAtras && (
+          <p className="cumple18-confirm__hint">
+            Todavía vas a poder seguir viendo las demás tarjetas pendientes.
           </p>
-
-          {quedanAtras && (
-            <p className="cumple18-confirm__hint">
-              Todavía vas a poder seguir viendo las demás tarjetas pendientes.
-            </p>
-          )}
-        </div>
+        )}
 
         <div className="cumple18-confirm__actions">
           <button
@@ -69,7 +71,7 @@ const ModalConfirmarCierreCumple18 = ({
             className="cumple18-confirm__btn cumple18-confirm__btn--danger"
             onClick={onConfirmar}
           >
-            Sí, cerrar
+            Sí, eliminar
           </button>
         </div>
       </div>
@@ -90,10 +92,16 @@ const ModalCumple18Socio = ({
 }) => {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [oculto, setOculto] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     setMostrarConfirmacion(false);
     setOculto(false);
+
+    // IMPORTANTE:
+    // No limpiar el toast acá.
+    // Cuando se elimina una tarjeta, cambia socio?.id_socio y este useEffect se ejecuta.
+    // Si ponemos setToast(null), el toast se corta de golpe al pasar a la siguiente tarjeta.
   }, [socio?.id_socio]);
 
   const edadTexto = useMemo(() => {
@@ -105,16 +113,30 @@ const ModalCumple18Socio = ({
   if (!mostrar || !socio) return null;
 
   const totalPendientes = Math.max(Number(cantidadPendiente) || 1, 1);
+
   const posicion = Math.min(
     Math.max(Number(indiceActual) || 1, 1),
     totalPendientes
   );
+
   const hayMasAtras = totalPendientes > 1;
 
-  const pedirConfirmacionCierre = () => setMostrarConfirmacion(true);
-  const cancelarCierre = () => setMostrarConfirmacion(false);
+  const pedirConfirmacionEliminar = () => {
+    setMostrarConfirmacion(true);
+  };
+
+  const cancelarCierre = () => {
+    setMostrarConfirmacion(false);
+  };
+
   const confirmarCierre = () => {
     setMostrarConfirmacion(false);
+
+    setToast({
+      tipo: "exito",
+      mensaje: "Tarjeta eliminada correctamente.",
+    });
+
     onClose?.();
   };
 
@@ -140,6 +162,7 @@ const ModalCumple18Socio = ({
         {hayMasAtras && (
           <div className="cumple18-toast-shadow cumple18-toast-shadow--two" />
         )}
+
         {hayMasAtras && (
           <div className="cumple18-toast-shadow cumple18-toast-shadow--one" />
         )}
@@ -147,91 +170,104 @@ const ModalCumple18Socio = ({
         <div className="cumple18-toast" role="alert" aria-live="assertive">
           <button
             type="button"
-            className="cumple18-toast__close"
-            onClick={pedirConfirmacionCierre}
-            title="Cerrar tarjeta"
-            aria-label="Cerrar tarjeta"
-          >
-            <FaTimes />
-          </button>
-
-          <button
-            type="button"
             className="cumple18-toast__minimize"
             onClick={() => setOculto(true)}
-            title="Minimizar"
-            aria-label="Minimizar"
+            title="Ocultar tarjeta"
+            aria-label="Ocultar tarjeta"
           >
             <FaChevronRight />
           </button>
 
-          <div className="cumple18-toast__icon">
-            <FaBirthdayCake />
-          </div>
+          <div className="cumple18-toast__header">
+            <div className="cumple18-toast__icon">
+              <FaBirthdayCake />
+            </div>
 
-          <div className="cumple18-toast__content">
-            <div className="cumple18-toast__topline">
+            <div className="cumple18-toast__header-text">
               <span className="cumple18-toast__eyebrow">
                 Socios para contactar
               </span>
-              <span className="cumple18-toast__counter">
-                {posicion} de {totalPendientes}
-              </span>
+              <h3 className="cumple18-toast__title">18 a 23 años</h3>
             </div>
 
-            <h3>Socios entre 18 y 23 años</h3>
-
-            <div className="cumple18-toast__panel">
-              <div className="cumple18-toast__name">
-                {socio.nombre || `Socio ${socio.id_socio}`}
-              </div>
-
-              <p className="cumple18-toast__description">
-                Tiene <strong>{edadTexto}</strong>. Podés contactarlo para
-                actualizar sus datos o hacer seguimiento.
-              </p>
-
-              <div className="cumple18-toast__details">
-                <span>ID: {socio.id_socio}</span>
-                {socio.nacimiento && (
-                  <span>Nacimiento: {formatFecha(socio.nacimiento)}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="cumple18-toast__actions">
+            <div className="cumple18-toast__header-actions">
               {hayMasAtras && (
-                <button
-                  type="button"
-                  className="cumple18-toast__arrow-btn"
-                  onClick={onAnterior}
-                  title="Tarjeta anterior"
-                  aria-label="Tarjeta anterior"
-                >
-                  <FaChevronLeft />
-                </button>
+                <span className="cumple18-toast__counter">
+                  {posicion}/{totalPendientes}
+                </span>
               )}
 
               <button
                 type="button"
-                className="cumple18-toast__btn cumple18-toast__btn--primary"
-                onClick={onVerSocio}
+                className="cumple18-toast__hide"
+                onClick={pedirConfirmacionEliminar}
+                title="Eliminar tarjeta"
+                aria-label="Eliminar tarjeta"
               >
-                <FaEye /> Ver socio
+                <FaTimes />
               </button>
+            </div>
+          </div>
 
-              {hayMasAtras && (
-                <button
-                  type="button"
-                  className="cumple18-toast__arrow-btn"
-                  onClick={onSiguiente}
-                  title="Siguiente tarjeta"
-                  aria-label="Siguiente tarjeta"
-                >
-                  <FaChevronRight />
-                </button>
+          <div className="cumple18-toast__divider" />
+
+          <div className="cumple18-toast__panel">
+            <div className="cumple18-toast__name">
+              {socio.nombre || `Socio ${socio.id_socio}`}
+            </div>
+
+            <p className="cumple18-toast__description">
+              Tiene <strong>{edadTexto}</strong>. Podés contactarlo para
+              actualizar sus datos o hacer seguimiento.
+            </p>
+
+            <div className="cumple18-toast__details">
+              <span className="cumple18-toast__detail-pill">
+                <span className="cumple18-toast__detail-label">ID</span>
+                {socio.id_socio}
+              </span>
+
+              {socio.nacimiento && (
+                <span className="cumple18-toast__detail-pill">
+                  <span className="cumple18-toast__detail-label">Nac.</span>
+                  {formatFecha(socio.nacimiento)}
+                </span>
               )}
             </div>
+          </div>
+
+          <div className="cumple18-toast__actions">
+            {hayMasAtras && (
+              <button
+                type="button"
+                className="cumple18-toast__arrow-btn"
+                onClick={onAnterior}
+                title="Tarjeta anterior"
+                aria-label="Tarjeta anterior"
+              >
+                <FaChevronLeft />
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="cumple18-toast__btn cumple18-toast__btn--primary"
+              onClick={onVerSocio}
+            >
+              <FaEye /> Ver socio
+            </button>
+
+            {hayMasAtras && (
+              <button
+                type="button"
+                className="cumple18-toast__arrow-btn"
+                onClick={onSiguiente}
+                title="Siguiente tarjeta"
+                aria-label="Siguiente tarjeta"
+              >
+                <FaChevronRight />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -242,6 +278,15 @@ const ModalCumple18Socio = ({
           cantidadPendiente={totalPendientes}
           onCancelar={cancelarCierre}
           onConfirmar={confirmarCierre}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          tipo={toast.tipo}
+          mensaje={toast.mensaje}
+          duracion={2500}
+          onClose={() => setToast(null)}
         />
       )}
     </>
