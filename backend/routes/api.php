@@ -3,14 +3,15 @@
 
 /* =========================
    CORS
-   (habilita localhost:3000 y tu dominio; si querés, dejá '*')
 ========================= */
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
 $allowed = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'https://rhnegativo.3devsnet.com',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://rhnegativo.3devsnet.com',
 ];
+
 $allowOrigin = in_array($origin, $allowed, true) ? $origin : '*';
 
 header("Access-Control-Allow-Origin: $allowOrigin");
@@ -18,25 +19,40 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 header('Content-Type: application/json; charset=utf-8');
 
-// Preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
 
-// Evitar que warnings/notice rompan el JSON
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
 /* =========================
-   DB (una sola vez)
+   DB
 ========================= */
 require_once __DIR__ . '/../config/db.php';
 
 /* =========================
-   Router por acción
+   Acción
 ========================= */
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$body = [];
+
+$rawInput = file_get_contents('php://input');
+
+if (!empty($rawInput)) {
+    $json = json_decode($rawInput, true);
+
+    if (json_last_error() === JSON_ERROR_NONE && is_array($json)) {
+        $body = $json;
+    }
+}
+
+$action = $_GET['action']
+    ?? $_POST['action']
+    ?? $body['action']
+    ?? '';
+
+$action = trim((string) $action);
 
 try {
     switch ($action) {
@@ -92,11 +108,26 @@ try {
             exit;
 
         case 'estado_pagos_socios':
-            require __DIR__ . '/../modules/socios/estado_pagos_socios.php';
-            break;
+            require_once __DIR__ . '/../modules/socios/estado_pagos_socios.php';
+            exit;
 
         /* =========================
-           FAMILIAS (archivos separados)
+           BALANCE ANUAL
+        ========================= */
+        case 'balance_anual_preview':
+            require_once __DIR__ . '/../modules/socios/balance_anual/balance_anual_preview.php';
+            exit;
+
+        case 'balance_anual_inscripciones':
+            require_once __DIR__ . '/../modules/socios/balance_anual/balance_anual_inscripciones.php';
+            exit;
+
+        case 'balance_anual_deudores':
+            require_once __DIR__ . '/../modules/socios/balance_anual/balance_anual_deudores.php';
+            exit;
+
+        /* =========================
+           FAMILIAS
         ========================= */
         case 'familias_listar':
             require_once __DIR__ . '/../modules/socios/familias/familias_listar.php';
@@ -130,14 +161,12 @@ try {
             require_once __DIR__ . '/../modules/socios/familias/familia_quitar_miembro.php';
             exit;
 
-        // Compatibilidad con tu frontend actual (POST familia_guardar)
-        // El archivo detecta si viene id_familia para decidir INSERT/UPDATE.
         case 'familia_guardar':
             require_once __DIR__ . '/../modules/socios/familias/familia_guardar.php';
             exit;
 
         /* =========================
-                  CUOTAS
+           CUOTAS
         ========================= */
         case 'cuotas':
             require_once __DIR__ . '/../modules/cuotas/cuotas.php';
@@ -176,12 +205,11 @@ try {
             exit;
 
         case 'registrar_inscripcion':
-            require __DIR__ . '/../modules/cuotas/registrar_inscripcion.php';
-            break;
+            require_once __DIR__ . '/../modules/cuotas/registrar_inscripcion.php';
+            exit;
 
         /* =========================
-                CATEGORÍAS
-           (sin prefijo de DB)
+           CATEGORÍAS
         ========================= */
         case 'categorias_listar':
             require_once __DIR__ . '/../modules/categorias/categorias_listar.php';
@@ -204,7 +232,7 @@ try {
             exit;
 
         /* =========================
-                CONTABLE
+           CONTABLE
         ========================= */
         case 'contable':
             require_once __DIR__ . '/../modules/contable/contable_socios.php';
@@ -222,22 +250,23 @@ try {
             require_once __DIR__ . '/../modules/contable/categorias_monto_cards.php';
             exit;
 
-        /* =========================
-               DEFAULT / 404
-        ========================= */
         default:
             http_response_code(404);
-            echo json_encode(['ok' => false, 'mensaje' => 'Acción no válida: ' . $action]);
+            echo json_encode([
+                'ok' => false,
+                'exito' => false,
+                'mensaje' => 'Acción no válida: ' . $action,
+            ], JSON_UNESCAPED_UNICODE);
             exit;
     }
-
 } catch (Throwable $e) {
+    error_log('[API ROUTER ERROR] ' . $e->getMessage());
+
     http_response_code(500);
     echo json_encode([
         'ok' => false,
-        'mensaje' => 'Error en router',
-        // Descomentar para depurar:
-        // 'error' => $e->getMessage(),
-    ]);
+        'exito' => false,
+        'mensaje' => 'Error interno en el servidor.',
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }

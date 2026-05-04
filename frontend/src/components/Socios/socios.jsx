@@ -1775,12 +1775,12 @@ const Socios = () => {
   );
 
   const darDeBajaSocio = useCallback(
-    async (id, motivo) => {
+    async (id, motivo, fecha_baja) => {
       try {
         const response = await fetch(`${BASE_URL}/api.php?action=dar_baja_socio`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id_socio: id, motivo }),
+          body: JSON.stringify({ id_socio: id, motivo, fecha_baja }),
         });
         const data = await response.json();
         if (data.exito) {

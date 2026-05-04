@@ -2,9 +2,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel } from 'react-icons/fa';
+import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel, FaFileImport } from 'react-icons/fa';
 import Toast from '../Global/Toast';
 import './SociosBaja.css';
+import ModalBalanceAnual from './modales/ModalBalanceAnual';
 
 /* Exportar */
 import * as XLSX from 'xlsx';
@@ -128,6 +129,7 @@ const SociosBaja = () => {
   const [motivoCompleto, setMotivoCompleto] = useState('');
   const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
+  const [mostrarBalanceAnual, setMostrarBalanceAnual] = useState(false);
 
   // Fecha de alta editable
   const [fechaAlta, setFechaAlta] = useState('');
@@ -267,7 +269,7 @@ const SociosBaja = () => {
     const datos = sociosFiltrados.map((s) => ({
       ID: s.id_socio,
       Nombre: s.nombre || '',
-      'Fecha de baja': s.ingreso || '',
+      'Fecha de baja': s.fecha_baja || '',
       Motivo: s.motivo || 'Sin motivo',
     }));
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -292,6 +294,16 @@ const SociosBaja = () => {
           <h2 className="soc-titulo-baja">Socios Dados de Baja</h2>
         </div>
         <div className="soc-acciones-superior-baja">
+          {isAdmin && (
+            <button
+              className="soc-boton-balance-anual"
+              onClick={() => setMostrarBalanceAnual(true)}
+              title="Importar balance anual 2024/2025"
+            >
+              <FaFileImport />
+              Balance anual
+            </button>
+          )}
           <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>← Volver</button>
         </div>
       </div>
@@ -357,7 +369,7 @@ const SociosBaja = () => {
                     <div className="soc-tabla-fila-baja" key={s.id_socio}>
                       <div className="soc-col-id-baja">{s.id_socio}</div>
                       <div className="soc-col-nombre-baja">{s.nombre}</div>
-                      <div className="soc-col-domicilio-baja">{formatearFecha(s.ingreso)}</div>
+                      <div className="soc-col-domicilio-baja">{formatearFecha(s.fecha_baja)}</div>
                       <MotivoCell motivo={s.motivo} onClick={() => mostrarMotivoCompleto(s.motivo)} />
                       <div className="soc-col-acciones-baja">
                         <div className="soc-iconos-acciones-baja">
@@ -428,7 +440,7 @@ const SociosBaja = () => {
 
                     <div className="soc-card-row">
                       <span className="soc-card-label">Fecha de baja</span>
-                      <span className="soc-card-value">{formatearFecha(s.ingreso)}</span>
+                      <span className="soc-card-value">{formatearFecha(s.fecha_baja)}</span>
                     </div>
 
                     <MotivoCellMobile
@@ -510,6 +522,14 @@ const SociosBaja = () => {
             </div>
           </div>
         </div>
+      )}
+
+
+      {mostrarBalanceAnual && (
+        <ModalBalanceAnual
+          onClose={() => setMostrarBalanceAnual(false)}
+          onAplicado={() => obtenerSociosBaja()}
+        />
       )}
 
       {/* Barra inferior móvil */}

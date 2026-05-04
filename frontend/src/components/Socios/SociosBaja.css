@@ -681,3 +681,49 @@
 
 
 
+
+/* ===== Botón Balance Anual ===== */
+.soc-acciones-superior-baja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.soc-boton-balance-anual {
+  padding: 0.75rem 1.15rem;
+  border-radius: var(--soc-border-radius);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--soc-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  box-shadow: var(--soc-shadow-sm);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(6px);
+}
+
+.soc-boton-balance-anual:hover {
+  transform: translateY(-1px);
+  background: #fff;
+  color: var(--soc-danger);
+}
+
+@media (max-width: 768px) {
+  .soc-acciones-superior-baja {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .soc-boton-balance-anual,
+  .soc-boton-volver-baja {
+    flex: 1 1 150px;
+    justify-content: center;
+  }
+}

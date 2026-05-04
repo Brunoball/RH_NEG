@@ -2,12 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import './ModalDarBajaSocio.css';
 
+const TZ = 'America/Argentina/Cordoba';
+
+const hoyISO = () =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
 const ModalDarBajaSocio = ({ socio, onClose, onDarBaja }) => {
   const [motivo, setMotivo] = useState('');
+  const [fechaBaja, setFechaBaja] = useState(hoyISO());
   const [error, setError] = useState('');
 
   useEffect(() => {
     setMotivo('');
+    setFechaBaja(hoyISO());
     setError('');
   }, [socio]);
 
@@ -15,11 +27,18 @@ const ModalDarBajaSocio = ({ socio, onClose, onDarBaja }) => {
 
   const handleConfirmar = () => {
     const m = motivo.trim();
+
+    if (!fechaBaja || !/^\d{4}-\d{2}-\d{2}$/.test(fechaBaja)) {
+      setError('Por favor, seleccioná una fecha de baja válida.');
+      return;
+    }
+
     if (!m) {
       setError('Por favor, ingresá un motivo.');
       return;
     }
-    onDarBaja(socio.id_socio, m);
+
+    onDarBaja(socio.id_socio, m, fechaBaja);
   };
 
   const handleKeyDown = (e) => {
@@ -38,12 +57,28 @@ const ModalDarBajaSocio = ({ socio, onClose, onDarBaja }) => {
         </p>
 
         <div className="soc-modal-form-group">
+          <label className="soc-modal-label" htmlFor="fecha-baja">
+            Fecha de baja <span className="soc-required">*</span>
+          </label>
+          <input
+            id="fecha-baja"
+            type="date"
+            className={`soc-modal-input ${error && !fechaBaja ? 'soc-input-error' : ''}`}
+            value={fechaBaja}
+            onChange={(e) => {
+              setFechaBaja(e.target.value);
+              if (error) setError('');
+            }}
+          />
+        </div>
+
+        <div className="soc-modal-form-group">
           <label className="soc-modal-label" htmlFor="motivo-baja">
             Motivo de la baja <span className="soc-required">*</span>
           </label>
           <textarea
             id="motivo-baja"
-            className={`soc-modal-textarea ${error ? 'soc-input-error' : ''}`}
+            className={`soc-modal-textarea ${error && !motivo.trim() ? 'soc-input-error' : ''}`}
             placeholder="Escribí el motivo de la baja..."
             value={motivo}
             onChange={(e) => {
@@ -65,8 +100,8 @@ const ModalDarBajaSocio = ({ socio, onClose, onDarBaja }) => {
           <button
             className="soc-boton-confirmar-baja"
             onClick={handleConfirmar}
-            disabled={!motivo.trim()}
-            title={!motivo.trim() ? 'Ingresá un motivo' : 'Dar de baja'}
+            disabled={!motivo.trim() || !fechaBaja}
+            title={!motivo.trim() || !fechaBaja ? 'Completá fecha y motivo' : 'Dar de baja'}
           >
             Dar de baja
           </button>

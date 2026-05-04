@@ -1,7 +1,7 @@
 <?php
 /**
  * RH_NEGATIVO/api/modules/socios/dar_alta_socio.php
- * Reactiva un socio y actualiza la fecha de ingreso con la elegida en el modal.
+ * Reactiva un socio, actualiza ingreso como fecha de reingreso y limpia fecha_baja.
  * Acepta:
  *   - POST x-www-form-urlencoded: id_socio, fecha_ingreso
  *   - JSON: { "id_socio": <int>, "fecha_ingreso": "YYYY-MM-DD" | "DD/MM/YYYY" }
@@ -57,6 +57,7 @@ try {
         $sql = "UPDATE {$tabla}
                    SET activo = 1,
                        motivo = NULL,
+                       fecha_baja = NULL,
                        ingreso = :fecha
                  WHERE id_socio = :id";
         $stmt = $pdo->prepare($sql);
@@ -70,6 +71,7 @@ try {
         $sql = "UPDATE {$tabla}
                    SET activo = 1,
                        motivo = NULL,
+                       fecha_baja = NULL,
                        ingreso = CURDATE()
                  WHERE id_socio = :id";
         $stmt = $pdo->prepare($sql);

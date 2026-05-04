@@ -82,6 +82,25 @@
   color: var(--soc-danger);
 }
 
+
+.soc-modal-input {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: var(--soc-border-radius-sm);
+  border: 1px solid var(--soc-gray-300);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: var(--soc-gray-700);
+  background-color: var(--soc-light);
+  transition: var(--soc-transition);
+}
+
+.soc-modal-input:focus {
+  outline: none;
+  border-color: var(--soc-danger);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
 .soc-modal-textarea {
   width: 100%;
   padding: 0.75rem;
