@@ -577,7 +577,8 @@ const ModalAgregarSocioBaja = ({ onClose, onGuardado }) => {
 
   return (
     <div className="modal-baja-overlay" role="dialog" aria-modal="true" onMouseDown={requestClose}>
-      <div className="modal-baja-panel" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="modal-baja-shell" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-baja-panel">
         {toast.show && (
           <Toast
             tipo={toast.type}
@@ -806,6 +807,7 @@ const ModalAgregarSocioBaja = ({ onClose, onGuardado }) => {
           onCancel={cancelLeave}
           loading={false}
         />
+        </div>
       </div>
     </div>
   );
