@@ -509,7 +509,7 @@
 
 /* ── Columnas por tipo de fila ── */
 
-/* Inscripciones: 10 columnas */
+/* Inscripciones: 8 columnas */
 .mba-drow--inscripciones {
   grid-template-columns:
     48px        /* ID */
@@ -518,11 +518,9 @@
     100px       /* Estado */
     94px        /* Fecha alta */
     108px       /* Período */
-    56px        /* Pagó */
-    88px        /* Monto */
-    90px        /* Fecha pago */
-    100px;      /* Medio pago */
-  min-width: 860px;
+    100px       /* Fecha pago */
+    110px;      /* Medio pago */
+  min-width: 760px;
 }
 
 /* Bajas: 8 columnas */

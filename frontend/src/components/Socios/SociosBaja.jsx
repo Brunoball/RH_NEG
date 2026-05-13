@@ -2,10 +2,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BASE_URL from '../../config/config';
-import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel, FaFileImport } from 'react-icons/fa';
+import { FaUserCheck, FaTrash, FaInfoCircle, FaCalendarAlt, FaFileExcel, FaFileImport, FaUserPlus } from 'react-icons/fa';
 import Toast from '../Global/Toast';
 import './SociosBaja.css';
 import ModalBalanceAnual from './modales/ModalBalanceAnual';
+import ModalAgregarSocioBaja from './modales/ModalAgregarSocioBaja';
 
 /* Exportar */
 import * as XLSX from 'xlsx';
@@ -130,6 +131,7 @@ const SociosBaja = () => {
   const [toast, setToast] = useState({ show: false, tipo: '', mensaje: '' });
   const [busqueda, setBusqueda] = useState('');
   const [mostrarBalanceAnual, setMostrarBalanceAnual] = useState(false);
+  const [mostrarAgregarBaja, setMostrarAgregarBaja] = useState(false);
 
   // Fecha de alta editable
   const [fechaAlta, setFechaAlta] = useState('');
@@ -295,14 +297,24 @@ const SociosBaja = () => {
         </div>
         <div className="soc-acciones-superior-baja">
           {isAdmin && (
-            <button
-              className="soc-boton-balance-anual"
-              onClick={() => setMostrarBalanceAnual(true)}
-              title="Importar balance anual 2024/2025"
-            >
-              <FaFileImport />
-              Balance anual
-            </button>
+            <>
+              <button
+                className="soc-boton-balance-anual"
+                onClick={() => setMostrarAgregarBaja(true)}
+                title="Agregar un socio directamente como dado de baja"
+              >
+                <FaUserPlus />
+                Agregar baja
+              </button>
+              <button
+                className="soc-boton-balance-anual"
+                onClick={() => setMostrarBalanceAnual(true)}
+                title="Importar balance anual 2024/2025"
+              >
+                <FaFileImport />
+                Balance anual
+              </button>
+            </>
           )}
           <button className="soc-boton-volver-baja" onClick={() => navigate('/socios')}>← Volver</button>
         </div>
@@ -525,6 +537,17 @@ const SociosBaja = () => {
       )}
 
 
+      {mostrarAgregarBaja && (
+        <ModalAgregarSocioBaja
+          onClose={() => setMostrarAgregarBaja(false)}
+          onGuardado={() => {
+            setMostrarAgregarBaja(false);
+            obtenerSociosBaja();
+            setToast({ show: true, tipo: 'exito', mensaje: 'Socio cargado como dado de baja correctamente' });
+          }}
+        />
+      )}
+
       {mostrarBalanceAnual && (
         <ModalBalanceAnual
           onClose={() => setMostrarBalanceAnual(false)}
@@ -535,6 +558,12 @@ const SociosBaja = () => {
       {/* Barra inferior móvil */}
       <nav className="soc-bottom-nav" role="navigation" aria-label="Acciones rápidas">
         <button type="button" className="soc-bottom-btn volver" onClick={() => navigate('/socios')}>← Volver</button>
+        {isAdmin && (
+          <button type="button" className="soc-bottom-btn export" onClick={() => setMostrarAgregarBaja(true)} title="Agregar socio dado de baja">
+            <FaUserPlus aria-hidden="true" />
+            <span>Agregar baja</span>
+          </button>
+        )}
         <button type="button" className="soc-bottom-btn export" onClick={exportarExcel} disabled={loading} title={loading ? 'Cargando...' : 'Exportar lo visible a Excel'}>
           <FaFileExcel aria-hidden="true" />
           <span>Exportar</span>

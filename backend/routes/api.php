@@ -75,6 +75,10 @@ try {
             require_once __DIR__ . '/../modules/socios/agregar_socio.php';
             exit;
 
+        case 'agregar_socio_baja':
+            require_once __DIR__ . '/../modules/socios/agregar_socio_baja.php';
+            exit;
+
         case 'eliminar_socio':
             require_once __DIR__ . '/../modules/socios/eliminar_socio.php';
             exit;

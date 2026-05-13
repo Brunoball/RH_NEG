@@ -143,8 +143,9 @@ const ModalPagos = ({
 
   // ✅ REGLA:
   // - En "inscripcion" SIEMPRE selector de medio de pago
-  // - En cuotas solo si esOficina
-  const mostrarSelectorMedioPago = modo === 'inscripcion' || esOficina;
+  // - En cuotas solo si esOficina Y NO es condonación
+  //   (la condonación no tiene cobro real, por eso no pide medio de pago)
+  const mostrarSelectorMedioPago = modo === 'inscripcion' || (modo === 'cuotas' && esOficina && !condonar);
 
   const medioPagoNombreSeleccionado = useMemo(() => {
     const id = Number(medioPagoSeleccionado);
@@ -222,6 +223,14 @@ const ModalPagos = ({
       setSeleccionados([]);
     }
   }, [modo]);
+
+  // ✅ Si se activa condonación, limpiamos el medio de pago seleccionado.
+  // No se debe pedir ni guardar medio porque la deuda se marca como condonada, no pagada.
+  useEffect(() => {
+    if (modo === 'cuotas' && condonar) {
+      setMedioPagoSeleccionado('');
+    }
+  }, [modo, condonar]);
 
   // ✅ Período referencia para montos base
   const periodoReferencia = useMemo(() => {
@@ -622,7 +631,8 @@ const ModalPagos = ({
   }, [modo, aplicaAnualPorSeleccion, seleccionSinAnual, periodos, anioTrabajo]);
 
   const buildSocioParaComprobante = (esAnualSeleccion) => {
-    const medioTexto = medioPagoNombreSeleccionado || (socio.medio_pago || socio.cobrador || '');
+    // ✅ En condonación no se informa medio de pago: no hubo cobro real.
+    const medioTexto = condonar ? '' : (medioPagoNombreSeleccionado || (socio.medio_pago || socio.cobrador || ''));
 
     if (modo === 'inscripcion') {
       return {
@@ -651,7 +661,7 @@ const ModalPagos = ({
       periodo_texto: esAnualSeleccion ? `CONTADO ANUAL ${anioTrabajo}` : periodoTextoFinal || '',
       importe_total: importe,
       anio: anioTrabajo,
-      medio_pago: esOficina ? (medioTexto || '') : (socio.medio_pago || socio.cobrador),
+      medio_pago: condonar ? '' : (esOficina ? (medioTexto || '') : (socio.medio_pago || socio.cobrador)),
     };
   };
 
@@ -663,7 +673,7 @@ const ModalPagos = ({
       return;
     }
 
-    const requiereMedio = modo === 'inscripcion' || esOficina;
+    const requiereMedio = modo === 'inscripcion' || (modo === 'cuotas' && esOficina && !condonar);
     if (requiereMedio && !medioPagoSeleccionado) {
       mostrarToast('advertencia', 'Debés seleccionar un medio de pago');
       return;
@@ -748,8 +758,11 @@ const ModalPagos = ({
         anio: anioTrabajo,
         monto: Number(total) || 0,
         monto_por_periodo: 0,
-        id_medio_pago: esOficina ? (Number(medioPagoSeleccionado) || null) : null,
-        medio_pago: esOficina ? (medioPagoNombreSeleccionado || null) : (socio.medio_pago || socio.cobrador),
+        // ✅ Si está condonado, NO se guarda medio de pago porque no hubo cobro real.
+        id_medio_pago: (!condonar && esOficina) ? (Number(medioPagoSeleccionado) || null) : null,
+        medio_pago: condonar
+          ? null
+          : (esOficina ? (medioPagoNombreSeleccionado || null) : (socio.medio_pago || socio.cobrador)),
       };
 
       const res = await fetch(`${BASE_URL}/api.php?action=registrar_pago`, {
@@ -908,7 +921,7 @@ const ModalPagos = ({
       : (seleccionSinAnual.length > 0 && (!montosPeriodosListos || Number(total) <= 0))
   );
 
-  const requiereMedio = modo === 'inscripcion' || esOficina;
+  const requiereMedio = modo === 'inscripcion' || (modo === 'cuotas' && esOficina && !condonar);
 
   const bloquearInscripcion = modo === 'inscripcion' && inscripcionPagada;
 

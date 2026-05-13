@@ -244,12 +244,6 @@ const FilaInscripcion = ({ item, obtenerFechasPago, obtenerMediosPago }) => (
     </div>
     <div className="mba-dcell">{formatearFecha(item.fecha_alta || item.ingreso)}</div>
     <div className="mba-dcell">{quitarPalabraPeriodo(item.periodo_label || item.periodo_balance || '-')}</div>
-    <div className="mba-dcell">
-      <span className={`mba-badge ${item.pagado ? 'mba-badge--ok' : 'mba-badge--warn'}`}>
-        {item.pagado ? 'Sí' : 'No'}
-      </span>
-    </div>
-    <div className="mba-dcell">{formatearDinero(item.monto_inscripcion || item.monto_total || 0)}</div>
     <div className="mba-dcell">{obtenerFechasPago(item)}</div>
     <div className="mba-dcell">{obtenerMediosPago(item)}</div>
   </div>
@@ -558,8 +552,6 @@ const ModalBalanceAnual = ({ onClose }) => {
       Estado: item.estado_descripcion || item.grupo_label || '',
       'Fecha alta': formatearFecha(item.fecha_alta || item.ingreso),
       'Período balance': quitarPalabraPeriodo(item.periodo_label || item.periodo_balance || ''),
-      'Pagó inscripción': item.pagado ? 'Sí' : 'No',
-      'Monto inscripción': Number(item.monto_inscripcion || item.monto_total || 0),
       'Fecha pago': obtenerFechasPago(item),
       'Medio pago': obtenerMediosPago(item),
     }));
@@ -849,11 +841,11 @@ const ModalBalanceAnual = ({ onClose }) => {
                             <h4>Detalle completo de socios inscriptos</h4>
                             <p>Mostrando {inscripcionesVisibles.length} de {inscripcionesFiltradas.length} socios ingresados.</p>
                           </div>
-                          <Buscador placeholder="Buscar por ID, socio, DNI, estado, ingreso, pago o período..." />
+                          <Buscador placeholder="Buscar por ID, socio, DNI, estado, ingreso o período..." />
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--inscripciones">
-                            <span>ID</span><span>Socio</span><span>DNI</span><span>Estado</span><span>Fecha alta</span><span>Período</span><span>Pagó</span><span>Monto</span><span>Fecha pago</span><span>Medio pago</span>
+                            <span>ID</span><span>Socio</span><span>DNI</span><span>Estado</span><span>Fecha alta</span><span>Período</span><span>Fecha pago</span><span>Medio pago</span>
                           </div>
                           <div className="mba-dlist-body">
                             {inscripcionesFiltradas.length > 0 ? (

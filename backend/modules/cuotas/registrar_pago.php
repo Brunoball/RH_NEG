@@ -78,8 +78,15 @@ $condonar  = !empty($in['condonar']);
 $monto           = $in['monto'] ?? null;             // total (anual o barras)
 $montoPorPeriodo = $in['monto_por_periodo'] ?? null; // unitario (bimestres)
 
-/* medio_pago llega como TEXTO (TRANSFERENCIA, EFECTIVO, etc.) */
-$medioPagoNombre = isset($in['medio_pago']) ? trim((string)$in['medio_pago']) : '';
+/* medio_pago puede llegar como ID o como TEXTO (TRANSFERENCIA, EFECTIVO, etc.) */
+$idMedioPagoInput = isset($in['id_medio_pago']) ? (int)$in['id_medio_pago'] : 0;
+$medioPagoNombre  = isset($in['medio_pago']) ? trim((string)$in['medio_pago']) : '';
+
+/* ✅ En condonación NO corresponde medio de pago: no hubo cobro real. */
+if ($condonar) {
+  $idMedioPagoInput = 0;
+  $medioPagoNombre  = '';
+}
 
 /**
  * anioSel = año "lógico" al que se aplica el pago (para reglas/bloqueos/consultas).
@@ -113,12 +120,17 @@ $montoPorPeriodo = dec_str($montoPorPeriodo);
 
 /* ===== Resolver id_medio_pago (solo si no es condonación) ===== */
 $id_medio_pago = null;
-if (!$condonar && $medioPagoNombre !== '') {
-  $sqlMP = "SELECT id_medio_pago FROM medios_pago WHERE nombre = ? LIMIT 1";
-  $stMP  = $pdo->prepare($sqlMP);
-  $stMP->execute([$medioPagoNombre]);
-  $rowMP = $stMP->fetch(PDO::FETCH_ASSOC);
-  if ($rowMP) $id_medio_pago = (int)$rowMP['id_medio_pago'];
+
+if (!$condonar) {
+  if ($idMedioPagoInput > 0) {
+    $id_medio_pago = $idMedioPagoInput;
+  } elseif ($medioPagoNombre !== '') {
+    $sqlMP = "SELECT id_medio_pago FROM medios_pago WHERE nombre = ? LIMIT 1";
+    $stMP  = $pdo->prepare($sqlMP);
+    $stMP->execute([$medioPagoNombre]);
+    $rowMP = $stMP->fetch(PDO::FETCH_ASSOC);
+    if ($rowMP) $id_medio_pago = (int)$rowMP['id_medio_pago'];
+  }
 }
 
 /* ===== Si NO es condonación, calcular montos del lado servidor ===== */
@@ -199,7 +211,11 @@ try {
     }
 
     $pdo->commit();
-    echo json_encode(['exito'=>true, 'mensaje'=>"Pago anual ($anioSel) registrado correctamente."], JSON_UNESCAPED_UNICODE);
+    $mensajeOk = $condonar
+      ? "Condonación anual ($anioSel) registrada correctamente."
+      : "Pago anual ($anioSel) registrado correctamente.";
+
+    echo json_encode(['exito'=>true, 'mensaje'=>$mensajeOk], JSON_UNESCAPED_UNICODE);
     exit;
   }
 
@@ -250,7 +266,9 @@ try {
 
   echo json_encode([
     'exito'          => $ok,
-    'mensaje'        => $ok ? "Pago(s) registrados para $anioSel." : "Hubo problemas en algunos períodos.",
+    'mensaje'        => $ok
+      ? ($condonar ? "Condonación(es) registrada(s) para $anioSel." : "Pago(s) registrados para $anioSel.")
+      : "Hubo problemas en algunos períodos.",
     'insertados'     => $insertados,
     'ya_registrados' => $ya,
     'errores'        => $errores
