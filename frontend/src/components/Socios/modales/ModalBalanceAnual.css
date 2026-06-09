@@ -554,17 +554,21 @@
   min-width: 960px;
 }
 
-/* Resumen períodos inscripciones: 8 columnas */
+/* Resumen períodos inscripciones: 7 columnas */
 .mba-drow--periodos-insc {
   grid-template-columns:
-    1.2fr       /* Período */
-    1fr         /* Total */
-    1fr         /* Activos */
-    1fr         /* Pasivos */
-    1fr         /* Sin estado */
-    1fr         /* Pagaron */
-    1fr         /* Sin pago */
-    1fr;        /* Monto */
+    minmax(120px, 1.05fr)  /* Período */
+    minmax(150px, 1.25fr)  /* Meses incluidos */
+    72px                   /* Total */
+    78px                   /* Activos */
+    78px                   /* Pasivos */
+    112px                  /* Monto por inscripción */
+    128px;                 /* Total pagado */
+  min-width: 820px;
+}
+
+.mba-drow--periodos-insc .mba-dcell--monto {
+  white-space: nowrap;
 }
 
 /* Resumen bajas: 5 columnas */

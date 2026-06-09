@@ -168,6 +168,7 @@ const ModalAgregarSocioBaja = ({ onClose, onGuardado }) => {
     'telefono_movil',
     'telefono_fijo',
     'comentario',
+    'motivo',
     'nacimiento',
     'id_estado',
     'domicilio_cobro',
@@ -292,6 +293,11 @@ const ModalAgregarSocioBaja = ({ onClose, onGuardado }) => {
         if (!val) return null;
         if (!regexTextoLibre.test(val)) return 'Comentario inválido';
         if (val.length > 1000) return 'Máximo 1000 caracteres';
+        break;
+      case 'motivo':
+        if (!val) return null;
+        if (!regexTextoLibre.test(val)) return 'Motivo de baja inválido';
+        if (val.length > 255) return 'Máximo 255 caracteres';
         break;
       case 'numero':
         if (!val) return null;
@@ -769,9 +775,24 @@ const ModalAgregarSocioBaja = ({ onClose, onGuardado }) => {
                   <span className="modal-baja-input-highlight"></span>
                 </div>
 
-                <div className={`modal-baja-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''}`}>
+                <div className={`modal-baja-input-wrapper ${formData.comentario || activeField === 'comentario' ? 'has-value' : ''} ${mostrarErrores && errores.comentario ? 'has-error' : ''}`}>
                   <label className="modal-baja-label"><FontAwesomeIcon icon={faComment} className="modal-baja-input-icon" />Comentarios</label>
                   <textarea name="comentario" value={formData.comentario || ''} onChange={handleChange} onFocus={() => handleFocus('comentario')} onBlur={handleBlur} className="modal-baja-textarea" rows="4" />
+                  <span className="modal-baja-input-highlight"></span>
+                </div>
+
+                <div className={`modal-baja-input-wrapper ${formData.motivo || activeField === 'motivo' ? 'has-value' : ''} ${mostrarErrores && errores.motivo ? 'has-error' : ''}`}>
+                  <label className="modal-baja-label"><FontAwesomeIcon icon={faTriangleExclamation} className="modal-baja-input-icon" />Motivo de baja</label>
+                  <textarea
+                    name="motivo"
+                    value={formData.motivo || ''}
+                    onChange={handleChange}
+                    onFocus={() => handleFocus('motivo')}
+                    onBlur={handleBlur}
+                    className="modal-baja-textarea"
+                    rows="3"
+                    maxLength="255"
+                  />
                   <span className="modal-baja-input-highlight"></span>
                 </div>
               </div>

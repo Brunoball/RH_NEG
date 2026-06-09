@@ -137,7 +137,36 @@ const obtenerMontoAdeudado = (item) => {
 };
 
 const obtenerTotalAdeudado = (obj) => {
-  return Number(obj?.monto_total_adeudado || obj?.monto_total_estimado || 0);
+  return Number(
+    obj?.monto_total_adeudado ||
+      obj?.monto_adeudado_total ||
+      obj?.monto_total_estimado ||
+      obj?.monto_total ||
+      obj?.monto_adeudado ||
+      0
+  );
+};
+
+const obtenerMontoReferenciaPeriodo = (periodo) => {
+  return Number(
+    periodo?.monto_referencia ||
+      periodo?.monto_unitario ||
+      periodo?.monto_periodo ||
+      0
+  );
+};
+
+const obtenerTotalPagadoPeriodo = (periodo) => {
+  return Number(
+    periodo?.monto_pagado_total ||
+      periodo?.monto_total_pagado ||
+      periodo?.monto_total ||
+      0
+  );
+};
+
+const obtenerTotalEsperadoPeriodo = (periodo) => {
+  return Number(periodo?.monto_esperado_total || 0);
 };
 
 /* ─── Celda de motivo (tabla / desktop) ─── */
@@ -544,6 +573,97 @@ const ModalBalanceAnual = ({ onClose }) => {
 
   /* ─── Excel ─── */
 
+  const armarFilasResumenInscripciones = (lista = []) => {
+    const filas = lista.map((periodo) => ({
+      Período: quitarPalabraPeriodo(periodo.periodo_label || ''),
+      'Meses incluidos': periodo.periodo_meses || periodo.meses_incluidos || '',
+      Total: periodo.cantidad_total || 0,
+      Activos: periodo.activos_cantidad || 0,
+      Pasivos: periodo.pasivos_cantidad || 0,
+      'Monto por inscripción': obtenerMontoReferenciaPeriodo(periodo),
+      'Total esperado': obtenerTotalEsperadoPeriodo(periodo),
+      'Total pagado': obtenerTotalPagadoPeriodo(periodo),
+    }));
+
+    if (filas.length > 0) {
+      filas.push({
+        Período: 'TOTAL GENERAL',
+        'Meses incluidos': '',
+        Total: inscTotales.total_inscripciones || 0,
+        Activos: inscTotales.activos || 0,
+        Pasivos: inscTotales.pasivos || 0,
+        'Monto por inscripción': inscTotales.monto_unitario_referencia || '',
+        'Total esperado': inscTotales.monto_esperado_total || inscTotales.monto_deberia_cobrar_total || 0,
+        'Total pagado': inscTotales.monto_pagado_total || inscTotales.monto_total || 0,
+      });
+    }
+
+    return filas;
+  };
+
+  const armarFilasResumenBajas = (grupos = []) => {
+    const filas = [];
+
+    grupos.forEach((grupo) => {
+      if (!grupo.periodos?.length) {
+        filas.push({
+          Grupo: grupo.titulo || '',
+          'Período baja / Año': '-',
+          Bajas: 0,
+          Pagos: 0,
+          'Monto pagado': 0,
+        });
+        return;
+      }
+
+      grupo.periodos.forEach((periodo) => {
+        filas.push({
+          Grupo: grupo.titulo || '',
+          'Período baja / Año': quitarPalabraPeriodo(periodo.periodo_label || periodo.periodo || ''),
+          Bajas: periodo.cantidad || 0,
+          Pagos: periodo.pagos_cantidad || 0,
+          'Monto pagado': Number(periodo.pagos_monto_total || 0),
+        });
+      });
+    });
+
+    if (filas.length > 0) {
+      filas.push({
+        Grupo: 'TOTAL GENERAL',
+        'Período baja / Año': '',
+        Bajas: totales.total_bajas || 0,
+        Pagos: totales.pagos_detectados || 0,
+        'Monto pagado': Number(totales.pagos_monto_total || 0),
+      });
+    }
+
+    return filas;
+  };
+
+  const armarFilasResumenDeudores = (lista = []) => {
+    const filas = lista.map((periodo) => ({
+      Período: quitarPalabraPeriodo(periodo.periodo_label || ''),
+      Deudores: periodo.deudores_cantidad || 0,
+      Activos: periodo.activos_cantidad || 0,
+      Pasivos: periodo.pasivos_cantidad || 0,
+      'Sin estado': periodo.sin_estado_cantidad || 0,
+      'Monto adeudado': obtenerTotalAdeudado(periodo),
+    }));
+
+    if (filas.length > 0) {
+      filas.push({
+        Período: 'TOTAL GENERAL',
+        Deudores: deudoresTotales.total_deudores || 0,
+        Activos: deudoresTotales.activos || 0,
+        Pasivos: deudoresTotales.pasivos || 0,
+        'Sin estado': deudoresTotales.sin_estado || 0,
+        'Monto adeudado': obtenerTotalAdeudado(deudoresTotales),
+      });
+    }
+
+    return filas;
+  };
+
   const armarFilasInscripciones = (lista = []) =>
     lista.map((item) => ({
       ID: item.id_socio,
@@ -552,8 +672,10 @@ const ModalBalanceAnual = ({ onClose }) => {
       Estado: item.estado_descripcion || item.grupo_label || '',
       'Fecha alta': formatearFecha(item.fecha_alta || item.ingreso),
       'Período balance': quitarPalabraPeriodo(item.periodo_label || item.periodo_balance || ''),
+      'Mes ingreso': item.mes_ingreso_nombre || '',
       'Fecha pago': obtenerFechasPago(item),
       'Medio pago': obtenerMediosPago(item),
+      'Monto inscripción pagado': Number(item.monto_inscripcion || item.monto_pagado_total || item.monto_total || 0),
     }));
 
   const armarFilasBajas = (lista = []) =>
@@ -593,7 +715,28 @@ const ModalBalanceAnual = ({ onClose }) => {
     }));
 
   const nombreHojaSeguro = (nombre) =>
-    String(nombre || 'Hoja').replace(/[\/:*?\[\]]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 31) || 'Hoja';
+    String(nombre || 'Hoja').replace(/[\\/:*?\[\]]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 31) || 'Hoja';
+
+  const nombreHojaUnico = (workbook, nombre) => {
+    const base = nombreHojaSeguro(nombre);
+    const existentes = new Set(workbook.SheetNames || []);
+
+    if (!existentes.has(base)) {
+      return base;
+    }
+
+    for (let i = 2; i <= 99; i++) {
+      const sufijo = ` (${i})`;
+      const maxBase = 31 - sufijo.length;
+      const candidato = `${base.substring(0, maxBase)}${sufijo}`;
+
+      if (!existentes.has(candidato)) {
+        return candidato;
+      }
+    }
+
+    return `${base.substring(0, 25)} ${Date.now().toString().slice(-5)}`;
+  };
 
   const ajustarColumnas = (worksheet, filas) => {
     if (!filas.length) return;
@@ -606,7 +749,7 @@ const ModalBalanceAnual = ({ onClose }) => {
     const datos = filas.length ? filas : [{ Mensaje: 'No hay datos para exportar.' }];
     const worksheet = XLSX.utils.json_to_sheet(datos);
     ajustarColumnas(worksheet, datos);
-    XLSX.utils.book_append_sheet(workbook, worksheet, nombreHojaSeguro(nombreHoja));
+    XLSX.utils.book_append_sheet(workbook, worksheet, nombreHojaUnico(workbook, nombreHoja));
   };
 
   const agregarHojasDeudores = (workbook, periodosBase = [], lista = []) => {
@@ -618,29 +761,48 @@ const ModalBalanceAnual = ({ onClose }) => {
       agregarHoja(workbook, nombre, armarFilasDeudores(filasPeriodo));
       hojasAgregadas++;
     });
-    if (hojasAgregadas === 0) agregarHoja(workbook, 'Deudores', []);
+    if (hojasAgregadas === 0) agregarHoja(workbook, 'Deudores por período', []);
   };
 
   const exportarPestaniaActual = () => {
     const wb = XLSX.utils.book_new();
+    const sufijoArchivo = limpiarNombreArchivo(rangoTexto);
+
     if (pestaniaActiva === 'inscripciones') {
-      agregarHoja(wb, 'Inscripciones', armarFilasInscripciones(inscripcionesFiltradas));
-      XLSX.writeFile(wb, `Balance_Anual_Inscripciones_${limpiarNombreArchivo(rangoTexto)}.xlsx`);
-    } else if (pestaniaActiva === 'deudores') {
-      agregarHojasDeudores(wb, deudoresPeriodos, deudoresFiltrados);
-      XLSX.writeFile(wb, `Balance_Anual_Deudores_${limpiarNombreArchivo(rangoTexto)}.xlsx`);
-    } else {
-      agregarHoja(wb, 'Bajas', armarFilasBajas(itemsFiltrados));
-      XLSX.writeFile(wb, `Balance_Anual_Bajas_${limpiarNombreArchivo(rangoTexto)}.xlsx`);
+      agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos));
+      agregarHoja(wb, 'Detalle inscripciones', armarFilasInscripciones(inscripcionesFiltradas));
+      XLSX.writeFile(wb, `Balance_Anual_Inscripciones_${sufijoArchivo}.xlsx`);
+      return;
     }
+
+    if (pestaniaActiva === 'deudores') {
+      agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos));
+      agregarHoja(wb, 'Detalle deudores', armarFilasDeudores(deudoresFiltrados));
+      agregarHojasDeudores(wb, deudoresPeriodos, deudoresFiltrados);
+      XLSX.writeFile(wb, `Balance_Anual_Deudores_${sufijoArchivo}.xlsx`);
+      return;
+    }
+
+    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen));
+    agregarHoja(wb, 'Detalle bajas', armarFilasBajas(itemsFiltrados));
+    XLSX.writeFile(wb, `Balance_Anual_Bajas_${sufijoArchivo}.xlsx`);
   };
 
   const exportarTodasLasPestanias = () => {
     const wb = XLSX.utils.book_new();
-    agregarHoja(wb, 'Inscripciones', armarFilasInscripciones(inscItems));
-    agregarHoja(wb, 'Bajas', armarFilasBajas(items));
+    const sufijoArchivo = limpiarNombreArchivo(rangoTexto);
+
+    agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos));
+    agregarHoja(wb, 'Detalle inscripciones', armarFilasInscripciones(inscItems));
+
+    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen));
+    agregarHoja(wb, 'Detalle bajas', armarFilasBajas(items));
+
+    agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos));
+    agregarHoja(wb, 'Detalle deudores', armarFilasDeudores(deudoresItems));
     agregarHojasDeudores(wb, deudoresPeriodos, deudoresItems);
-    XLSX.writeFile(wb, `Balance_Anual_Completo_${limpiarNombreArchivo(rangoTexto)}.xlsx`);
+
+    XLSX.writeFile(wb, `Balance_Anual_Completo_${sufijoArchivo}.xlsx`);
   };
 
   /* ─── Buscador compartido ─── */
@@ -814,19 +976,18 @@ const ModalBalanceAnual = ({ onClose }) => {
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--periodos-insc">
-                            <span>Período</span><span>Total</span><span>Activos</span><span>Pasivos</span><span>Sin estado</span><span>Pagaron</span><span>Sin pago</span><span>Monto</span>
+                            <span>Período</span><span>Meses incluidos</span><span className="is-center">Total</span><span className="is-center">Activos</span><span className="is-center">Pasivos</span><span>Monto</span><span>Total pagado</span>
                           </div>
                           <div className="mba-dlist-body">
                             {inscPeriodos.length > 0 ? inscPeriodos.map((p) => (
                               <div key={p.key} className="mba-drow mba-drow--periodos-insc">
                                 <div className="mba-dcell">{quitarPalabraPeriodo(p.periodo_label)}</div>
-                                <div>{p.cantidad_total || 0}</div>
-                                <div>{p.activos_cantidad || 0}</div>
-                                <div>{p.pasivos_cantidad || 0}</div>
-                                <div>{p.sin_estado_cantidad || 0}</div>
-                                <div>{p.pagados_cantidad || 0}</div>
-                                <div>{p.sin_pago_cantidad || 0}</div>
-                                <div>{formatearDinero(p.monto_total || 0)}</div>
+                                <div className="mba-dcell mba-dcell--wrap">{p.periodo_meses || '-'}</div>
+                                <div className="is-center">{p.cantidad_total || 0}</div>
+                                <div className="is-center">{p.activos_cantidad || 0}</div>
+                                <div className="is-center">{p.pasivos_cantidad || 0}</div>
+                                <div className="mba-dcell mba-dcell--monto">{formatearDinero(obtenerMontoReferenciaPeriodo(p))}</div>
+                                <div className="mba-dcell mba-dcell--monto" title={`Total esperado: ${formatearDinero(obtenerTotalEsperadoPeriodo(p))}`}>{formatearDinero(obtenerTotalPagadoPeriodo(p))}</div>
                               </div>
                             )) : (
                               <div className="mba-drow-empty">No hay períodos de inscripción para mostrar.</div>
@@ -1059,3 +1220,4 @@ const ModalBalanceAnual = ({ onClose }) => {
 };
 
 export default ModalBalanceAnual;
+

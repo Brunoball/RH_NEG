@@ -87,7 +87,7 @@ try {
     $domicilio_cobro = $data['domicilio_cobro'] ?? '';
     $dni             = trim((string)($data['dni'] ?? ''));
     $fecha_baja      = !empty($data['fecha_baja']) ? trim((string)$data['fecha_baja']) : date('Y-m-d');
-    $motivo          = aMayusBaja($data['motivo'] ?? '');
+    $motivo          = collapse_spaces_baja(aMayusBaja($data['motivo'] ?? ''));
 
     $errores = [];
 
@@ -115,8 +115,8 @@ try {
     if (!empty($comentario) && (!preg_match('/^[\p{L}\p{N}\s.,-]+$/u', $comentario) || mb_strlen($comentario, 'UTF-8') > 1000)) {
         responderErrorBaja(['comentario' => '❌ Comentario inválido. Letras/números, espacios y . , -. Máximo 1000 caracteres.']);
     }
-    if (!empty($motivo) && (!preg_match('/^[\p{L}\p{N}\s.,-]+$/u', $motivo) || mb_strlen($motivo, 'UTF-8') > 1000)) {
-        responderErrorBaja(['motivo' => '❌ Motivo inválido. Letras/números, espacios y . , -. Máximo 1000 caracteres.']);
+    if (!empty($motivo) && (!preg_match('/^[\p{L}\p{N}\s.,-]+$/u', $motivo) || mb_strlen($motivo, 'UTF-8') > 255)) {
+        responderErrorBaja(['motivo' => '❌ Motivo de baja inválido. Letras/números, espacios y . , -. Máximo 255 caracteres.']);
     }
     if (!empty($numero) && (!preg_match('/^[0-9]+$/', $numero) || strlen($numero) > 20)) {
         responderErrorBaja(['numero' => '❌ Solo números. Máximo 20 caracteres.']);

@@ -13,13 +13,20 @@ function balance_inscripciones_pdo(): PDO
 {
     if (function_exists('db')) {
         $pdo = db();
-        if ($pdo instanceof PDO) return $pdo;
+        if ($pdo instanceof PDO) {
+            return $pdo;
+        }
     }
 
     global $pdo, $conn;
 
-    if (isset($pdo) && $pdo instanceof PDO) return $pdo;
-    if (isset($conn) && $conn instanceof PDO) return $conn;
+    if (isset($pdo) && $pdo instanceof PDO) {
+        return $pdo;
+    }
+
+    if (isset($conn) && $conn instanceof PDO) {
+        return $conn;
+    }
 
     throw new RuntimeException('No se pudo obtener la conexión PDO.');
 }
@@ -35,7 +42,9 @@ function balance_inscripciones_validar_fecha(?string $fecha, string $fallback): 
 {
     $fecha = trim((string) $fecha);
 
-    if ($fecha === '') return $fallback;
+    if ($fecha === '') {
+        return $fallback;
+    }
 
     $dt = DateTime::createFromFormat('Y-m-d', $fecha);
 
@@ -164,24 +173,22 @@ function balance_inscripciones_fecha_fin_periodo(int $anio, int $mesHasta): stri
     return $fecha->format('Y-m-d');
 }
 
-function balance_inscripciones_crear_periodo_vacio(array $periodo, int $anio): array
+function balance_inscripciones_formatear_monto($valor): float
 {
-    $key = sprintf('%04d-%02d', $anio, (int) $periodo['id_periodo']);
-    $label = $periodo['periodo_nombre'] . ' / ' . $anio;
+    if ($valor === null || $valor === '') {
+        return 0.0;
+    }
 
+    return round((float) $valor, 2);
+}
+
+function balance_inscripciones_crear_mes_vacio(int $anio, int $mes): array
+{
     return [
-        'key' => $key,
-        'id_periodo' => (int) $periodo['id_periodo'],
+        'key' => sprintf('%04d-%02d', $anio, $mes),
         'anio' => $anio,
-
-        'periodo_nombre' => $periodo['periodo_nombre'],
-        'periodo_meses' => $periodo['periodo_meses'],
-        'periodo_label' => $label,
-
-        'mes_desde' => (int) $periodo['mes_desde'],
-        'mes_hasta' => (int) $periodo['mes_hasta'],
-        'fecha_inicio' => balance_inscripciones_fecha_inicio_periodo($anio, (int) $periodo['mes_desde']),
-        'fecha_fin' => balance_inscripciones_fecha_fin_periodo($anio, (int) $periodo['mes_hasta']),
+        'mes' => $mes,
+        'mes_nombre' => balance_inscripciones_nombre_mes($mes),
 
         'cantidad_total' => 0,
         'activos_cantidad' => 0,
@@ -190,11 +197,85 @@ function balance_inscripciones_crear_periodo_vacio(array $periodo, int $anio): a
 
         'pagados_cantidad' => 0,
         'sin_pago_cantidad' => 0,
+
+        // Monto que debería pagar cada inscripción de ese mes.
+        'monto_unitario' => 0,
+        'monto_deberia_pagar' => 0,
+
+        // Total esperado: cantidad_total * monto_unitario.
+        'monto_esperado_total' => 0,
+
+        // Total realmente pagado en pagos_inscripcion.
+        'monto_pagado_total' => 0,
+        'monto_total' => 0,
+
+        'montos_observados' => [],
+
+        'socios' => [],
+        'socios_activos' => [],
+        'socios_pasivos' => [],
+        'socios_sin_estado' => [],
+    ];
+}
+
+function balance_inscripciones_crear_periodo_vacio(array $periodo, int $anio): array
+{
+    $key = sprintf('%04d-%02d', $anio, (int) $periodo['id_periodo']);
+    $label = $periodo['periodo_nombre'] . ' / ' . $anio;
+
+    $mesDesde = (int) $periodo['mes_desde'];
+    $mesHasta = (int) $periodo['mes_hasta'];
+
+    $mesesDetalle = [];
+
+    for ($mes = $mesDesde; $mes <= $mesHasta; $mes++) {
+        $mesesDetalle[] = balance_inscripciones_crear_mes_vacio($anio, $mes);
+    }
+
+    return [
+        'key' => $key,
+        'id_periodo' => (int) $periodo['id_periodo'],
+        'anio' => $anio,
+
+        // Primera columna: período.
+        'periodo_nombre' => $periodo['periodo_nombre'],
+        'periodo_meses' => $periodo['periodo_meses'],
+        'periodo_label' => $label,
+
+        'mes_desde' => $mesDesde,
+        'mes_hasta' => $mesHasta,
+        'fecha_inicio' => balance_inscripciones_fecha_inicio_periodo($anio, $mesDesde),
+        'fecha_fin' => balance_inscripciones_fecha_fin_periodo($anio, $mesHasta),
+
+        // Segunda columna / detalle: meses que incluye.
+        'meses_incluidos' => $periodo['periodo_meses'],
+        'meses_detalle' => $mesesDetalle,
+
+        // Totales como estaban.
+        'cantidad_total' => 0,
+        'activos_cantidad' => 0,
+        'pasivos_cantidad' => 0,
+        'sin_estado_cantidad' => 0,
+
+        'pagados_cantidad' => 0,
+        'sin_pago_cantidad' => 0,
+
+        // Monto unitario estimado/referencial del período.
+        'monto_unitario' => 0,
+        'monto_deberia_pagar' => 0,
+
+        // Total esperado: suma de cada mes.
+        'monto_esperado_total' => 0,
+
+        // Total realmente pagado.
+        'monto_pagado_total' => 0,
         'monto_total' => 0,
 
         'activos_monto_total' => 0,
         'pasivos_monto_total' => 0,
         'sin_estado_monto_total' => 0,
+
+        'montos_observados' => [],
 
         'socios' => [],
         'socios_activos' => [],
@@ -235,26 +316,99 @@ function balance_inscripciones_grupo_estado(?int $idEstado, ?string $descripcion
 {
     $desc = mb_strtoupper(trim((string) $descripcion), 'UTF-8');
 
-    if ($idEstado === 1 || $desc === 'PASIVO') return 'pasivos';
-    if ($idEstado === 2 || $desc === 'ACTIVO') return 'activos';
+    if ($idEstado === 1 || $desc === 'PASIVO') {
+        return 'pasivos';
+    }
+
+    if ($idEstado === 2 || $desc === 'ACTIVO') {
+        return 'activos';
+    }
 
     return 'sin_estado';
 }
 
 function balance_inscripciones_grupo_label(string $grupo): string
 {
-    if ($grupo === 'activos') return 'ACTIVO';
-    if ($grupo === 'pasivos') return 'PASIVO';
+    if ($grupo === 'activos') {
+        return 'ACTIVO';
+    }
+
+    if ($grupo === 'pasivos') {
+        return 'PASIVO';
+    }
+
     return 'SIN ESTADO';
 }
 
-function balance_inscripciones_formatear_monto($valor): float
+function balance_inscripciones_monto_frecuente(array $montos): float
 {
-    if ($valor === null || $valor === '') {
+    $frecuencias = [];
+
+    foreach ($montos as $monto) {
+        $monto = balance_inscripciones_formatear_monto($monto);
+
+        if ($monto <= 0) {
+            continue;
+        }
+
+        $key = number_format($monto, 2, '.', '');
+
+        if (!isset($frecuencias[$key])) {
+            $frecuencias[$key] = [
+                'monto' => $monto,
+                'cantidad' => 0,
+            ];
+        }
+
+        $frecuencias[$key]['cantidad']++;
+    }
+
+    if (empty($frecuencias)) {
         return 0.0;
     }
 
-    return round((float) $valor, 2);
+    uasort($frecuencias, static function (array $a, array $b): int {
+        if ($a['cantidad'] === $b['cantidad']) {
+            return $b['monto'] <=> $a['monto'];
+        }
+
+        return $b['cantidad'] <=> $a['cantidad'];
+    });
+
+    $primero = reset($frecuencias);
+
+    return balance_inscripciones_formatear_monto($primero['monto'] ?? 0);
+}
+
+function balance_inscripciones_normalizar_meses_detalle(array $mesesDetalle, float $montoPeriodoFallback, float $montoGlobalFallback): array
+{
+    foreach ($mesesDetalle as $index => $mes) {
+        $montoUnitario = balance_inscripciones_monto_frecuente($mes['montos_observados'] ?? []);
+
+        if ($montoUnitario <= 0) {
+            $montoUnitario = $montoPeriodoFallback;
+        }
+
+        if ($montoUnitario <= 0) {
+            $montoUnitario = $montoGlobalFallback;
+        }
+
+        $cantidadTotal = (int) ($mes['cantidad_total'] ?? 0);
+        $montoPagadoTotal = balance_inscripciones_formatear_monto($mes['monto_pagado_total'] ?? 0);
+        $montoEsperadoTotal = balance_inscripciones_formatear_monto($cantidadTotal * $montoUnitario);
+
+        $mesesDetalle[$index]['monto_unitario'] = $montoUnitario;
+        $mesesDetalle[$index]['monto_deberia_pagar'] = $montoUnitario;
+        $mesesDetalle[$index]['monto_esperado_total'] = $montoEsperadoTotal;
+        $mesesDetalle[$index]['monto_pagado_total'] = $montoPagadoTotal;
+
+        // Compatibilidad con el frontend si ya lee monto_total.
+        $mesesDetalle[$index]['monto_total'] = $montoPagadoTotal;
+
+        unset($mesesDetalle[$index]['montos_observados']);
+    }
+
+    return $mesesDetalle;
 }
 
 try {
@@ -280,8 +434,10 @@ try {
             e.descripcion AS estado_descripcion,
             s.activo
         FROM socios s
-        LEFT JOIN estado e ON e.id_estado = s.id_estado
+        LEFT JOIN estado e 
+            ON e.id_estado = s.id_estado
         WHERE s.ingreso IS NOT NULL
+          AND s.activo = 1
           AND s.ingreso BETWEEN :desde AND :hasta
         ORDER BY s.ingreso ASC, s.nombre ASC, s.id_socio ASC
     ";
@@ -356,6 +512,8 @@ try {
             'pagados_cantidad' => 0,
             'sin_pago_cantidad' => 0,
             'monto_total' => 0,
+            'monto_pagado_total' => 0,
+            'monto_esperado_total' => 0,
             'socios' => [],
         ],
         'pasivos' => [
@@ -363,6 +521,8 @@ try {
             'pagados_cantidad' => 0,
             'sin_pago_cantidad' => 0,
             'monto_total' => 0,
+            'monto_pagado_total' => 0,
+            'monto_esperado_total' => 0,
             'socios' => [],
         ],
         'sin_estado' => [
@@ -370,11 +530,14 @@ try {
             'pagados_cantidad' => 0,
             'sin_pago_cantidad' => 0,
             'monto_total' => 0,
+            'monto_pagado_total' => 0,
+            'monto_esperado_total' => 0,
             'socios' => [],
         ],
     ];
 
     $items = [];
+    $montosGlobalesObservados = [];
 
     foreach ($socios as $socio) {
         $idSocio = (int) $socio['id_socio'];
@@ -400,12 +563,18 @@ try {
         $grupoLabel = balance_inscripciones_grupo_label($grupo);
 
         $pagos = $pagosPorSocio[$idSocio] ?? [];
-        $montoTotal = 0;
+        $montoTotalPagadoSocio = 0.0;
         $fechasPago = [];
         $mediosPago = [];
 
         foreach ($pagos as $pago) {
-            $montoTotal += (float) ($pago['monto'] ?? 0);
+            $montoPago = balance_inscripciones_formatear_monto($pago['monto'] ?? 0);
+            $montoTotalPagadoSocio += $montoPago;
+
+            if ($montoPago > 0) {
+                $periodos[$periodoKey]['montos_observados'][] = $montoPago;
+                $montosGlobalesObservados[] = $montoPago;
+            }
 
             if (!empty($pago['fecha_pago'])) {
                 $fechasPago[] = $pago['fecha_pago'];
@@ -416,6 +585,7 @@ try {
             }
         }
 
+        $montoTotalPagadoSocio = balance_inscripciones_formatear_monto($montoTotalPagadoSocio);
         $mediosPago = array_values(array_unique($mediosPago));
         $pagado = count($pagos) > 0;
 
@@ -442,11 +612,20 @@ try {
             'estado_descripcion' => $socio['estado_descripcion'] ?? null,
             'grupo' => $grupo,
             'grupo_label' => $grupoLabel,
+            'activo' => isset($socio['activo']) ? (int) $socio['activo'] : 1,
 
             'pagado' => $pagado,
             'pagos_cantidad' => count($pagos),
-            'monto_total' => balance_inscripciones_formatear_monto($montoTotal),
-            'monto_inscripcion' => balance_inscripciones_formatear_monto($montoTotal),
+
+            // Total real pagado por inscripción.
+            'monto_total' => $montoTotalPagadoSocio,
+            'monto_pagado_total' => $montoTotalPagadoSocio,
+            'monto_inscripcion' => $montoTotalPagadoSocio,
+
+            // Se completa al final con el monto unitario estimado del mes.
+            'monto_unitario' => 0,
+            'monto_deberia_pagar' => 0,
+
             'fecha_pago_inscripcion' => $fechasPago[0] ?? null,
             'fechas_pago_inscripcion' => array_values($fechasPago),
             'medio_pago_inscripcion' => $mediosPago[0] ?? null,
@@ -460,15 +639,15 @@ try {
 
         if ($grupo === 'activos') {
             $periodos[$periodoKey]['activos_cantidad']++;
-            $periodos[$periodoKey]['activos_monto_total'] += $montoTotal;
+            $periodos[$periodoKey]['activos_monto_total'] += $montoTotalPagadoSocio;
             $periodos[$periodoKey]['socios_activos'][] = $item;
         } elseif ($grupo === 'pasivos') {
             $periodos[$periodoKey]['pasivos_cantidad']++;
-            $periodos[$periodoKey]['pasivos_monto_total'] += $montoTotal;
+            $periodos[$periodoKey]['pasivos_monto_total'] += $montoTotalPagadoSocio;
             $periodos[$periodoKey]['socios_pasivos'][] = $item;
         } else {
             $periodos[$periodoKey]['sin_estado_cantidad']++;
-            $periodos[$periodoKey]['sin_estado_monto_total'] += $montoTotal;
+            $periodos[$periodoKey]['sin_estado_monto_total'] += $montoTotalPagadoSocio;
             $periodos[$periodoKey]['socios_sin_estado'][] = $item;
         }
 
@@ -478,8 +657,44 @@ try {
             $periodos[$periodoKey]['sin_pago_cantidad']++;
         }
 
-        $periodos[$periodoKey]['monto_total'] += $montoTotal;
+        $periodos[$periodoKey]['monto_pagado_total'] += $montoTotalPagadoSocio;
+        $periodos[$periodoKey]['monto_total'] += $montoTotalPagadoSocio;
         $periodos[$periodoKey]['socios'][] = $item;
+
+        foreach ($periodos[$periodoKey]['meses_detalle'] as $idxMes => $mesDetalle) {
+            if ((int) $mesDetalle['mes'] !== $mes) {
+                continue;
+            }
+
+            $periodos[$periodoKey]['meses_detalle'][$idxMes]['cantidad_total']++;
+
+            if ($grupo === 'activos') {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['activos_cantidad']++;
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['socios_activos'][] = $item;
+            } elseif ($grupo === 'pasivos') {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['pasivos_cantidad']++;
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['socios_pasivos'][] = $item;
+            } else {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['sin_estado_cantidad']++;
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['socios_sin_estado'][] = $item;
+            }
+
+            if ($pagado) {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['pagados_cantidad']++;
+            } else {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['sin_pago_cantidad']++;
+            }
+
+            $periodos[$periodoKey]['meses_detalle'][$idxMes]['monto_pagado_total'] += $montoTotalPagadoSocio;
+            $periodos[$periodoKey]['meses_detalle'][$idxMes]['monto_total'] += $montoTotalPagadoSocio;
+            $periodos[$periodoKey]['meses_detalle'][$idxMes]['socios'][] = $item;
+
+            if ($montoTotalPagadoSocio > 0) {
+                $periodos[$periodoKey]['meses_detalle'][$idxMes]['montos_observados'][] = $montoTotalPagadoSocio;
+            }
+
+            break;
+        }
 
         $resumen[$grupo]['cantidad']++;
 
@@ -489,21 +704,102 @@ try {
             $resumen[$grupo]['sin_pago_cantidad']++;
         }
 
-        $resumen[$grupo]['monto_total'] += $montoTotal;
+        $resumen[$grupo]['monto_total'] += $montoTotalPagadoSocio;
+        $resumen[$grupo]['monto_pagado_total'] += $montoTotalPagadoSocio;
         $resumen[$grupo]['socios'][] = $item;
     }
 
     ksort($periodos);
 
+    $montoGlobalFallback = balance_inscripciones_monto_frecuente($montosGlobalesObservados);
+
     foreach ($periodos as $key => $periodo) {
-        $periodos[$key]['monto_total'] = balance_inscripciones_formatear_monto($periodo['monto_total']);
+        $montoPeriodo = balance_inscripciones_monto_frecuente($periodo['montos_observados'] ?? []);
+
+        if ($montoPeriodo <= 0) {
+            $montoPeriodo = $montoGlobalFallback;
+        }
+
+        $mesesDetalle = balance_inscripciones_normalizar_meses_detalle(
+            $periodo['meses_detalle'] ?? [],
+            $montoPeriodo,
+            $montoGlobalFallback
+        );
+
+        $montoEsperadoPeriodo = 0.0;
+
+        foreach ($mesesDetalle as $mesDetalle) {
+            $montoEsperadoPeriodo += (float) ($mesDetalle['monto_esperado_total'] ?? 0);
+        }
+
+        $montoEsperadoPeriodo = balance_inscripciones_formatear_monto($montoEsperadoPeriodo);
+        $montoPagadoPeriodo = balance_inscripciones_formatear_monto($periodo['monto_pagado_total'] ?? $periodo['monto_total'] ?? 0);
+
+        $periodos[$key]['monto_unitario'] = $montoPeriodo;
+        $periodos[$key]['monto_deberia_pagar'] = $montoPeriodo;
+        $periodos[$key]['monto_esperado_total'] = $montoEsperadoPeriodo;
+
+        $periodos[$key]['monto_pagado_total'] = $montoPagadoPeriodo;
+
+        // Compatibilidad: monto_total sigue siendo lo realmente pagado.
+        $periodos[$key]['monto_total'] = $montoPagadoPeriodo;
+
         $periodos[$key]['activos_monto_total'] = balance_inscripciones_formatear_monto($periodo['activos_monto_total']);
         $periodos[$key]['pasivos_monto_total'] = balance_inscripciones_formatear_monto($periodo['pasivos_monto_total']);
         $periodos[$key]['sin_estado_monto_total'] = balance_inscripciones_formatear_monto($periodo['sin_estado_monto_total']);
+
+        $periodos[$key]['meses_detalle'] = $mesesDetalle;
+
+        unset($periodos[$key]['montos_observados']);
+
+        foreach ($periodos[$key]['socios'] as $idxSocio => $socioPeriodo) {
+            $mesSocio = (int) ($socioPeriodo['mes_ingreso'] ?? $socioPeriodo['mes'] ?? 0);
+            $montoMesSocio = $montoPeriodo;
+
+            foreach ($mesesDetalle as $mesDetalle) {
+                if ((int) $mesDetalle['mes'] === $mesSocio) {
+                    $montoMesSocio = (float) $mesDetalle['monto_unitario'];
+                    break;
+                }
+            }
+
+            $periodos[$key]['socios'][$idxSocio]['monto_unitario'] = balance_inscripciones_formatear_monto($montoMesSocio);
+            $periodos[$key]['socios'][$idxSocio]['monto_deberia_pagar'] = balance_inscripciones_formatear_monto($montoMesSocio);
+        }
     }
 
     foreach ($resumen as $grupo => $data) {
         $resumen[$grupo]['monto_total'] = balance_inscripciones_formatear_monto($data['monto_total']);
+        $resumen[$grupo]['monto_pagado_total'] = balance_inscripciones_formatear_monto($data['monto_pagado_total']);
+
+        $montoEsperadoGrupo = 0.0;
+
+        foreach ($data['socios'] as $socioResumen) {
+            $periodoKeySocio = (string) ($socioResumen['periodo_key'] ?? '');
+
+            if (!isset($periodos[$periodoKeySocio])) {
+                continue;
+            }
+
+            $mesSocio = (int) ($socioResumen['mes_ingreso'] ?? $socioResumen['mes'] ?? 0);
+
+            foreach ($periodos[$periodoKeySocio]['meses_detalle'] as $mesDetalle) {
+                if ((int) $mesDetalle['mes'] === $mesSocio) {
+                    $montoEsperadoGrupo += (float) ($mesDetalle['monto_unitario'] ?? 0);
+                    break;
+                }
+            }
+        }
+
+        $resumen[$grupo]['monto_esperado_total'] = balance_inscripciones_formatear_monto($montoEsperadoGrupo);
+    }
+
+    $montoEsperadoTotal = 0.0;
+    $montoPagadoTotal = 0.0;
+
+    foreach ($periodos as $periodo) {
+        $montoEsperadoTotal += (float) ($periodo['monto_esperado_total'] ?? 0);
+        $montoPagadoTotal += (float) ($periodo['monto_pagado_total'] ?? 0);
     }
 
     $totales = [
@@ -523,21 +819,25 @@ try {
             + (int) $resumen['pasivos']['sin_pago_cantidad']
             + (int) $resumen['sin_estado']['sin_pago_cantidad'],
 
-        'monto_total' =>
-            balance_inscripciones_formatear_monto(
-                (float) $resumen['activos']['monto_total']
-                + (float) $resumen['pasivos']['monto_total']
-                + (float) $resumen['sin_estado']['monto_total']
-            ),
+        // Total real pagado.
+        'monto_total' => balance_inscripciones_formatear_monto($montoPagadoTotal),
+        'monto_pagado_total' => balance_inscripciones_formatear_monto($montoPagadoTotal),
+
+        // Total que deberían pagar según cantidad de inscriptos y monto unitario detectado por mes.
+        'monto_esperado_total' => balance_inscripciones_formatear_monto($montoEsperadoTotal),
+        'monto_deberia_cobrar_total' => balance_inscripciones_formatear_monto($montoEsperadoTotal),
+
+        // Monto de referencia general.
+        'monto_unitario_referencia' => balance_inscripciones_formatear_monto($montoGlobalFallback),
     ];
 
     balance_inscripciones_responder([
         'ok' => true,
         'exito' => true,
-        'mensaje' => 'Inscripciones del balance obtenidas correctamente por período.',
+        'mensaje' => 'Inscripciones del balance obtenidas correctamente por período y meses.',
         'desde' => $desde,
         'hasta' => $hasta,
-        'criterio' => 'Las inscripciones se agrupan por período bimestral según la fecha de ingreso del socio.',
+        'criterio' => 'Las inscripciones se filtran por socios activos (socios.activo = 1), se agrupan por período bimestral según la fecha de ingreso y se detalla cada mes incluido en el período.',
         'totales' => $totales,
         'resumen' => $resumen,
         'periodos' => array_values($periodos),
