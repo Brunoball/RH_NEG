@@ -70,13 +70,16 @@ function balance_deudores_rango_fechas_por_defecto(): array
     $anioActual = (int) $hoy->format('Y');
     $mesActual = (int) $hoy->format('n');
 
-    // Período anual predeterminado: 1 de julio a 30 de junio.
-    $anioCierre = $anioActual;
-    $anioInicio = $anioActual - 1;
+    if ($mesActual <= 6) {
+        return [
+            'desde' => ($anioActual - 1) . '-07-01',
+            'hasta' => $anioActual . '-06-30',
+        ];
+    }
 
     return [
-        'desde' => $anioInicio . '-07-01',
-        'hasta' => $anioCierre . '-06-30',
+        'desde' => $anioActual . '-07-01',
+        'hasta' => $hoy->format('Y-m-d'),
     ];
 }
 
@@ -576,18 +579,10 @@ try {
     $paramsSocios = [];
 
     if (!$incluirInactivos) {
-        // El balance debe usar el estado del socio a la fecha de cierre, no su
-        // estado actual. Si fue dado de baja después de fecha_hasta, al cierre
-        // todavía estaba activo y debe seguir formando parte de Deudores.
-        $sqlSocios .= "
-            WHERE s.activo = 1
-               OR (
-                    s.activo = 0
-                    AND s.fecha_baja IS NOT NULL
-                    AND s.fecha_baja > :fecha_cierre_balance
-               )
-        ";
-        $paramsSocios[':fecha_cierre_balance'] = $hasta;
+        // Esta pestaña no es una foto contable al cierre: muestra quién sigue
+        // debiendo cada período en el estado actual, igual que el módulo Cuotas.
+        // Por eso, por defecto sólo intervienen socios actualmente activos.
+        $sqlSocios .= " WHERE s.activo = 1 ";
     }
 
     $sqlSocios .= " ORDER BY s.nombre ASC, s.id_socio ASC ";
@@ -637,7 +632,6 @@ try {
                 monto
             FROM pagos
             WHERE estado IN ('pagado', 'condonado')
-              AND fecha_pago <= ?
               AND (
                     anio_aplicado IN ($placeholdersAnios)
                     OR (
@@ -654,11 +648,10 @@ try {
                 id_pago DESC
         ";
 
-        // El balance es una foto al cierre indicado: los pagos posteriores a
-        // fecha_hasta no pueden modificar retroactivamente la deuda. Se conservan
-        // pagos anteriores a fecha_desde porque pueden ser anticipos válidos de
-        // períodos incluidos en el informe.
-        $paramsPagos = array_merge([$hasta], $aniosBalance, $aniosBalance);
+        // Para determinar deudores importa el período al que se aplicó el
+        // pago o la condonación, no la fecha en la que se registró. De este modo
+        // Balance anual y Cuotas muestran exactamente el mismo estado del período.
+        $paramsPagos = array_merge($aniosBalance, $aniosBalance);
         $stmtPagos = $pdo->prepare($sqlPagos);
         $stmtPagos->execute($paramsPagos);
 
@@ -839,7 +832,7 @@ try {
                 'telefono_fijo' => $socio['telefono_fijo'] ?? null,
                 'cobrador' => $socio['cobrador'] ?? null,
 
-                'motivo_deuda' => 'Sin pago registrado hasta la fecha de cierre del informe para el período ni contado anual del año.',
+                'motivo_deuda' => 'Sin pago ni condonación registrados para el período, ni contado anual aplicado al año.',
             ];
 
             $periodoBalance['deudores'][] = $item;
@@ -937,10 +930,10 @@ try {
         'cantidad_periodos' => $cantidadControlPeriodos,
         'cantidad_resumen_estados' => $cantidadControlResumen,
         'pagos_duplicados_detectados' => count($pagosDuplicados),
-        'fecha_corte_pagos' => $hasta,
-        'regla_fecha_pagos' => 'SE CONSIDERAN PAGOS CON fecha_pago MENOR O IGUAL A fecha_hasta. LOS PAGOS POSTERIORES NO REDUCEN RETROACTIVAMENTE LA DEUDA.',
-        'regla_anticipos' => 'LOS PAGOS ANTERIORES A fecha_desde SE CONSERVAN SI CUBREN UN PERÍODO INCLUIDO EN EL BALANCE.',
-        'regla_vigencia_socios' => 'SE USA EL ESTADO DEL SOCIO A fecha_hasta: UNA BAJA POSTERIOR AL CIERRE NO LO EXCLUYE RETROACTIVAMENTE.',
+        'fecha_corte_pagos' => null,
+        'regla_fecha_pagos' => 'LA FECHA DE PAGO NO DEFINE SI EL PERÍODO ESTÁ CUBIERTO. SE USA anio_aplicado + id_periodo, IGUAL QUE EN CUOTAS.',
+        'regla_anticipos' => 'UN PAGO O CONDONACIÓN CUBRE EL PERÍODO AL QUE FUE APLICADO, AUNQUE SE HAYA REGISTRADO ANTES O DESPUÉS DEL RANGO.',
+        'regla_vigencia_socios' => 'POR DEFECTO SE CONSIDERAN SOLAMENTE SOCIOS ACTUALMENTE ACTIVOS, IGUAL QUE EN CUOTAS.',
         'regla_historica' => 'PRECIO VIGENTE AL ÚLTIMO DÍA DEL BIMESTRE',
     ];
 
@@ -960,8 +953,8 @@ try {
         'desde' => $desde,
         'hasta' => $hasta,
         'incluye_contado_anual' => true,
-        'criterio_fecha_pagos' => 'Se consideran pagos registrados hasta la fecha hasta inclusive. Los pagos posteriores quedan fuera; los anticipos anteriores a fecha desde siguen cubriendo el período que corresponda.',
-        'criterio_vigencia_socios' => 'Se incluyen socios activos al cierre del informe. Una baja registrada después de fecha hasta no los excluye retroactivamente.',
+        'criterio_fecha_pagos' => 'Para saber si una persona debe se consulta el año y período aplicado. La fecha en que se registró el pago o la condonación no cambia el estado del período.',
+        'criterio_vigencia_socios' => 'Por defecto se incluyen solamente socios actualmente activos, igual que en la sección Cuotas.',
         'criterio_monto' => 'El monto adeudado usa precios_historicos según la fecha de cierre de cada período. categoria_monto.monto_mensual se usa sólo si la categoría no tiene historial. No se multiplica por cantidad de meses.',
         'totales' => [
             'total_deudores' => count($items),
