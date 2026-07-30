@@ -384,12 +384,14 @@ html, body {
 .detsoc-section .detsoc-total-pasivo { background: rgba(234, 179, 8, 0.08); }
 
 /* ====== Columnas específicas para DetSoc y CobMes ====== */
-/* Detalle de Socios: 3 columnas alineadas */
-.detsoc-header,
-.detsoctable-row,
-.detsoc-total {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+/* Detalle de Socios: 3 columnas que completan todo el ancho */
+@media (min-width: 921px) {
+  .detsoc-section .detsoc-header,
+  .detsoc-section .gridtable-body .detsoctable-row,
+  .detsoc-section .gridtable-body .detsoc-total {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Detalle de Cobranza por medio: 4 columnas alineadas */
