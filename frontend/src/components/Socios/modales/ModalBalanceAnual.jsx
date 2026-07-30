@@ -13,29 +13,24 @@ import * as XLSX from 'xlsx';
 import BASE_URL from '../../../config/config';
 import './ModalBalanceAnual.css';
 
-const obtenerFechaLocalISO = (fecha) => {
-  const anio = fecha.getFullYear();
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  return `${anio}-${mes}-${dia}`;
-};
-
 const obtenerRangoBalancePorDefecto = () => {
   const hoy = new Date();
   const anioActual = hoy.getFullYear();
-  const mesActual = hoy.getMonth() + 1;
-
-  if (mesActual <= 6) {
-    return {
-      desde: `${anioActual - 1}-07-01`,
-      hasta: `${anioActual}-06-30`,
-    };
-  }
+  const anioCierre = anioActual;
+  const anioInicio = anioActual - 1;
 
   return {
-    desde: `${anioActual}-07-01`,
-    hasta: obtenerFechaLocalISO(hoy),
+    desde: `${anioInicio}-07-01`,
+    hasta: `${anioCierre}-06-30`,
   };
+};
+
+const obtenerNombreBalance = (desde, hasta) => {
+  if (!desde || !hasta) return 'Balance anual';
+  const anioDesde = Number(String(desde).slice(0, 4));
+  const anioHasta = Number(String(hasta).slice(0, 4));
+  if (!anioDesde || !anioHasta) return 'Balance anual';
+  return `Balance ${String(anioDesde).slice(-2)}/${String(anioHasta).slice(-2)}`;
 };
 
 const LIMITE_REGISTROS_DETALLE = 100;
@@ -326,6 +321,24 @@ const FilaDeudor = ({ item }) => (
 
 /* ─── Componente principal ─── */
 
+
+const BuscadorBalance = ({ placeholder, value, onChange, onClear }) => (
+  <div className="mba-buscador">
+    <FaSearch />
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+    />
+    {value && (
+      <button type="button" onClick={onClear} title="Limpiar búsqueda">
+        <FaTimes />
+      </button>
+    )}
+  </div>
+);
+
 const ModalBalanceAnual = ({ onClose }) => {
   const rangoInicial = useMemo(() => obtenerRangoBalancePorDefecto(), []);
 
@@ -383,6 +396,8 @@ const ModalBalanceAnual = ({ onClose }) => {
       deudores: false,
     });
   };
+
+  const nombreBalance = useMemo(() => obtenerNombreBalance(fechaDesde, fechaHasta), [fechaDesde, fechaHasta]);
 
   const rangoTexto = useMemo(() => {
     const desde = rangoAplicado?.desde || fechaDesde;
@@ -933,23 +948,6 @@ const ModalBalanceAnual = ({ onClose }) => {
     }));
   };
 
-  const Buscador = ({ placeholder }) => (
-    <div className="mba-buscador">
-      <FaSearch />
-      <input
-        type="text"
-        value={busqueda}
-        onChange={(e) => actualizarBusqueda(e.target.value)}
-        placeholder={placeholder}
-      />
-      {busqueda && (
-        <button type="button" onClick={() => actualizarBusqueda('')} title="Limpiar búsqueda">
-          <FaTimes />
-        </button>
-      )}
-    </div>
-  );
-
   const BotonCargarTodos = ({ tipo, total }) => {
     const quedan = Math.max(total - LIMITE_REGISTROS_DETALLE, 0);
 
@@ -985,7 +983,7 @@ const ModalBalanceAnual = ({ onClose }) => {
           <div className="mba-title-wrap">
             <div className="mba-icon"><FaFileImport /></div>
             <div>
-              <h3>Balance anual</h3>
+              <h3>{nombreBalance}</h3>
               <p>{balanceCargado ? rangoTexto : 'Seleccioná el rango de fechas para generar el balance'}</p>
             </div>
           </div>
@@ -1004,8 +1002,8 @@ const ModalBalanceAnual = ({ onClose }) => {
           >
             {!balanceCargado && (
               <div className="mba-rango-info">
-                <strong>Rango del balance</strong>
-                <span>Elegí desde qué fecha hasta qué fecha querés analizar bajas, inscripciones y deudores.</span>
+                <strong>{nombreBalance}</strong>
+                <span>Período anual configurado del 1 de julio al 30 de junio. Podés modificarlo cuando exista otro balance.</span>
               </div>
             )}
 
@@ -1123,7 +1121,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                             <h4>Detalle completo de socios inscriptos</h4>
                             <p>Mostrando {inscripcionesVisibles.length} de {inscripcionesFiltradas.length} socios ingresados.</p>
                           </div>
-                          <Buscador placeholder="Buscar por ID, socio, DNI, estado, ingreso o período..." />
+                          <BuscadorBalance placeholder="Buscar por ID, socio, DNI, estado, ingreso o período..." value={busqueda} onChange={actualizarBusqueda} onClear={() => actualizarBusqueda('')} />
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--inscripciones">
@@ -1205,7 +1203,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                             <h4>Detalle de socios dados de baja</h4>
                             <p>Mostrando {itemsVisibles.length} de {itemsFiltrados.length} socios.</p>
                           </div>
-                          <Buscador placeholder="Buscar por ID, socio, estado, período, baja o pago..." />
+                          <BuscadorBalance placeholder="Buscar por ID, socio, estado, período, baja o pago..." value={busqueda} onChange={actualizarBusqueda} onClear={() => actualizarBusqueda('')} />
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--bajas">
@@ -1274,7 +1272,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                             <h4>Detalle completo de deudores por período</h4>
                             <p>Mostrando {deudoresVisibles.length} de {deudoresFiltrados.length} deudas por período.</p>
                           </div>
-                          <Buscador placeholder="Buscar por ID, socio, DNI, estado, período, categoría o cobrador..." />
+                          <BuscadorBalance placeholder="Buscar por ID, socio, DNI, estado, período, categoría o cobrador..." value={busqueda} onChange={actualizarBusqueda} onClear={() => actualizarBusqueda('')} />
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--deudores">

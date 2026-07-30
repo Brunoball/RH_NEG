@@ -133,16 +133,13 @@ function balance_rango_fechas_por_defecto(): array
     $anioActual = (int) $hoy->format('Y');
     $mesActual = (int) $hoy->format('n');
 
-    if ($mesActual <= 6) {
-        return [
-            'desde' => ($anioActual - 1) . '-07-01',
-            'hasta' => $anioActual . '-06-30',
-        ];
-    }
+    // Período anual predeterminado: 1 de julio a 30 de junio.
+    $anioCierre = $anioActual;
+    $anioInicio = $anioActual - 1;
 
     return [
-        'desde' => $anioActual . '-07-01',
-        'hasta' => $hoy->format('Y-m-d'),
+        'desde' => $anioInicio . '-07-01',
+        'hasta' => $anioCierre . '-06-30',
     ];
 }
 
