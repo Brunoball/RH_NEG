@@ -265,11 +265,62 @@
   color: var(--warning);
 }
 
+.precio-historico-section{
+  margin: 1rem 1.5rem 0;
+  padding: 1rem 1.1rem .9rem;
+  border: 1px solid var(--gray-200);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--border-radius);
+  background: var(--primary-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.precio-historico-section .section-header{
+  margin-bottom: .55rem;
+}
+
+.precio-historico-badge{
+  padding: .18rem .6rem;
+  border-radius: 9999px;
+  color: var(--primary);
+  background: #fff;
+  border: 1px solid var(--primary);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.precio-historico-section .medio-pago-select{
+  background: #fff;
+}
+
+.precio-historico-section .medio-pago-hint{
+  margin-top: .4rem;
+}
+
+.precio-seleccionado-badge{
+  display: inline-flex;
+  align-items: center;
+  padding: .35rem .75rem;
+  border: 1px solid var(--primary);
+  border-radius: 9999px;
+  color: var(--primary);
+  background: var(--primary-light);
+  font-size: .8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Responsive ajuste leve */
 @media (max-width:600px){
   .medio-pago-section{
     margin: 0 1rem 1rem;
     padding: .9rem .9rem .8rem;
+  }
+  .precio-historico-section{
+    margin: .9rem 1rem 0;
+    padding: .9rem;
   }
 }
 /* ================================

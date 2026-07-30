@@ -9,6 +9,7 @@ import { generarReciboPDFUnico } from '../../../utils/ReciboPDF';
 
 // ======= CONSTANTES LÓGICAS (no montos) =======
 const ID_CONTADO_ANUAL = 7;
+const PERIODOS_BIMESTRALES = [1, 2, 3, 4, 5, 6];
 const MIN_YEAR = 2025;
 
 // URL de la CABECERA para el PDF
@@ -37,6 +38,24 @@ const construirListaAnios = (nowYear) => {
   const arr = [];
   for (let y = start; y <= end; y++) arr.push(y);
   return arr;
+};
+
+const normalizarOpcionesPrecios = (opciones) => {
+  const unicos = new Map();
+
+  (Array.isArray(opciones) ? opciones : []).forEach((opcion) => {
+    const monto = Number(typeof opcion === 'object' ? opcion?.monto : opcion);
+    if (!Number.isFinite(monto) || monto <= 0 || unicos.has(monto)) return;
+
+    unicos.set(monto, {
+      monto,
+      vigente_desde: typeof opcion === 'object' ? (opcion?.vigente_desde || null) : null,
+      vigente_hasta: typeof opcion === 'object' ? (opcion?.vigente_hasta || null) : null,
+      es_actual: typeof opcion === 'object' ? !!opcion?.es_actual : false,
+    });
+  });
+
+  return Array.from(unicos.values());
 };
 
 const parseIngresoYM = (fechaStr) => {
@@ -94,6 +113,11 @@ const ModalPagos = ({
   const [montoMensual, setMontoMensual] = useState(0);
   const [montoAnual, setMontoAnual] = useState(0);
   const [montosListos, setMontosListos] = useState(false);
+  const [preciosHistoricos, setPreciosHistoricos] = useState({
+    mensual: [],
+    anual: [],
+  });
+  const [precioHistoricoSeleccionado, setPrecioHistoricoSeleccionado] = useState('');
 
   // montos por período
   const [montosPorPeriodo, setMontosPorPeriodo] = useState({});
@@ -236,6 +260,9 @@ const ModalPagos = ({
   const periodoReferencia = useMemo(() => {
     if (seleccionados.includes(ID_CONTADO_ANUAL)) return ID_CONTADO_ANUAL;
     const sinAnual = seleccionados.filter((x) => x !== ID_CONTADO_ANUAL);
+    if (PERIODOS_BIMESTRALES.every((id) => sinAnual.includes(id))) {
+      return ID_CONTADO_ANUAL;
+    }
     if (sinAnual.length > 0) return sinAnual.slice().sort((a, b) => a - b)[0];
     const ctx = Number(periodoContexto);
     return Number.isFinite(ctx) ? ctx : 0;
@@ -271,6 +298,7 @@ const ModalPagos = ({
       if (cached) {
         setMontoMensual(Number(cached.mensual) || 0);
         setMontoAnual(Number(cached.anual) || 0);
+        setPreciosHistoricos(cached.preciosHistoricos || { mensual: [], anual: [] });
         setMontosListos(true);
       } else {
         setMontosListos(false);
@@ -296,11 +324,20 @@ const ModalPagos = ({
       if (data?.exito) {
         const mens = Number(data.mensual) || 0;
         const anua = Number(data.anual) || 0;
+        const opciones = {
+          mensual: normalizarOpcionesPrecios(data?.precios_historicos?.mensual),
+          anual: normalizarOpcionesPrecios(data?.precios_historicos?.anual),
+        };
 
-        montosCacheRef.current.set(cacheKey, { mensual: mens, anual: anua });
+        montosCacheRef.current.set(cacheKey, {
+          mensual: mens,
+          anual: anua,
+          preciosHistoricos: opciones,
+        });
 
         setMontoMensual(mens);
         setMontoAnual(anua);
+        setPreciosHistoricos(opciones);
         setMontosListos(true);
       } else {
         setMontosListos(false);
@@ -493,8 +530,24 @@ const ModalPagos = ({
     [seleccionados]
   );
 
-  // ✅ Anual aplica SIEMPRE que esté seleccionado (sin ventana)
-  const aplicaAnualPorSeleccion = seleccionIncluyeAnual;
+  const seleccionaTodosLosBimestres = useMemo(
+    () => PERIODOS_BIMESTRALES.every((id) => seleccionSinAnual.includes(id)),
+    [seleccionSinAnual]
+  );
+
+  // El backend registra como anual tanto CONTADO ANUAL como la selección de los 6 bimestres.
+  const aplicaAnualPorSeleccion = seleccionIncluyeAnual || seleccionaTodosLosBimestres;
+  const tipoPrecioCobro = aplicaAnualPorSeleccion ? 'anual' : 'mensual';
+  const opcionesPrecioCobro = preciosHistoricos[tipoPrecioCobro] || [];
+  const precioHistoricoNumero = Number(precioHistoricoSeleccionado) || 0;
+
+  useEffect(() => {
+    setPrecioHistoricoSeleccionado('');
+  }, [anioTrabajo, tipoPrecioCobro, socio]);
+
+  useEffect(() => {
+    if (condonar) setPrecioHistoricoSeleccionado('');
+  }, [condonar]);
 
   const refrescarMontosDePeriodosSeleccionados = async () => {
     if (!socio) return;
@@ -566,6 +619,7 @@ const ModalPagos = ({
             montosCacheRef.current.set(cacheKeyRef, {
               mensual: prev.mensual ?? montoMensual,
               anual: Number(data.anual),
+              preciosHistoricos: prev.preciosHistoricos || preciosHistoricos,
             });
             setMontoAnual(Number(data.anual));
           }
@@ -604,9 +658,17 @@ const ModalPagos = ({
     }
 
     if (condonar) return 0;
-    if (aplicaAnualPorSeleccion) return Number(montoAnual) || 0;
+    if (aplicaAnualPorSeleccion) {
+      return precioHistoricoNumero > 0
+        ? precioHistoricoNumero
+        : Number(montoAnual) || 0;
+    }
 
     if (seleccionSinAnual.length === 0) return 0;
+
+    if (precioHistoricoNumero > 0) {
+      return precioHistoricoNumero * seleccionSinAnual.length;
+    }
 
     let suma = 0;
     for (const idp of seleccionSinAnual) {
@@ -614,7 +676,16 @@ const ModalPagos = ({
       if (Number.isFinite(v)) suma += v;
     }
     return suma;
-  }, [modo, montoInscripcion, condonar, aplicaAnualPorSeleccion, montoAnual, seleccionSinAnual, montosPorPeriodo]);
+  }, [
+    modo,
+    montoInscripcion,
+    condonar,
+    aplicaAnualPorSeleccion,
+    montoAnual,
+    seleccionSinAnual,
+    montosPorPeriodo,
+    precioHistoricoNumero,
+  ]);
 
   const periodoTextoFinal = useMemo(() => {
     if (modo === 'inscripcion') return `INSCRIPCIÓN`;
@@ -650,9 +721,7 @@ const ModalPagos = ({
 
     const importe = condonar
       ? 0
-      : esAnualSeleccion
-        ? Number(montoAnual) || 0
-        : Number(total) || 0;
+      : Number(total) || 0;
 
     return {
       ...socio,
@@ -737,8 +806,12 @@ const ModalPagos = ({
     }
 
     const montosValidos = aplicaAnualPorSeleccion
-      ? Number(montoAnual) > 0
-      : seleccionSinAnual.length > 0 && montosPeriodosListos && Number(total) > 0;
+      ? (precioHistoricoNumero > 0 || Number(montoAnual) > 0)
+      : (
+        seleccionSinAnual.length > 0 &&
+        (precioHistoricoNumero > 0 || montosPeriodosListos) &&
+        Number(total) > 0
+      );
 
     if (!condonar && (!montosListos || !montosValidos)) {
       mostrarToast('advertencia', 'El monto aún no está listo. Esperá un segundo e intentá de nuevo.');
@@ -757,7 +830,9 @@ const ModalPagos = ({
         condonar,
         anio: anioTrabajo,
         monto: Number(total) || 0,
-        monto_por_periodo: 0,
+        monto_por_periodo: tipoPrecioCobro === 'mensual' ? precioHistoricoNumero : 0,
+        precio_historico_seleccionado: precioHistoricoNumero > 0 ? precioHistoricoNumero : null,
+        tipo_precio_seleccionado: precioHistoricoNumero > 0 ? tipoPrecioCobro : null,
         // ✅ Si está condonado, NO se guarda medio de pago porque no hubo cobro real.
         id_medio_pago: (!condonar && esOficina) ? (Number(medioPagoSeleccionado) || null) : null,
         medio_pago: condonar
@@ -838,6 +913,19 @@ const ModalPagos = ({
   const formatearARS = (monto) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(monto);
 
+  const formatearVigenciaPrecio = (opcion) => {
+    const desde = opcion?.vigente_desde ? formatearFecha(opcion.vigente_desde) : '';
+    const hasta = opcion?.vigente_hasta ? formatearFecha(opcion.vigente_hasta) : '';
+
+    if (opcion?.es_actual) {
+      return desde ? `desde ${desde} — actual` : 'actual';
+    }
+    if (desde && hasta) return `${desde} al ${hasta}`;
+    if (hasta) return `hasta ${hasta}`;
+    if (desde) return `desde ${desde}`;
+    return 'histórico';
+  };
+
   if (!socio) return null;
 
   // ======= VISTA DE ÉXITO =======
@@ -917,8 +1005,11 @@ const ModalPagos = ({
 
   const bloquearPorMontos = modo === 'cuotas' && !condonar && (
     aplicaAnualPorSeleccion
-      ? Number(montoAnual) <= 0
-      : (seleccionSinAnual.length > 0 && (!montosPeriodosListos || Number(total) <= 0))
+      ? (precioHistoricoNumero <= 0 && Number(montoAnual) <= 0)
+      : (
+        seleccionSinAnual.length > 0 &&
+        ((precioHistoricoNumero <= 0 && !montosPeriodosListos) || Number(total) <= 0)
+      )
   );
 
   const requiereMedio = modo === 'inscripcion' || (modo === 'cuotas' && esOficina && !condonar);
@@ -1211,6 +1302,40 @@ const ModalPagos = ({
                 )}
               </div>
             )}
+
+            {modo === 'cuotas' && seleccionados.length > 0 && !condonar && (
+              <div className="precio-historico-section">
+                <div className="section-header">
+                  <h4 className="section-title">
+                    {aplicaAnualPorSeleccion ? 'Precio anual a cobrar' : 'Precio por período a cobrar'}
+                  </h4>
+                  <span className="precio-historico-badge">Histórico</span>
+                </div>
+
+                <select
+                  value={precioHistoricoSeleccionado}
+                  onChange={(e) => setPrecioHistoricoSeleccionado(e.target.value)}
+                  className="medio-pago-select"
+                  disabled={cargando || !montosListos}
+                  aria-label="Elegir precio histórico"
+                >
+                  <option value="">Automático según el período</option>
+                  {opcionesPrecioCobro.map((opcion) => (
+                    <option key={`${tipoPrecioCobro}-${opcion.monto}`} value={String(opcion.monto)}>
+                      {formatearARS(opcion.monto)} ({formatearVigenciaPrecio(opcion)})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="medio-pago-hint">
+                  {precioHistoricoNumero > 0
+                    ? aplicaAnualPorSeleccion
+                      ? 'El importe elegido se aplicará al pago anual.'
+                      : 'El importe elegido se aplicará a cada período seleccionado.'
+                    : 'El sistema calculará automáticamente el valor correspondiente a cada período.'}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">
@@ -1221,6 +1346,12 @@ const ModalPagos = ({
 
               {mostrarSelectorMedioPago && medioPagoNombreSeleccionado && (
                 <span className="medio-pago-badge">Medio: {medioPagoNombreSeleccionado}</span>
+              )}
+
+              {modo === 'cuotas' && precioHistoricoNumero > 0 && !condonar && (
+                <span className="precio-seleccionado-badge">
+                  {aplicaAnualPorSeleccion ? 'Precio anual' : 'Por período'}: {formatearARS(precioHistoricoNumero)}
+                </span>
               )}
 
               {modo === 'inscripcion' && inscripcionPagada && (
@@ -1283,6 +1414,15 @@ const ModalPagos = ({
                   <div className="confirm-pago-row">
                     <span className="confirm-pago-label">Medio de pago:</span>
                     <span className="confirm-pago-value">{medioPagoNombreSeleccionado}</span>
+                  </div>
+                )}
+
+                {modo === 'cuotas' && precioHistoricoNumero > 0 && !condonar && (
+                  <div className="confirm-pago-row">
+                    <span className="confirm-pago-label">
+                      {aplicaAnualPorSeleccion ? 'Precio anual elegido:' : 'Precio por período:'}
+                    </span>
+                    <span className="confirm-pago-value">{formatearARS(precioHistoricoNumero)}</span>
                   </div>
                 )}
 

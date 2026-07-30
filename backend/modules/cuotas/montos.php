@@ -145,6 +145,79 @@ function precioHistoricoPorTipo(PDO $pdo, string $histTable, int $idCatMonto, st
   ];
 }
 
+/**
+ * Devuelve todos los importes distintos que existieron para una categoría.
+ * El orden respeta la evolución histórica: precio inicial, cambios y precio actual.
+ */
+function listarPreciosHistoricos(PDO $pdo, string $histTable, int $idCatMonto, string $tipo, int $precioActual): array {
+  $st = $pdo->prepare("
+    SELECT precio_viejo, precio_nuevo, fecha_cambio
+      FROM `{$histTable}`
+     WHERE id_cat_monto = :id
+       AND tipo = :tipo
+  ORDER BY fecha_cambio ASC, id_historial ASC
+  ");
+  $st->execute([
+    ':id' => $idCatMonto,
+    ':tipo' => $tipo,
+  ]);
+
+  $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+  $opcionesPorMonto = [];
+
+  $agregar = static function (
+    int $monto,
+    ?string $vigenteDesde,
+    ?string $vigenteHasta
+  ) use (&$opcionesPorMonto, $precioActual): void {
+    if ($monto <= 0) return;
+
+    $opcion = [
+      'monto' => $monto,
+      'vigente_desde' => $vigenteDesde,
+      'vigente_hasta' => $vigenteHasta,
+    ];
+
+    // Si un importe se repitió, conservar el tramo actual o el más reciente.
+    if (
+      !isset($opcionesPorMonto[$monto]) ||
+      ($monto === $precioActual && $vigenteDesde !== null)
+    ) {
+      $opcionesPorMonto[$monto] = $opcion;
+    }
+  };
+
+  if (!empty($rows)) {
+    $primerCambio = $rows[0]['fecha_cambio'] ?: null;
+    $hastaPrecioInicial = $primerCambio
+      ? date('Y-m-d', strtotime($primerCambio . ' -1 day'))
+      : null;
+
+    $agregar((int)$rows[0]['precio_viejo'], null, $hastaPrecioInicial);
+
+    foreach ($rows as $index => $row) {
+      $vigenteDesde = $row['fecha_cambio'] ?: null;
+      $proximoCambio = $rows[$index + 1]['fecha_cambio'] ?? null;
+      $vigenteHasta = $proximoCambio
+        ? date('Y-m-d', strtotime($proximoCambio . ' -1 day'))
+        : null;
+
+      $agregar((int)$row['precio_nuevo'], $vigenteDesde, $vigenteHasta);
+    }
+  }
+
+  // También se incluye el valor actual aunque la instalación todavía no tenga historial.
+  $agregar($precioActual, null, null);
+
+  return array_values(array_map(
+    static function (array $opcion) use ($precioActual): array {
+      $opcion['es_actual'] = (int)$opcion['monto'] === $precioActual;
+      return $opcion;
+    },
+    $opcionesPorMonto
+  ));
+}
+
 try {
   $idCatReq   = readInt($_GET, 'id_cat_monto') ?? readInt($_POST, 'id_cat_monto');
   $idSocioReq = readInt($_GET, 'id_socio')     ?? readInt($_POST, 'id_socio');
@@ -240,6 +313,8 @@ try {
   // Histórico real por tipo
   $mens = precioHistoricoPorTipo($pdo, $histTable, $resolvedIdCatMonto, 'mensual', $fechaObjetivo, $baseMensual);
   $anua = precioHistoricoPorTipo($pdo, $histTable, $resolvedIdCatMonto, 'anual',   $fechaObjetivo, $baseAnual);
+  $preciosMensuales = listarPreciosHistoricos($pdo, $histTable, $resolvedIdCatMonto, 'mensual', $baseMensual);
+  $preciosAnuales   = listarPreciosHistoricos($pdo, $histTable, $resolvedIdCatMonto, 'anual', $baseAnual);
 
   echo json_encode([
     'exito' => true,
@@ -248,6 +323,10 @@ try {
     'mensual' => (int)$mens['precio'],
     'anual'   => (int)$anua['precio'],
     'nombre_categoria' => $catRow['nombre_categoria'] ?? null,
+    'precios_historicos' => [
+      'mensual' => $preciosMensuales,
+      'anual'   => $preciosAnuales,
+    ],
 
     // debug útil (dejalo mientras probás)
     'anio' => $anioFinal,

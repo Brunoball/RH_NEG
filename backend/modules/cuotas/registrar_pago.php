@@ -142,6 +142,52 @@ function obtener_montos_por_socio(PDO $pdo, int $id_socio, int $anio, int $id_pe
   ];
 }
 
+/* === Validar que un precio manual realmente pertenezca al historial del socio === */
+function precio_permitido_para_socio(PDO $pdo, int $id_socio, string $tipo, string $precio): bool {
+  if (!in_array($tipo, ['mensual', 'anual'], true) || (float)$precio <= 0) {
+    return false;
+  }
+
+  $columnaActual = $tipo === 'anual' ? 'monto_anual' : 'monto_mensual';
+  $st = $pdo->prepare("
+    SELECT cm.id_cat_monto, cm.{$columnaActual} AS precio_actual
+      FROM socios s
+      JOIN categoria_monto cm ON cm.id_cat_monto = s.id_cat_monto
+     WHERE s.id_socio = ?
+     LIMIT 1
+  ");
+  $st->execute([$id_socio]);
+  $categoria = $st->fetch(PDO::FETCH_ASSOC);
+
+  if (!$categoria || empty($categoria['id_cat_monto'])) {
+    return false;
+  }
+
+  $permitidos = [(float)$categoria['precio_actual']];
+
+  $stHist = $pdo->prepare("
+    SELECT precio_viejo, precio_nuevo
+      FROM precios_historicos
+     WHERE id_cat_monto = ?
+       AND tipo = ?
+  ");
+  $stHist->execute([(int)$categoria['id_cat_monto'], $tipo]);
+
+  foreach ($stHist->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $permitidos[] = (float)$row['precio_viejo'];
+    $permitidos[] = (float)$row['precio_nuevo'];
+  }
+
+  $buscado = (float)$precio;
+  foreach ($permitidos as $permitido) {
+    if ($permitido > 0 && abs($permitido - $buscado) < 0.005) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /* === INPUT === */
 $in        = json_decode(file_get_contents("php://input"), true) ?? [];
 $id_socio  = (int)($in['id_socio'] ?? 0);
@@ -150,6 +196,8 @@ $condonar  = !empty($in['condonar']);
 
 $monto           = $in['monto'] ?? null;             // total (anual o barras)
 $montoPorPeriodo = $in['monto_por_periodo'] ?? null; // unitario (bimestres)
+$precioHistoricoSeleccionado = $in['precio_historico_seleccionado'] ?? null;
+$tipoPrecioSeleccionado = strtolower(trim((string)($in['tipo_precio_seleccionado'] ?? '')));
 
 /* medio_pago puede llegar como ID o como TEXTO (TRANSFERENCIA, EFECTIVO, etc.) */
 $idMedioPagoInput = isset($in['id_medio_pago']) ? (int)$in['id_medio_pago'] : 0;
@@ -190,6 +238,33 @@ $estadoNuevo = $condonar ? 'condonado' : 'pagado';
 /* ===== Normalizar decimales ===== */
 $monto           = dec_str($monto);
 $montoPorPeriodo = dec_str($montoPorPeriodo);
+$precioHistoricoSeleccionado = dec_str($precioHistoricoSeleccionado);
+
+if ($condonar) {
+  $precioHistoricoSeleccionado = null;
+  $tipoPrecioSeleccionado = '';
+}
+
+$esPagoAnual = $incluyeAnual || $soloBimestresDelAnio;
+$tipoPrecioEsperado = $esPagoAnual ? 'anual' : 'mensual';
+
+if (!$condonar && $precioHistoricoSeleccionado !== null) {
+  if ($tipoPrecioSeleccionado !== $tipoPrecioEsperado) {
+    echo json_encode([
+      'exito' => false,
+      'mensaje' => 'El tipo de precio histórico no corresponde a los períodos seleccionados.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+
+  if (!precio_permitido_para_socio($pdo, $id_socio, $tipoPrecioEsperado, $precioHistoricoSeleccionado)) {
+    echo json_encode([
+      'exito' => false,
+      'mensaje' => 'El precio elegido no pertenece al historial de la categoría del socio.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+}
 
 /* ===== Resolver id_medio_pago (solo si no es condonación) ===== */
 $id_medio_pago = null;
@@ -208,14 +283,18 @@ if (!$condonar) {
 
 /* ===== Si NO es condonación, calcular montos del lado servidor ===== */
 if (!$condonar) {
-  if ($incluyeAnual || $soloBimestresDelAnio) {
+  if ($esPagoAnual) {
     // Anual histórico para el año aplicado. No dependemos del monto enviado por el frontend.
-    $montosAnual = obtener_montos_por_socio($pdo, $id_socio, $anioSel, ID_CONTADO_ANUAL);
+    if ($precioHistoricoSeleccionado !== null) {
+      $monto = $precioHistoricoSeleccionado;
+    } else {
+      $montosAnual = obtener_montos_por_socio($pdo, $id_socio, $anioSel, ID_CONTADO_ANUAL);
 
-    if ($montosAnual['anual'] !== null && (float)$montosAnual['anual'] > 0) {
-      $monto = $montosAnual['anual'];
-    } elseif ($montosAnual['mensual'] !== null && (float)$montosAnual['mensual'] > 0) {
-      $monto = dec_str((float)$montosAnual['mensual'] * MESES_ANIO);
+      if ($montosAnual['anual'] !== null && (float)$montosAnual['anual'] > 0) {
+        $monto = $montosAnual['anual'];
+      } elseif ($montosAnual['mensual'] !== null && (float)$montosAnual['mensual'] > 0) {
+        $monto = dec_str((float)$montosAnual['mensual'] * MESES_ANIO);
+      }
     }
 
     if ($monto === null || (float)$monto <= 0) {
@@ -247,7 +326,7 @@ try {
   $rowAnual = $stTieneAnual->fetch(PDO::FETCH_ASSOC);
 
   /* ===== ANUAL ===== */
-  if ($incluyeAnual || $soloBimestresDelAnio) {
+  if ($esPagoAnual) {
     // borrar bimestres del mismo año aplicado
     $delBims = $pdo->prepare("
       DELETE FROM pagos
@@ -318,12 +397,16 @@ try {
 
     $montoPeriodo = dec_str(0);
     if (!$condonar) {
-      $montosPeriodo = obtener_montos_por_socio($pdo, $id_socio, $anioSel, $p);
-      if ($montosPeriodo['mensual'] !== null && (float)$montosPeriodo['mensual'] > 0) {
-        $montoPeriodo = $montosPeriodo['mensual'];
-      } elseif ($montoPorPeriodo !== null && (float)$montoPorPeriodo > 0) {
-        // Fallback defensivo si la instalación no tiene historial/categoria_monto.
-        $montoPeriodo = $montoPorPeriodo;
+      if ($precioHistoricoSeleccionado !== null) {
+        $montoPeriodo = $precioHistoricoSeleccionado;
+      } else {
+        $montosPeriodo = obtener_montos_por_socio($pdo, $id_socio, $anioSel, $p);
+        if ($montosPeriodo['mensual'] !== null && (float)$montosPeriodo['mensual'] > 0) {
+          $montoPeriodo = $montosPeriodo['mensual'];
+        } elseif ($montoPorPeriodo !== null && (float)$montoPorPeriodo > 0) {
+          // Fallback defensivo si la instalación no tiene historial/categoria_monto.
+          $montoPeriodo = $montoPorPeriodo;
+        }
       }
 
       if ($montoPeriodo === null || (float)$montoPeriodo <= 0) {
