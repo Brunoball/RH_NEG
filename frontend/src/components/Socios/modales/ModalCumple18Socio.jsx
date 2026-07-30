@@ -23,6 +23,7 @@ const ModalConfirmarCierreCumple18 = ({
   cantidadPendiente = 0,
   onCancelar,
   onConfirmar,
+  guardando = false,
 }) => {
   const quedanAtras = Number(cantidadPendiente) > 1;
 
@@ -30,7 +31,7 @@ const ModalConfirmarCierreCumple18 = ({
     <div
       className="cumple18-confirm-overlay"
       role="presentation"
-      onClick={onCancelar}
+      onClick={guardando ? undefined : onCancelar}
     >
       <div
         className="cumple18-confirm"
@@ -62,6 +63,7 @@ const ModalConfirmarCierreCumple18 = ({
             type="button"
             className="cumple18-confirm__btn cumple18-confirm__btn--secondary"
             onClick={onCancelar}
+            disabled={guardando}
           >
             Cancelar
           </button>
@@ -70,8 +72,9 @@ const ModalConfirmarCierreCumple18 = ({
             type="button"
             className="cumple18-confirm__btn cumple18-confirm__btn--danger"
             onClick={onConfirmar}
+            disabled={guardando}
           >
-            Sí, eliminar
+            {guardando ? "Guardando..." : "Sí, eliminar"}
           </button>
         </div>
       </div>
@@ -91,11 +94,13 @@ const ModalCumple18Socio = ({
   onVerSocio,
 }) => {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [guardandoCierre, setGuardandoCierre] = useState(false);
   const [oculto, setOculto] = useState(false);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
     setMostrarConfirmacion(false);
+    setGuardandoCierre(false);
     setOculto(false);
 
     // IMPORTANTE:
@@ -126,18 +131,39 @@ const ModalCumple18Socio = ({
   };
 
   const cancelarCierre = () => {
+    if (guardandoCierre) return;
     setMostrarConfirmacion(false);
   };
 
-  const confirmarCierre = () => {
-    setMostrarConfirmacion(false);
+  const confirmarCierre = async () => {
+    if (guardandoCierre) return;
 
-    setToast({
-      tipo: "exito",
-      mensaje: "Tarjeta eliminada correctamente.",
-    });
+    setGuardandoCierre(true);
 
-    onClose?.();
+    try {
+      const resultado = await onClose?.();
+
+      if (resultado?.exito === false) {
+        setToast({
+          tipo: "error",
+          mensaje: resultado?.mensaje || "No se pudo eliminar la tarjeta.",
+        });
+        return;
+      }
+
+      setMostrarConfirmacion(false);
+      setToast({
+        tipo: "exito",
+        mensaje: resultado?.mensaje || "Tarjeta eliminada correctamente.",
+      });
+    } catch (error) {
+      setToast({
+        tipo: "error",
+        mensaje: error?.message || "No se pudo eliminar la tarjeta.",
+      });
+    } finally {
+      setGuardandoCierre(false);
+    }
   };
 
   return (
@@ -278,6 +304,7 @@ const ModalCumple18Socio = ({
           cantidadPendiente={totalPendientes}
           onCancelar={cancelarCierre}
           onConfirmar={confirmarCierre}
+          guardando={guardandoCierre}
         />
       )}
 

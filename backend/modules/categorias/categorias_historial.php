@@ -14,7 +14,7 @@ try {
 
     // Trae historial ordenado del más reciente al más antiguo
     $st = $pdo->prepare(
-        "SELECT id_historial, id_cat_monto, precio_viejo, precio_nuevo, fecha_cambio
+        "SELECT id_historial, id_cat_monto, tipo, precio_viejo, precio_nuevo, fecha_cambio
            FROM precios_historicos
           WHERE id_cat_monto = :id
           ORDER BY fecha_cambio DESC, id_historial DESC"

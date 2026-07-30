@@ -107,7 +107,7 @@ const Categorias = () => {
   // ====== Historial
   const [modalHistOpen, setModalHistOpen] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
-  const [hist, setHist] = useState([]); // [{id_historial, precio_viejo, precio_nuevo, fecha_cambio}]
+  const [hist, setHist] = useState([]); // [{id_historial, tipo, precio_viejo, precio_nuevo, fecha_cambio}]
   const [histCategoria, setHistCategoria] = useState({ id: null, nombre: '' });
 
   // ====== Eliminar (modal)
@@ -348,6 +348,7 @@ const Categorias = () => {
               <thead>
                 <tr>
                   <th className="cat_th_center">#</th>
+                  <th className="cat_th_center">Tipo</th>
                   <th className="cat_th_right">Precio viejo</th>
                   <th className="cat_th_right">Precio nuevo</th>
                   <th className="cat_th_center">Cambio</th>
@@ -358,6 +359,7 @@ const Categorias = () => {
                 {hist.map((h, i) => (
                   <tr key={h.id_historial || i}>
                     <td className="cat_td_center" data-label="#"> {h.id_historial} </td>
+                    <td className="cat_td_center" data-label="Tipo">{String(h.tipo || 'mensual').toUpperCase()}</td>
                     <td className="cat_td_right" data-label="Precio viejo">{fmtARS(h.precio_viejo)}</td>
                     <td className="cat_td_right" data-label="Precio nuevo">{fmtARS(h.precio_nuevo)}</td>
                     <td className="cat_td_center" data-label="Cambio">

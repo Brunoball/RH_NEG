@@ -629,3 +629,30 @@ html, body {
     gap: 5px;
   }
 }
+
+/* ===== Separación contable entre cuotas e inscripciones ===== */
+.cobmes-section .subrow-inscripcion {
+  background: rgba(124, 58, 237, 0.055);
+  border-left: 3px solid rgba(124, 58, 237, 0.55);
+}
+
+.cobmes-section .pill-inscripcion {
+  color: #6d28d9;
+  background: rgba(237, 233, 254, 0.95);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+}
+
+.cobmes-section .cobmes-total-inscripciones {
+  background: rgba(124, 58, 237, 0.10);
+  color: #5b21b6;
+}
+
+.cobmes-section .cobmes-total-ingresado {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1e40af;
+  border-top: 1px solid rgba(37, 99, 235, 0.28);
+}
+
+.cobmes-section .muted {
+  color: #94a3b8;
+}

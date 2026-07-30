@@ -115,6 +115,14 @@ try {
             require_once __DIR__ . '/../modules/socios/estado_pagos_socios.php';
             exit;
 
+        case 'cumple18_cierres_listar':
+            require_once __DIR__ . '/../modules/socios/cumple18_cierres_listar.php';
+            exit;
+
+        case 'cumple18_cierres_guardar':
+            require_once __DIR__ . '/../modules/socios/cumple18_cierres_guardar.php';
+            exit;
+
         /* =========================
            BALANCE ANUAL
         ========================= */

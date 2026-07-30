@@ -36,11 +36,66 @@ function dec_str($val) {
   return number_format((float)$s, 2, '.', '');
 }
 
-/* === Obtención montos desde la DB por socio === */
-function obtener_montos_por_socio(PDO $pdo, int $id_socio): array {
-  // Esquema nuevo: categoria_monto
+/* === Períodos -> fecha de referencia histórica === */
+function fecha_referencia_por_periodo(int $anio, int $id_periodo): string {
+  // Para que un cambio hecho dentro del bimestre impacte desde ese mismo bimestre,
+  // comparamos contra el ÚLTIMO día del período.
+  if ($id_periodo === ID_CONTADO_ANUAL || $id_periodo <= 0) {
+    return sprintf('%04d-12-31', $anio);
+  }
+
+  $mapFinMes = [1 => 2, 2 => 4, 3 => 6, 4 => 8, 5 => 10, 6 => 12];
+  $mesFin = $mapFinMes[$id_periodo] ?? 12;
+  $ultimoDia = (int)date('t', strtotime(sprintf('%04d-%02d-01', $anio, $mesFin)));
+  return sprintf('%04d-%02d-%02d', $anio, $mesFin, $ultimoDia);
+}
+
+/* === Precio histórico por categoría / tipo / período === */
+function precio_historico_por_tipo(PDO $pdo, int $id_cat_monto, string $tipo, string $fecha_ref, $fallback) {
+  $fallback = dec_str($fallback ?? 0);
+
+  // 1) Último cambio que ya aplica para ese período.
+  $st = $pdo->prepare("
+    SELECT precio_viejo, precio_nuevo, fecha_cambio
+    FROM precios_historicos
+    WHERE id_cat_monto = ?
+      AND tipo = ?
+      AND fecha_cambio <= ?
+    ORDER BY fecha_cambio DESC, id_historial DESC
+    LIMIT 1
+  ");
+  $st->execute([$id_cat_monto, $tipo, $fecha_ref]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  if ($row) return dec_str($row['precio_nuevo']);
+
+  // 2) Si todavía no había cambios para ese período, usar el precio viejo del primer cambio.
+  $st = $pdo->prepare("
+    SELECT precio_viejo, precio_nuevo, fecha_cambio
+    FROM precios_historicos
+    WHERE id_cat_monto = ?
+      AND tipo = ?
+    ORDER BY fecha_cambio ASC, id_historial ASC
+    LIMIT 1
+  ");
+  $st->execute([$id_cat_monto, $tipo]);
+  $first = $st->fetch(PDO::FETCH_ASSOC);
+  if ($first && $fecha_ref < $first['fecha_cambio']) return dec_str($first['precio_viejo']);
+  if ($first) return dec_str($first['precio_nuevo']);
+
+  // 3) Sin historial: monto actual de categoria_monto.
+  return $fallback;
+}
+
+/* === Obtención de montos históricos desde la DB por socio + año + período === */
+function obtener_montos_por_socio(PDO $pdo, int $id_socio, int $anio, int $id_periodo): array {
+  $fechaRef = fecha_referencia_por_periodo($anio, $id_periodo);
+
+  // Esquema nuevo: categoria_monto + precios_historicos
   $sql = "
-    SELECT cm.monto_mensual AS mensual, cm.monto_anual AS anual
+    SELECT
+      cm.id_cat_monto,
+      cm.monto_mensual AS mensual_actual,
+      cm.monto_anual AS anual_actual
     FROM socios s
     LEFT JOIN categoria_monto cm ON cm.id_cat_monto = s.id_cat_monto
     WHERE s.id_socio = ?
@@ -50,8 +105,21 @@ function obtener_montos_por_socio(PDO $pdo, int $id_socio): array {
   $st->execute([$id_socio]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
 
-  // Fallback: tabla categorias
-  if (!$row || ($row['mensual'] === null && $row['anual'] === null)) {
+  if ($row && !empty($row['id_cat_monto'])) {
+    $idCatMonto = (int)$row['id_cat_monto'];
+    $mensualActual = $row['mensual_actual'] ?? 0;
+    $anualActual   = $row['anual_actual'] ?? 0;
+
+    return [
+      'mensual' => precio_historico_por_tipo($pdo, $idCatMonto, 'mensual', $fechaRef, $mensualActual),
+      'anual'   => precio_historico_por_tipo($pdo, $idCatMonto, 'anual',   $fechaRef, $anualActual),
+      'fecha_ref' => $fechaRef,
+      'id_cat_monto' => $idCatMonto,
+    ];
+  }
+
+  // Fallback viejo: tabla categorias, solo si existe en otra instalación.
+  try {
     $sql2 = "
       SELECT c.monto AS mensual, c.monto_anual AS anual
       FROM socios s
@@ -61,12 +129,17 @@ function obtener_montos_por_socio(PDO $pdo, int $id_socio): array {
     ";
     $st2 = $pdo->prepare($sql2);
     $st2->execute([$id_socio]);
-    $row = $st2->fetch(PDO::FETCH_ASSOC) ?: ['mensual'=>null,'anual'=>null];
+    $old = $st2->fetch(PDO::FETCH_ASSOC) ?: ['mensual'=>null,'anual'=>null];
+  } catch (Throwable $e) {
+    $old = ['mensual'=>null,'anual'=>null];
   }
 
-  $mensual = ($row && $row['mensual'] !== null) ? dec_str($row['mensual']) : null;
-  $anual   = ($row && $row['anual']   !== null) ? dec_str($row['anual'])   : null;
-  return ['mensual'=>$mensual, 'anual'=>$anual];
+  return [
+    'mensual' => ($old['mensual'] !== null) ? dec_str($old['mensual']) : null,
+    'anual'   => ($old['anual']   !== null) ? dec_str($old['anual'])   : null,
+    'fecha_ref' => $fechaRef,
+    'id_cat_monto' => null,
+  ];
 }
 
 /* === INPUT === */
@@ -135,33 +208,22 @@ if (!$condonar) {
 
 /* ===== Si NO es condonación, calcular montos del lado servidor ===== */
 if (!$condonar) {
-  $montos = obtener_montos_por_socio($pdo, $id_socio);
-
   if ($incluyeAnual || $soloBimestresDelAnio) {
-    // anual
+    // Anual histórico para el año aplicado. No dependemos del monto enviado por el frontend.
+    $montosAnual = obtener_montos_por_socio($pdo, $id_socio, $anioSel, ID_CONTADO_ANUAL);
+
+    if ($montosAnual['anual'] !== null && (float)$montosAnual['anual'] > 0) {
+      $monto = $montosAnual['anual'];
+    } elseif ($montosAnual['mensual'] !== null && (float)$montosAnual['mensual'] > 0) {
+      $monto = dec_str((float)$montosAnual['mensual'] * MESES_ANIO);
+    }
+
     if ($monto === null || (float)$monto <= 0) {
-      if ($montos['anual'] !== null && (float)$montos['anual'] > 0) {
-        $monto = $montos['anual'];
-      } elseif ($montos['mensual'] !== null && (float)$montos['mensual'] > 0) {
-        $monto = dec_str((float)$montos['mensual'] * MESES_ANIO);
-      }
-    }
-    if ($monto === null || (float)$monto <= 0) {
-      echo json_encode(['exito'=>false,'mensaje'=>'No se pudo determinar el monto anual.'], JSON_UNESCAPED_UNICODE);
-      exit;
-    }
-  } else {
-    // bimestres
-    if ($montoPorPeriodo === null || (float)$montoPorPeriodo <= 0) {
-      if ($montos['mensual'] !== null && (float)$montos['mensual'] > 0) {
-        $montoPorPeriodo = $montos['mensual'];
-      }
-    }
-    if ($montoPorPeriodo === null || (float)$montoPorPeriodo <= 0) {
-      echo json_encode(['exito'=>false,'mensaje'=>'No se pudo determinar el monto por período.'], JSON_UNESCAPED_UNICODE);
+      echo json_encode(['exito'=>false,'mensaje'=>'No se pudo determinar el monto anual histórico.'], JSON_UNESCAPED_UNICODE);
       exit;
     }
   }
+  // Para bimestres, el monto se calcula dentro del foreach porque puede cambiar entre períodos.
 }
 
 /* Si condona, montos = 0 e id_medio_pago en NULL */
@@ -215,7 +277,7 @@ try {
       ? "Condonación anual ($anioSel) registrada correctamente."
       : "Pago anual ($anioSel) registrado correctamente.";
 
-    echo json_encode(['exito'=>true, 'mensaje'=>$mensajeOk], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['exito'=>true, 'mensaje'=>$mensajeOk, 'monto_aplicado'=>$monto], JSON_UNESCAPED_UNICODE);
     exit;
   }
 
@@ -246,6 +308,7 @@ try {
   $insertados = [];
   $ya         = [];
   $errores    = [];
+  $montosAplicados = [];
 
   foreach ($set as $p) {
     if (!in_array($p, PERIODOS_BIMESTRALES, true)) continue;
@@ -253,9 +316,26 @@ try {
     $sel->execute([$id_socio, $p, $anioSel]);
     if ($sel->fetch()) { $ya[] = $p; continue; }
 
+    $montoPeriodo = dec_str(0);
+    if (!$condonar) {
+      $montosPeriodo = obtener_montos_por_socio($pdo, $id_socio, $anioSel, $p);
+      if ($montosPeriodo['mensual'] !== null && (float)$montosPeriodo['mensual'] > 0) {
+        $montoPeriodo = $montosPeriodo['mensual'];
+      } elseif ($montoPorPeriodo !== null && (float)$montoPorPeriodo > 0) {
+        // Fallback defensivo si la instalación no tiene historial/categoria_monto.
+        $montoPeriodo = $montoPorPeriodo;
+      }
+
+      if ($montoPeriodo === null || (float)$montoPeriodo <= 0) {
+        $errores[] = ['periodo'=>$p, 'mensaje'=>'No se pudo determinar el monto histórico del período.'];
+        continue;
+      }
+    }
+
     try {
-      $ins->execute([$id_socio, $p, $anioSel, $fechaPago, $estadoNuevo, $montoPorPeriodo, $id_medio_pago]);
+      $ins->execute([$id_socio, $p, $anioSel, $fechaPago, $estadoNuevo, $montoPeriodo, $id_medio_pago]);
       $insertados[] = $p;
+      $montosAplicados[$p] = $montoPeriodo;
     } catch (Throwable $e) {
       $errores[] = ['periodo'=>$p, 'mensaje'=>$e->getMessage()];
     }
@@ -271,6 +351,7 @@ try {
       : "Hubo problemas en algunos períodos.",
     'insertados'     => $insertados,
     'ya_registrados' => $ya,
+    'montos_aplicados' => $montosAplicados,
     'errores'        => $errores
   ], JSON_UNESCAPED_UNICODE);
 

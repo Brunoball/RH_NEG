@@ -101,6 +101,15 @@ const getNombreSocio = (p) => {
   return ape || nom || "";
 };
 
+const getSocioKey = (p) => {
+  const id = p?.ID_Socio ?? p?.id_socio ?? p?.idSocio ?? null;
+  if (id !== null && id !== undefined && String(id).trim() !== "") {
+    return `id:${String(id).trim()}`;
+  }
+  const nombre = getNombreSocio(p).toUpperCase().replace(/\s+/g, " ").trim();
+  return nombre ? `nombre:${nombre}` : null;
+};
+
 const getNombreCobrador = (p) =>
   p?.Cobrador ||
   p?.Nombre_Cobrador ||
@@ -530,8 +539,12 @@ export default function DashboardContable() {
     const setCb = new Set();
 
     for (let i = 0; i < base.length; i++) {
-      total += base[i]._precioNum;
-      if (base[i]._cb) setCb.add(base[i]._cb);
+      // En cobranza, "recaudado" representa únicamente cuotas.
+      // Las inscripciones siguen disponibles en el detalle, pero se resumen aparte.
+      if (!isInscripcion(base[i])) {
+        total += base[i]._precioNum;
+        if (base[i]._cb) setCb.add(base[i]._cb);
+      }
     }
 
     return {
@@ -1162,6 +1175,26 @@ export default function DashboardContable() {
     return out;
   }, [derived.registros, searchDeferred]);
 
+  const resumenInscripciones = useMemo(() => {
+    const pagos = (derived.registros || []).filter(
+      (pago) => isInscripcion(pago) && Number(pago?._precioNum || 0) > 0
+    );
+    const socios = new Set();
+    let recaudado = 0;
+
+    for (const pago of pagos) {
+      recaudado += Number(pago?._precioNum || 0);
+      const key = getSocioKey(pago);
+      if (key) socios.add(key);
+    }
+
+    return {
+      recaudado,
+      socios: socios.size,
+      pagos: pagos.length,
+    };
+  }, [derived.registros]);
+
   /* ===== util fecha / textos ===== */
   const hoyStr = () => {
     const d = new Date();
@@ -1280,63 +1313,136 @@ export default function DashboardContable() {
     }
 
     const rows = [];
-    let totalEsperadoAnual = 0;
-    let totalRecaudadoAnual = 0;
+    let totalEsperadoCuotas = 0;
+    let totalRecaudadoCuotas = 0;
+    let totalSociosEsperados = 0;
+    let totalRecaudadoInscripciones = 0;
+    const sociosInscripcionesTotal = new Set();
+
+    const expectedSociosForMonths = (months) => {
+      const keys =
+        cobradorSeleccionado !== "todos"
+          ? [cobradorSeleccionado]
+          : Object.keys(sociosPorMesPorCobrador || {});
+
+      return keys.reduce((acc, key) => {
+        const valores = months.map((m) =>
+          Number(sociosPorMesPorCobrador?.[key]?.[m] || 0)
+        );
+        const cant =
+          months.length <= 1
+            ? valores.reduce((a, b) => a + b, 0)
+            : valores.length
+            ? Math.max(...valores)
+            : 0;
+        return acc + cant;
+      }, 0);
+    };
 
     for (const p of periodosVisibles) {
       const label = p.value;
-      const months = p.months || extractMonthsFromPeriodLabel(label);
+      const periodMonths = p.months || extractMonthsFromPeriodLabel(label);
+      const months =
+        mesSeleccionado && mesSeleccionado !== "Todos los meses"
+          ? [parseInt(mesSeleccionado, 10)]
+          : periodMonths;
 
-      let recaudado = 0;
+      let recaudadoCuotas = 0;
       let esperado = 0;
+      let recaudadoInscripciones = 0;
+      const sociosInscripciones = new Set();
 
-      if (mesSeleccionado && mesSeleccionado !== "Todos los meses") {
-        const mesNum = parseInt(mesSeleccionado, 10);
-        let pagosMes = curPagosByMonthRef.current[mesNum] || [];
-        if (cobradorSeleccionado !== "todos") pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
-        recaudado = pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-
-        esperado =
-          cobradorSeleccionado === "todos"
-            ? Number(esperadosPorMes[mesNum] || 0)
-            : Number(esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[mesNum] || 0);
-      } else {
-        for (const m of months) {
-          let pagosMes = curPagosByMonthRef.current[m] || [];
-          if (cobradorSeleccionado !== "todos") pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
-          recaudado += pagosMes.reduce((acc, pg) => acc + (pg._precioNum || 0), 0);
-
-          esperado +=
-            cobradorSeleccionado === "todos"
-              ? Number(esperadosPorMes[m] || 0)
-              : Number(esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[m] || 0);
+      for (const m of months) {
+        let pagosMes = curPagosByMonthRef.current[m] || [];
+        if (cobradorSeleccionado !== "todos") {
+          pagosMes = pagosMes.filter((pg) => pg._cb === cobradorSeleccionado);
         }
+
+        for (const pg of pagosMes) {
+          if (isInscripcion(pg)) {
+            const montoInscripcion = Number(pg?._precioNum || 0);
+            if (montoInscripcion > 0) {
+              recaudadoInscripciones += montoInscripcion;
+              const key = getSocioKey(pg);
+              if (key) {
+                sociosInscripciones.add(key);
+                sociosInscripcionesTotal.add(key);
+              }
+            }
+          } else {
+            recaudadoCuotas += Number(pg?._precioNum || 0);
+          }
+        }
+
+        esperado +=
+          cobradorSeleccionado === "todos"
+            ? Number(esperadosPorMes[m] || 0)
+            : Number(esperadosPorMesPorCobrador?.[cobradorSeleccionado]?.[m] || 0);
       }
 
-      const diferencia = esperado - recaudado;
-      totalEsperadoAnual += esperado;
-      totalRecaudadoAnual += recaudado;
+      const sociosEsperados = expectedSociosForMonths(months);
+      const diferencia = esperado - recaudadoCuotas;
+
+      totalEsperadoCuotas += esperado;
+      totalRecaudadoCuotas += recaudadoCuotas;
+      totalSociosEsperados = Math.max(totalSociosEsperados, sociosEsperados);
+      totalRecaudadoInscripciones += recaudadoInscripciones;
 
       rows.push({
         PERÍODO: label,
         ESPERADO: esperado,
-        RECAUDADO: recaudado,
+        RECAUDADO: recaudadoCuotas,
+        SOCIOS: sociosEsperados,
         "DIFERENCIA (ESP-REC)": diferencia,
       });
+
+      if (recaudadoInscripciones > 0 || sociosInscripciones.size > 0) {
+        rows.push({
+          PERÍODO: `↳ INSCRIPCIONES (${label})`,
+          ESPERADO: "—",
+          RECAUDADO: recaudadoInscripciones,
+          SOCIOS: sociosInscripciones.size,
+          "DIFERENCIA (ESP-REC)": "—",
+        });
+      }
     }
 
     rows.push({
-      PERÍODO: "TOTAL AÑO",
-      ESPERADO: totalEsperadoAnual,
-      RECAUDADO: totalRecaudadoAnual,
-      "DIFERENCIA (ESP-REC)": totalEsperadoAnual - totalRecaudadoAnual,
+      PERÍODO: "TOTAL CUOTAS",
+      ESPERADO: totalEsperadoCuotas,
+      RECAUDADO: totalRecaudadoCuotas,
+      SOCIOS: totalSociosEsperados,
+      "DIFERENCIA (ESP-REC)": totalEsperadoCuotas - totalRecaudadoCuotas,
     });
+
+    if (totalRecaudadoInscripciones > 0 || sociosInscripcionesTotal.size > 0) {
+      rows.push({
+        PERÍODO: "TOTAL INSCRIPCIONES",
+        ESPERADO: "—",
+        RECAUDADO: totalRecaudadoInscripciones,
+        SOCIOS: sociosInscripcionesTotal.size,
+        "DIFERENCIA (ESP-REC)": "—",
+      });
+      rows.push({
+        PERÍODO: "TOTAL INGRESADO",
+        ESPERADO: "—",
+        RECAUDADO: totalRecaudadoCuotas + totalRecaudadoInscripciones,
+        SOCIOS: "—",
+        "DIFERENCIA (ESP-REC)": "—",
+      });
+    }
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows, {
-      header: ["PERÍODO", "ESPERADO", "RECAUDADO", "DIFERENCIA (ESP-REC)"],
+      header: ["PERÍODO", "ESPERADO", "RECAUDADO", "SOCIOS", "DIFERENCIA (ESP-REC)"],
     });
-    ws["!cols"] = [{ wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 20 }];
+    ws["!cols"] = [
+      { wch: 34 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 10 },
+      { wch: 20 },
+    ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Detalle_Cobranza");
 
@@ -1357,6 +1463,7 @@ export default function DashboardContable() {
     periodosVisibles,
     esperadosPorMes,
     esperadosPorMesPorCobrador,
+    sociosPorMesPorCobrador,
     cobradorSeleccionado,
     anioSeleccionado,
     periodoSeleccionado,
@@ -1443,7 +1550,7 @@ export default function DashboardContable() {
     const box = {
       wrap: {
         display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(210px,1fr))",
         gap: "12px",
         margin: "12px 10px 6px",
       },
@@ -1460,22 +1567,31 @@ export default function DashboardContable() {
 
     if (mainView === "cobmes") {
       const esperado = Number(derived.esperado || 0);
-      const recaudado = Number(derived.total || 0);
-      const diferencia = Number(esperado - recaudado);
+      const recaudadoCuotas = Number(derived.total || 0);
+      const recaudadoInscripciones = Number(resumenInscripciones.recaudado || 0);
+      const diferencia = Number(esperado - recaudadoCuotas);
+      const totalIngresado = recaudadoCuotas + recaudadoInscripciones;
 
       const diffTxt = `$${nfPesos.format(Math.abs(diferencia))}`;
       const colorTexto = diferencia > 0 ? "#dc2626" : "#16a34a";
 
       return (
-        <div style={box.wrap} aria-label="Resumen global (montos)">
+        <div style={box.wrap} aria-label="Resumen global de cobranza">
           <div style={box.card}>
-            <div style={box.title}>Total recaudado</div>
-            <div style={box.num}>${nfPesos.format(recaudado)}</div>
-            <div style={box.foot}>{anioSeleccionado ? `Año ${anioSeleccionado}` : ""}</div>
+            <div style={box.title}>Cuotas recaudadas</div>
+            <div style={box.num}>${nfPesos.format(recaudadoCuotas)}</div>
+            <div style={box.foot}>Solo pagos de cuotas</div>
+          </div>
+          <div style={box.card}>
+            <div style={box.title}>Inscripciones recaudadas</div>
+            <div style={box.num}>${nfPesos.format(recaudadoInscripciones)}</div>
+            <div style={box.foot}>
+              {nfPesos.format(resumenInscripciones.socios)} socios · Total ingresado: ${nfPesos.format(totalIngresado)}
+            </div>
           </div>
           <div style={box.card}>
             <div style={box.title}>
-              Total esperado{" "}
+              Cuotas esperadas{" "}
               {loadingEsperado && (
                 <FontAwesomeIcon icon={faSpinner} spin style={{ marginLeft: 6 }} />
               )}
@@ -1485,10 +1601,10 @@ export default function DashboardContable() {
           </div>
           <div style={{ ...box.card, borderColor: colorTexto }}>
             <div style={{ ...box.title, color: colorTexto }}>
-              Faltante / Superávit (esperado – recaudado)
+              Faltante / Superávit de cuotas
             </div>
             <div style={{ ...box.num, color: colorTexto }}>{diffTxt}</div>
-            <div style={box.foot}>= Comparación con filtros aplicados</div>
+            <div style={box.foot}>Cuotas esperadas menos cuotas recaudadas</div>
           </div>
         </div>
       );

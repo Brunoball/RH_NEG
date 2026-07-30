@@ -3,40 +3,33 @@
 
 declare(strict_types=1);
 
-/*
-|--------------------------------------------------------------------------
-| Balance anual - Vista previa de bajas por período + pagos
-|--------------------------------------------------------------------------
-| Este archivo solamente:
-| 1. Obtiene socios dados de baja.
-| 2. Usa socios.fecha_baja.
-| 3. Calcula el período bimestral de la baja.
-| 4. Separa bajas por estado: Activo / Pasivo / Sin estado.
-| 5. Busca en pagos los períodos pagados por cada socio dado de baja.
-| 6. Devuelve período pagado, año aplicado y monto.
-|
-| No registra pagos.
-| No aplica bajas.
-| No lee Word.
-| No modifica datos.
-|--------------------------------------------------------------------------
-*/
+if (!headers_sent()) {
+    header('Content-Type: application/json; charset=utf-8');
+}
+
+require_once __DIR__ . '/../../../config/db.php';
 
 function balance_response(array $data, int $status = 200): void
 {
     http_response_code($status);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 function balance_get_pdo(): PDO
 {
     if (function_exists('db')) {
-        return db();
+        $conexion = db();
+        if ($conexion instanceof PDO) {
+            return $conexion;
+        }
     }
 
     if (function_exists('getConnection')) {
-        return getConnection();
+        $conexion = getConnection();
+        if ($conexion instanceof PDO) {
+            return $conexion;
+        }
     }
 
     if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
@@ -50,41 +43,48 @@ function balance_get_pdo(): PDO
     throw new RuntimeException('No se pudo obtener la conexión PDO.');
 }
 
+function balance_validar_fecha(?string $fecha, string $fallback): string
+{
+    $fecha = trim((string) $fecha);
+
+    if ($fecha === '') {
+        return $fallback;
+    }
+
+    $dt = DateTime::createFromFormat('!Y-m-d', $fecha);
+
+    if (!$dt || $dt->format('Y-m-d') !== $fecha) {
+        throw new InvalidArgumentException('Formato de fecha inválido. Usá YYYY-MM-DD.');
+    }
+
+    return $fecha;
+}
+
 function balance_periodo_bimestral_por_mes(int $mes): array
 {
     if ($mes < 1 || $mes > 12) {
-        return [
-            'desde' => null,
-            'hasta' => null,
-            'label' => 'Sin período',
-        ];
+        return ['desde' => null, 'hasta' => null, 'label' => 'Sin período'];
     }
 
-    if ($mes % 2 === 1) {
-        $desde = $mes;
-        $hasta = $mes + 1;
-    } else {
-        $desde = $mes - 1;
-        $hasta = $mes;
-    }
+    $desde = $mes % 2 === 1 ? $mes : $mes - 1;
 
     return [
         'desde' => $desde,
-        'hasta' => $hasta,
-        'label' => $desde . '/' . $hasta,
+        'hasta' => $desde + 1,
+        'label' => $desde . '/' . ($desde + 1),
     ];
 }
 
 function balance_periodo_bimestral_por_id(int $idPeriodo): array
 {
     $map = [
-        1 => ['desde' => 1,  'hasta' => 2,  'label' => '1/2'],
-        2 => ['desde' => 3,  'hasta' => 4,  'label' => '3/4'],
-        3 => ['desde' => 5,  'hasta' => 6,  'label' => '5/6'],
-        4 => ['desde' => 7,  'hasta' => 8,  'label' => '7/8'],
-        5 => ['desde' => 9,  'hasta' => 10, 'label' => '9/10'],
+        1 => ['desde' => 1, 'hasta' => 2, 'label' => '1/2'],
+        2 => ['desde' => 3, 'hasta' => 4, 'label' => '3/4'],
+        3 => ['desde' => 5, 'hasta' => 6, 'label' => '5/6'],
+        4 => ['desde' => 7, 'hasta' => 8, 'label' => '7/8'],
+        5 => ['desde' => 9, 'hasta' => 10, 'label' => '9/10'],
         6 => ['desde' => 11, 'hasta' => 12, 'label' => '11/12'],
-        7 => ['desde' => 1,  'hasta' => 12, 'label' => 'Contado anual'],
+        7 => ['desde' => 1, 'hasta' => 12, 'label' => 'Contado anual'],
     ];
 
     return $map[$idPeriodo] ?? [
@@ -96,7 +96,7 @@ function balance_periodo_bimestral_por_id(int $idPeriodo): array
 
 function balance_sort_periodo(int $anio, ?int $mesDesde): int
 {
-    if (!$anio || !$mesDesde) {
+    if ($anio <= 0 || !$mesDesde) {
         return 0;
     }
 
@@ -105,30 +105,20 @@ function balance_sort_periodo(int $anio, ?int $mesDesde): int
 
 function balance_normalizar_estado(?string $estado): array
 {
-    $estadoOriginal = trim((string) $estado);
-    $estadoLower = mb_strtolower($estadoOriginal, 'UTF-8');
+    $estadoLower = mb_strtolower(trim((string) $estado), 'UTF-8');
 
     if (str_contains($estadoLower, 'pasiv')) {
-        return [
-            'key' => 'pasivos',
-            'label' => 'Pasivo',
-        ];
+        return ['key' => 'pasivos', 'label' => 'Pasivo'];
     }
 
     if (str_contains($estadoLower, 'activ')) {
-        return [
-            'key' => 'activos',
-            'label' => 'Activo',
-        ];
+        return ['key' => 'activos', 'label' => 'Activo'];
     }
 
-    return [
-        'key' => 'sin_estado',
-        'label' => 'Sin estado',
-    ];
+    return ['key' => 'sin_estado', 'label' => 'Sin estado'];
 }
 
-function balance_formatear_monto($valor): float
+function balance_monto($valor): float
 {
     if ($valor === null || $valor === '') {
         return 0.0;
@@ -156,6 +146,26 @@ function balance_rango_fechas_por_defecto(): array
     ];
 }
 
+function balance_fecha_periodo(int $anio, int $mes, bool $ultimoDia = false): string
+{
+    $dt = DateTime::createFromFormat('!Y-n-j', $anio . '-' . $mes . '-1');
+
+    if (!$dt) {
+        return sprintf('%04d-%02d-01', $anio, $mes);
+    }
+
+    if ($ultimoDia) {
+        $dt->modify('last day of this month');
+    }
+
+    return $dt->format('Y-m-d');
+}
+
+function balance_rangos_se_superponen(string $inicioA, string $finA, string $inicioB, string $finB): bool
+{
+    return $finA >= $inicioB && $inicioA <= $finB;
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         balance_response([
@@ -166,56 +176,16 @@ try {
     }
 
     $pdo = balance_get_pdo();
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    /*
-        Rango del balance:
-        - Si el frontend envía ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD, se usa ese rango.
-        - Si no se envía rango, se calcula automáticamente:
-          * Enero a junio: 01/07 del año anterior al 30/06 del año actual.
-          * Julio en adelante: 01/07 del año actual al día actual.
-    */
     $rangoDefault = balance_rango_fechas_por_defecto();
-    $fechaDesde = $_GET['desde'] ?? $rangoDefault['desde'];
-    $fechaHasta = $_GET['hasta'] ?? $rangoDefault['hasta'];
-
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaDesde)) {
-        balance_response([
-            'ok' => false,
-            'exito' => false,
-            'mensaje' => 'La fecha desde no es válida.',
-        ], 400);
-    }
-
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaHasta)) {
-        balance_response([
-            'ok' => false,
-            'exito' => false,
-            'mensaje' => 'La fecha hasta no es válida.',
-        ], 400);
-    }
+    $fechaDesde = balance_validar_fecha($_GET['desde'] ?? null, $rangoDefault['desde']);
+    $fechaHasta = balance_validar_fecha($_GET['hasta'] ?? null, $rangoDefault['hasta']);
 
     if ($fechaDesde > $fechaHasta) {
-        balance_response([
-            'ok' => false,
-            'exito' => false,
-            'mensaje' => 'La fecha desde no puede ser mayor que la fecha hasta.',
-        ], 400);
+        throw new InvalidArgumentException('La fecha desde no puede ser mayor que la fecha hasta.');
     }
 
-    $anioDesde = (int) substr($fechaDesde, 0, 4);
-    $mesDesde = (int) substr($fechaDesde, 5, 2);
-    $anioHasta = (int) substr($fechaHasta, 0, 4);
-    $mesHasta = (int) substr($fechaHasta, 5, 2);
-
-    $periodoInicioBalance = balance_periodo_bimestral_por_mes($mesDesde);
-    $periodoFinBalance = balance_periodo_bimestral_por_mes($mesHasta);
-
-    $sortInicioBalance = balance_sort_periodo($anioDesde, $periodoInicioBalance['desde']);
-    $sortFinBalance = balance_sort_periodo($anioHasta, $periodoFinBalance['desde']);
-
-    /*
-        1) Buscar socios dados de baja.
-    */
     $sqlBajas = "
         SELECT
             s.id_socio,
@@ -232,38 +202,25 @@ try {
         WHERE s.activo = 0
           AND s.fecha_baja IS NOT NULL
           AND s.fecha_baja BETWEEN :desde AND :hasta
-        ORDER BY
-            YEAR(s.fecha_baja) ASC,
-            MONTH(s.fecha_baja) ASC,
-            s.fecha_baja ASC,
-            e.descripcion ASC,
-            s.nombre ASC
+        ORDER BY s.fecha_baja ASC, e.descripcion ASC, s.nombre ASC, s.id_socio ASC
     ";
 
     $stmtBajas = $pdo->prepare($sqlBajas);
-    $stmtBajas->execute([
-        ':desde' => $fechaDesde,
-        ':hasta' => $fechaHasta,
-    ]);
-
-    $rowsBajas = $stmtBajas->fetchAll(PDO::FETCH_ASSOC);
+    $stmtBajas->execute([':desde' => $fechaDesde, ':hasta' => $fechaHasta]);
+    $rowsBajas = $stmtBajas->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $idsSocios = array_values(array_unique(array_map(
-        fn ($row) => (int) $row['id_socio'],
+        static fn (array $row): int => (int) $row['id_socio'],
         $rowsBajas
     )));
 
-    /*
-        2) Buscar pagos de esos socios.
-           Se filtran después en PHP para respetar:
-           - rango del balance
-           - hasta el período de baja del socio
-    */
     $pagosPorSocio = [];
+    $pagosDuplicados = [];
+    $clavesVistas = [];
+    $advertencias = [];
 
     if (!empty($idsSocios)) {
         $placeholders = implode(',', array_fill(0, count($idsSocios), '?'));
-
         $sqlPagos = "
             SELECT
                 p.id_pago,
@@ -283,16 +240,14 @@ try {
                 p.id_socio ASC,
                 p.anio_aplicado ASC,
                 p.id_periodo ASC,
-                p.fecha_pago ASC,
-                p.id_pago ASC
+                p.fecha_pago DESC,
+                p.id_pago DESC
         ";
 
         $stmtPagos = $pdo->prepare($sqlPagos);
         $stmtPagos->execute($idsSocios);
 
-        $rowsPagos = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($rowsPagos as $pago) {
+        while ($pago = $stmtPagos->fetch(PDO::FETCH_ASSOC)) {
             $idSocio = (int) $pago['id_socio'];
             $idPeriodo = (int) $pago['id_periodo'];
             $anioAplicado = (int) ($pago['anio_aplicado'] ?? 0);
@@ -302,69 +257,102 @@ try {
             }
 
             $periodoPago = balance_periodo_bimestral_por_id($idPeriodo);
-            $sortPago = balance_sort_periodo($anioAplicado, $periodoPago['desde']);
 
-            $periodoLabel = $periodoPago['label'];
-            $periodoLabelConAnio = $periodoLabel . ' / ' . $anioAplicado;
+            if ($anioAplicado <= 0 || $periodoPago['desde'] === null || $periodoPago['hasta'] === null) {
+                $advertencias[] = [
+                    'codigo' => 'PAGO_SIN_PERIODO_VALIDO',
+                    'id_pago' => (int) $pago['id_pago'],
+                    'id_socio' => $idSocio,
+                ];
+                continue;
+            }
+
+            $clave = $idSocio . '-' . $anioAplicado . '-' . $idPeriodo;
+
+            if (isset($clavesVistas[$clave])) {
+                if (!isset($pagosDuplicados[$clave])) {
+                    $pagosDuplicados[$clave] = [
+                        'id_socio' => $idSocio,
+                        'anio_aplicado' => $anioAplicado,
+                        'id_periodo' => $idPeriodo,
+                        'ids_pago' => [$clavesVistas[$clave]],
+                    ];
+                }
+
+                $pagosDuplicados[$clave]['ids_pago'][] = (int) $pago['id_pago'];
+                continue;
+            }
+
+            // La consulta viene ordenada por fecha/id descendente: se conserva el registro más reciente.
+            $clavesVistas[$clave] = (int) $pago['id_pago'];
+
+            $esAnual = $idPeriodo === 7;
+            $fechaCoberturaDesde = balance_fecha_periodo($anioAplicado, (int) $periodoPago['desde']);
+            $fechaCoberturaHasta = balance_fecha_periodo($anioAplicado, (int) $periodoPago['hasta'], true);
+            $estadoPago = strtolower(trim((string) ($pago['estado'] ?? 'pagado')));
+            $estadoPago = $estadoPago === 'condonado' ? 'condonado' : 'pagado';
 
             $pagosPorSocio[$idSocio][] = [
                 'id_pago' => (int) $pago['id_pago'],
                 'id_socio' => $idSocio,
                 'id_periodo' => $idPeriodo,
                 'anio_aplicado' => $anioAplicado,
-                'fecha_pago' => $pago['fecha_pago'],
-                'estado' => $pago['estado'],
-                'monto' => balance_formatear_monto($pago['monto']),
-                'periodo' => $periodoLabel,
-                'periodo_label' => $periodoLabelConAnio,
+                'fecha_pago' => $pago['fecha_pago'] ?? null,
+                'estado' => $estadoPago,
+                'monto' => $estadoPago === 'pagado' ? balance_monto($pago['monto'] ?? 0) : 0.0,
+                'monto_registrado' => balance_monto($pago['monto'] ?? 0),
+                'periodo' => $periodoPago['label'],
+                'periodo_label' => $periodoPago['label'] . ' / ' . $anioAplicado,
                 'periodo_nombre' => $pago['periodo_nombre'],
                 'periodo_meses' => $pago['periodo_meses'],
                 'periodo_desde' => $periodoPago['desde'],
                 'periodo_hasta' => $periodoPago['hasta'],
-                'sort_periodo' => $sortPago,
+                'sort_periodo' => balance_sort_periodo($anioAplicado, (int) $periodoPago['desde']),
+                'es_contado_anual' => $esAnual,
+                'fecha_cobertura_desde' => $fechaCoberturaDesde,
+                'fecha_cobertura_hasta' => $fechaCoberturaHasta,
             ];
         }
     }
 
-    $resumen = [
-        'pasivos' => [
-            'label' => 'Bajas pasivos',
+    if (!empty($pagosDuplicados)) {
+        $advertencias[] = [
+            'codigo' => 'PAGOS_DUPLICADOS_MISMO_SOCIO_ANIO_PERIODO',
+            'cantidad_claves' => count($pagosDuplicados),
+            'detalle' => array_values($pagosDuplicados),
+            'impacto_calculo' => 'SIN DOBLE IMPACTO: se conserva un único registro por socio, año y período.',
+        ];
+    }
+
+    $resumen = [];
+
+    foreach (['pasivos' => 'Bajas pasivos', 'activos' => 'Bajas activos', 'sin_estado' => 'Bajas sin estado'] as $key => $label) {
+        $resumen[$key] = [
+            'label' => $label,
             'cantidad' => 0,
             'periodos' => [],
             'pagos_cantidad' => 0,
+            'condonaciones_cantidad' => 0,
+            'periodos_cubiertos_cantidad' => 0,
             'pagos_monto_total' => 0,
-        ],
-        'activos' => [
-            'label' => 'Bajas activos',
-            'cantidad' => 0,
-            'periodos' => [],
-            'pagos_cantidad' => 0,
-            'pagos_monto_total' => 0,
-        ],
-        'sin_estado' => [
-            'label' => 'Bajas sin estado',
-            'cantidad' => 0,
-            'periodos' => [],
-            'pagos_cantidad' => 0,
-            'pagos_monto_total' => 0,
-        ],
-    ];
+        ];
+    }
 
     $items = [];
     $totalPagos = 0;
-    $totalMontoPagos = 0;
+    $totalCondonaciones = 0;
+    $totalPeriodosCubiertos = 0;
+    $totalMontoPagos = 0.0;
 
     foreach ($rowsBajas as $row) {
         $idSocio = (int) $row['id_socio'];
         $mesBaja = (int) ($row['mes_baja'] ?? 0);
         $anioBaja = (int) ($row['anio_baja'] ?? 0);
-
+        $fechaBaja = (string) $row['fecha_baja'];
         $periodoBaja = balance_periodo_bimestral_por_mes($mesBaja);
         $sortPeriodoBaja = balance_sort_periodo($anioBaja, $periodoBaja['desde']);
-
         $estado = balance_normalizar_estado($row['estado_descripcion'] ?? null);
         $grupoKey = $estado['key'];
-
         $periodoBajaLabel = $periodoBaja['label'];
         $periodoBajaLabelConAnio = $periodoBajaLabel . ' / ' . $anioBaja;
         $periodoKey = $anioBaja . '-' . str_pad((string) $periodoBaja['desde'], 2, '0', STR_PAD_LEFT) . '-' . $periodoBajaLabel;
@@ -378,41 +366,69 @@ try {
                 'periodo_hasta' => $periodoBaja['hasta'],
                 'cantidad' => 0,
                 'pagos_cantidad' => 0,
+                'condonaciones_cantidad' => 0,
+                'periodos_cubiertos_cantidad' => 0,
                 'pagos_monto_total' => 0,
             ];
         }
 
-        /*
-            Pagos válidos para el balance:
-            - pertenecen al socio dado de baja
-            - están dentro del rango económico del balance
-            - no son posteriores al período de baja
-        */
         $pagosSocio = [];
-        $montoPagadoSocio = 0;
+        $montoPagadoSocio = 0.0;
+        $pagosRealesSocio = 0;
+        $condonacionesSocio = 0;
 
-        foreach (($pagosPorSocio[$idSocio] ?? []) as $pago) {
-            $sortPago = (int) ($pago['sort_periodo'] ?? 0);
+        foreach ($pagosPorSocio[$idSocio] ?? [] as $pago) {
+            $coberturaDesde = (string) ($pago['fecha_cobertura_desde'] ?? '');
+            $coberturaHasta = (string) ($pago['fecha_cobertura_hasta'] ?? '');
 
-            if ($sortPago <= 0) {
+            if ($coberturaDesde === '' || $coberturaHasta === '') {
                 continue;
             }
 
-            if ($sortPago < $sortInicioBalance || $sortPago > $sortFinBalance) {
+            // El período económico debe intersectar el rango solicitado.
+            if (!balance_rangos_se_superponen($coberturaDesde, $coberturaHasta, $fechaDesde, $fechaHasta)) {
                 continue;
             }
 
-            if ($sortPeriodoBaja > 0 && $sortPago > $sortPeriodoBaja) {
+            if (!empty($pago['es_contado_anual'])) {
+                // El contado anual cubre enero-diciembre del año aplicado. No se lo ubica
+                // artificialmente sólo en enero para decidir si entra en un balance julio-junio.
+                if ((int) $pago['anio_aplicado'] > $anioBaja) {
+                    continue;
+                }
+            } elseif ((int) $pago['sort_periodo'] > $sortPeriodoBaja) {
+                // Para bimestres se conserva la regla existente: hasta el bimestre de baja.
                 continue;
             }
 
             $pagosSocio[] = $pago;
-            $montoPagadoSocio += (float) $pago['monto'];
+
+            if (($pago['estado'] ?? '') === 'condonado') {
+                $condonacionesSocio++;
+            } else {
+                $pagosRealesSocio++;
+                $montoPagadoSocio += (float) ($pago['monto'] ?? 0);
+            }
+
+            if (!empty($pago['fecha_pago']) && (string) $pago['fecha_pago'] > $fechaBaja) {
+                $advertencias[] = [
+                    'codigo' => 'PAGO_REGISTRADO_DESPUES_DE_LA_BAJA',
+                    'id_pago' => (int) $pago['id_pago'],
+                    'id_socio' => $idSocio,
+                    'fecha_pago' => $pago['fecha_pago'],
+                    'fecha_baja' => $fechaBaja,
+                    'impacto_calculo' => 'Se incluye porque cubre un período no posterior a la baja.',
+                ];
+            }
         }
 
-        usort($pagosSocio, function ($a, $b) {
-            $cmp = ((int) $a['sort_periodo']) <=> ((int) $b['sort_periodo']);
+        usort($pagosSocio, static function (array $a, array $b): int {
+            $cmp = ((int) $a['anio_aplicado']) <=> ((int) $b['anio_aplicado']);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
 
+            $cmp = ((int) $a['periodo_desde']) <=> ((int) $b['periodo_desde']);
             if ($cmp !== 0) {
                 return $cmp;
             }
@@ -420,18 +436,23 @@ try {
             return strcmp((string) $a['fecha_pago'], (string) $b['fecha_pago']);
         });
 
-        $cantidadPagosSocio = count($pagosSocio);
+        $montoPagadoSocio = balance_monto($montoPagadoSocio);
+        $periodosCubiertosSocio = count($pagosSocio);
 
         $resumen[$grupoKey]['cantidad']++;
         $resumen[$grupoKey]['periodos'][$periodoKey]['cantidad']++;
-
-        $resumen[$grupoKey]['pagos_cantidad'] += $cantidadPagosSocio;
+        $resumen[$grupoKey]['pagos_cantidad'] += $pagosRealesSocio;
+        $resumen[$grupoKey]['condonaciones_cantidad'] += $condonacionesSocio;
+        $resumen[$grupoKey]['periodos_cubiertos_cantidad'] += $periodosCubiertosSocio;
         $resumen[$grupoKey]['pagos_monto_total'] += $montoPagadoSocio;
-
-        $resumen[$grupoKey]['periodos'][$periodoKey]['pagos_cantidad'] += $cantidadPagosSocio;
+        $resumen[$grupoKey]['periodos'][$periodoKey]['pagos_cantidad'] += $pagosRealesSocio;
+        $resumen[$grupoKey]['periodos'][$periodoKey]['condonaciones_cantidad'] += $condonacionesSocio;
+        $resumen[$grupoKey]['periodos'][$periodoKey]['periodos_cubiertos_cantidad'] += $periodosCubiertosSocio;
         $resumen[$grupoKey]['periodos'][$periodoKey]['pagos_monto_total'] += $montoPagadoSocio;
 
-        $totalPagos += $cantidadPagosSocio;
+        $totalPagos += $pagosRealesSocio;
+        $totalCondonaciones += $condonacionesSocio;
+        $totalPeriodosCubiertos += $periodosCubiertosSocio;
         $totalMontoPagos += $montoPagadoSocio;
 
         $items[] = [
@@ -442,7 +463,7 @@ try {
             'estado_descripcion' => $row['estado_descripcion'] ?: 'Sin estado',
             'grupo' => $grupoKey,
             'grupo_label' => $estado['label'],
-            'fecha_baja' => $row['fecha_baja'],
+            'fecha_baja' => $fechaBaja,
             'mes_baja' => $mesBaja,
             'anio_baja' => $anioBaja,
             'periodo' => $periodoBajaLabel,
@@ -451,53 +472,102 @@ try {
             'periodo_hasta' => $periodoBaja['hasta'],
             'motivo' => $row['motivo'] ?? null,
             'pagos' => $pagosSocio,
-            'pagos_cantidad' => $cantidadPagosSocio,
-            'pagos_monto_total' => round($montoPagadoSocio, 2),
+            'pagos_cantidad' => $pagosRealesSocio,
+            'condonaciones_cantidad' => $condonacionesSocio,
+            'periodos_cubiertos_cantidad' => $periodosCubiertosSocio,
+            'pagos_monto_total' => $montoPagadoSocio,
         ];
     }
 
     foreach ($resumen as $grupoKey => $grupoData) {
         $periodos = array_values($grupoData['periodos']);
 
-        usort($periodos, function ($a, $b) {
-            $anioCmp = ((int) $a['anio']) <=> ((int) $b['anio']);
-
-            if ($anioCmp !== 0) {
-                return $anioCmp;
-            }
-
-            return ((int) $a['periodo_desde']) <=> ((int) $b['periodo_desde']);
+        usort($periodos, static function (array $a, array $b): int {
+            $cmp = ((int) $a['anio']) <=> ((int) $b['anio']);
+            return $cmp !== 0 ? $cmp : ((int) $a['periodo_desde']) <=> ((int) $b['periodo_desde']);
         });
 
-        foreach ($periodos as &$p) {
-            $p['pagos_monto_total'] = round((float) $p['pagos_monto_total'], 2);
+        foreach ($periodos as &$periodo) {
+            $periodo['pagos_monto_total'] = balance_monto($periodo['pagos_monto_total'] ?? 0);
         }
-        unset($p);
+        unset($periodo);
 
         $resumen[$grupoKey]['periodos'] = $periodos;
-        $resumen[$grupoKey]['pagos_monto_total'] = round((float) $resumen[$grupoKey]['pagos_monto_total'], 2);
+        $resumen[$grupoKey]['pagos_monto_total'] = balance_monto($grupoData['pagos_monto_total'] ?? 0);
+    }
+
+    $totalMontoPagos = balance_monto($totalMontoPagos);
+    $montoItems = balance_monto(array_sum(array_map(
+        static fn (array $item): float => balance_monto($item['pagos_monto_total'] ?? 0),
+        $items
+    )));
+    $montoResumen = balance_monto(
+        (float) $resumen['activos']['pagos_monto_total']
+        + (float) $resumen['pasivos']['pagos_monto_total']
+        + (float) $resumen['sin_estado']['pagos_monto_total']
+    );
+    $cantidadBajasResumen = (int) $resumen['activos']['cantidad']
+        + (int) $resumen['pasivos']['cantidad']
+        + (int) $resumen['sin_estado']['cantidad'];
+    $pagosResumen = (int) $resumen['activos']['pagos_cantidad']
+        + (int) $resumen['pasivos']['pagos_cantidad']
+        + (int) $resumen['sin_estado']['pagos_cantidad'];
+    $condonacionesResumen = (int) $resumen['activos']['condonaciones_cantidad']
+        + (int) $resumen['pasivos']['condonaciones_cantidad']
+        + (int) $resumen['sin_estado']['condonaciones_cantidad'];
+
+    if (count($items) !== $cantidadBajasResumen) {
+        throw new RuntimeException('El balance de bajas no cerró el control de cantidades de socios.');
+    }
+
+    if ($totalPagos !== $pagosResumen || $totalCondonaciones !== $condonacionesResumen) {
+        throw new RuntimeException('El balance de bajas no cerró el control de pagos y condonaciones.');
+    }
+
+    if (abs($totalMontoPagos - $montoItems) > 0.009 || abs($totalMontoPagos - $montoResumen) > 0.009) {
+        throw new RuntimeException('El balance de bajas no cerró el control de montos.');
     }
 
     balance_response([
         'ok' => true,
         'exito' => true,
         'mensaje' => 'Bajas por período y pagos obtenidos correctamente.',
-        'rango' => [
-            'desde' => $fechaDesde,
-            'hasta' => $fechaHasta,
-        ],
+        'rango' => ['desde' => $fechaDesde, 'hasta' => $fechaHasta],
+        'criterio' => 'Se muestran las bajas actuales cuya fecha_baja cae dentro del rango. Los pagos se toman una sola vez por socio/año/período. Los bimestres deben intersectar el rango y no ser posteriores al bimestre de baja. El contado anual entra si su año intersecta el rango, por lo que funciona correctamente en balances julio-junio.',
+        'criterio_monto' => 'pagos_monto_total suma únicamente filas con estado pagado. Las condonaciones cubren el período pero se informan por separado y no se suman como dinero cobrado.',
         'totales' => [
             'total_bajas' => count($items),
-            'activos' => $resumen['activos']['cantidad'],
-            'pasivos' => $resumen['pasivos']['cantidad'],
-            'sin_estado' => $resumen['sin_estado']['cantidad'],
+            'activos' => (int) $resumen['activos']['cantidad'],
+            'pasivos' => (int) $resumen['pasivos']['cantidad'],
+            'sin_estado' => (int) $resumen['sin_estado']['cantidad'],
             'pagos_detectados' => $totalPagos,
-            'pagos_monto_total' => round($totalMontoPagos, 2),
+            'condonaciones_detectadas' => $totalCondonaciones,
+            'periodos_cubiertos_detectados' => $totalPeriodosCubiertos,
+            'pagos_monto_total' => $totalMontoPagos,
         ],
+        'auditoria_calculo' => [
+            'control_ok' => true,
+            'cantidad_bajas_detalle' => count($items),
+            'cantidad_bajas_resumen' => $cantidadBajasResumen,
+            'pagos_detalle' => $totalPagos,
+            'pagos_resumen' => $pagosResumen,
+            'condonaciones_detalle' => $totalCondonaciones,
+            'condonaciones_resumen' => $condonacionesResumen,
+            'monto_detalle' => $montoItems,
+            'monto_resumen' => $montoResumen,
+            'monto_total_general' => $totalMontoPagos,
+            'duplicados_detectados' => count($pagosDuplicados),
+        ],
+        'advertencias_auditoria' => $advertencias,
         'resumen' => $resumen,
         'items' => $items,
     ]);
-
+} catch (InvalidArgumentException $e) {
+    balance_response([
+        'ok' => false,
+        'exito' => false,
+        'mensaje' => $e->getMessage(),
+    ], 400);
 } catch (Throwable $e) {
     error_log('[BALANCE_ANUAL_PREVIEW] ' . $e->getMessage());
 

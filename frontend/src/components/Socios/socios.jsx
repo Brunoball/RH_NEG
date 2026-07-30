@@ -89,6 +89,10 @@ const SS_KEYS = {
 };
 const LS_FILTERS = "filtros_socios_v5";
 const LS_CUMPLE_18_CERRADOS = "socios_cumple_18_23_cerrados_v2";
+const LS_CUMPLE_18_CERRADOS_LEGACY = [
+  "socios_cumple_18_23_cerrados",
+  "socios_cumple_18_23_cerrados_v1",
+];
 
 
 /* ============================
@@ -135,6 +139,57 @@ const writeJsonLocalStorage = (key, value) => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
+};
+
+const readCumple18CierresLocales = () => {
+  const acumulados = {};
+  const keys = [...LS_CUMPLE_18_CERRADOS_LEGACY, LS_CUMPLE_18_CERRADOS];
+
+  for (const storageKey of keys) {
+    const valor = readJsonLocalStorage(storageKey, {});
+    if (!valor || typeof valor !== "object" || Array.isArray(valor)) continue;
+    Object.assign(acumulados, valor);
+  }
+
+  return acumulados;
+};
+
+const parseCumple18DismissKey = (key) => {
+  const [anioRaw, rangoRaw, idRaw] = String(key ?? "").split(":");
+  const anio = Number(anioRaw);
+  const idSocio = Number(idRaw);
+  const rango = String(rangoRaw || "18-23").trim() || "18-23";
+
+  if (!Number.isInteger(anio) || anio < 2000 || anio > 2200) return null;
+  if (!Number.isInteger(idSocio) || idSocio <= 0) return null;
+
+  return { anio, rango, idSocio };
+};
+
+const mapCumple18CierresApi = (cierres) => {
+  const salida = {};
+
+  for (const cierre of Array.isArray(cierres) ? cierres : []) {
+    const anio = Number(cierre?.anio);
+    const rango = String(cierre?.rango || "18-23").trim() || "18-23";
+    const idSocio = Number(cierre?.id_socio);
+
+    if (!Number.isInteger(anio) || !Number.isInteger(idSocio) || idSocio <= 0) {
+      continue;
+    }
+
+    const key = cierre?.key || `${anio}:${rango}:${idSocio}`;
+    salida[key] = {
+      id_socio: idSocio,
+      nombre: cierre?.nombre || "",
+      cerrado_en: cierre?.cerrado_en || cierre?.created_at || "",
+      anio,
+      rango,
+      origen: cierre?.origen || "SISTEMA",
+    };
+  }
+
+  return salida;
 };
 
 const isDateInCurrentYear = (value) => {
@@ -960,6 +1015,8 @@ const Socios = () => {
   const [historialContactos, setHistorialContactos] = useState([]);
   const [cargandoHistorialContactos, setCargandoHistorialContactos] = useState(false);
   const [cumple18Pendientes, setCumple18Pendientes] = useState([]);
+  const [cumple18Cerrados, setCumple18Cerrados] = useState({});
+  const [cumple18CierresCargados, setCumple18CierresCargados] = useState(false);
   const [socioCumple18EnfocadoId, setSocioCumple18EnfocadoId] = useState(null);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
@@ -1081,6 +1138,87 @@ const Socios = () => {
   const mostrarToast = useCallback((mensaje, tipo = "exito") => {
     setToast({ mostrar: true, tipo, mensaje });
   }, []);
+
+
+  const cargarCierresCumple18 = useCallback(async () => {
+    setCumple18CierresCargados(false);
+
+    const locales = readCumple18CierresLocales();
+    let remotos = {};
+
+    try {
+      const anioActual = new Date().getFullYear();
+      const response = await fetch(
+        `${BASE_URL}/api.php?action=cumple18_cierres_listar&anio=${anioActual}&rango=18-23`,
+        { cache: "no-store" }
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data?.exito) {
+        throw new Error(data?.mensaje || "No se pudieron obtener los cierres guardados.");
+      }
+
+      remotos = mapCumple18CierresApi(data.cierres);
+
+      const cierresParaMigrar = Object.entries(locales)
+        .map(([key, valor]) => {
+          const parsed = parseCumple18DismissKey(key);
+          if (!parsed) return null;
+
+          return {
+            id_socio: parsed.idSocio,
+            anio: parsed.anio,
+            rango: parsed.rango,
+            cerrado_en: valor?.cerrado_en || null,
+            origen: "LOCALSTORAGE_MIGRADO",
+          };
+        })
+        .filter(Boolean);
+
+      if (cierresParaMigrar.length > 0) {
+        try {
+          const migracionResponse = await fetch(
+            `${BASE_URL}/api.php?action=cumple18_cierres_guardar`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              cache: "no-store",
+              body: JSON.stringify({
+                cierres: cierresParaMigrar,
+                origen: "LOCALSTORAGE_MIGRADO",
+                id_usuario: usuario?.id || null,
+                usuario_nombre: usuario?.nombre || "",
+              }),
+            }
+          );
+          const migracionData = await migracionResponse.json();
+
+          if (migracionResponse.ok && migracionData?.exito) {
+            remotos = {
+              ...remotos,
+              ...mapCumple18CierresApi(migracionData.cierres),
+            };
+          } else {
+            console.error(
+              "No se pudieron migrar cierres locales de cumpleaños",
+              migracionData?.mensaje
+            );
+          }
+        } catch (error) {
+          console.error("Error migrando cierres locales de cumpleaños", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error cargando cierres de cumpleaños", error);
+    }
+
+    const consolidados = { ...remotos, ...locales };
+    setCumple18Cerrados(consolidados);
+    writeJsonLocalStorage(LS_CUMPLE_18_CERRADOS, consolidados);
+    setCumple18CierresCargados(true);
+
+    return consolidados;
+  }, [usuario]);
 
   const idxById = useMemo(() => {
     const m = new Map();
@@ -1320,6 +1458,7 @@ const Socios = () => {
     const t0 = performance.now();
     try {
       setCargando(true);
+      const cierresCumplePromise = cargarCierresCumple18();
 
       fetchAbortRef.current.socios?.abort?.();
       fetchAbortRef.current.listas?.abort?.();
@@ -1458,6 +1597,8 @@ const Socios = () => {
         setEstados([]);
       }
 
+      await cierresCumplePromise;
+
       const elapsed = performance.now() - t0;
       const waitMore = Math.max(0, MIN_SPINNER_MS - elapsed);
       setTimeout(() => {
@@ -1474,7 +1615,7 @@ const Socios = () => {
         setCargando(false);
       }
     }
-  }, [mostrarToast, triggerCascade]);
+  }, [cargarCierresCumple18, mostrarToast, triggerCascade]);
 
   useEffect(() => {
     cargarDatos();
@@ -1493,13 +1634,17 @@ const Socios = () => {
   }, [needsRefresh, cargarDatos]);
 
   useEffect(() => {
+    if (!cumple18CierresCargados) {
+      setCumple18Pendientes([]);
+      return;
+    }
+
     if (!Array.isArray(socios) || socios.length === 0) {
       setCumple18Pendientes([]);
       setSocioCumple18EnfocadoId(null);
       return;
     }
 
-    const cerrados = readJsonLocalStorage(LS_CUMPLE_18_CERRADOS, {});
     const today = getLocalToday();
 
     const pendientes = socios
@@ -1508,7 +1653,7 @@ const Socios = () => {
       .filter((item) => {
         if (!item.info) return false;
         const key = getCumple18DismissKey(item.socio, item.info);
-        return !cerrados[key];
+        return !cumple18Cerrados[key];
       })
       .sort((a, b) => {
         const edadA = Number(a.info?.edad ?? 0);
@@ -1522,7 +1667,7 @@ const Socios = () => {
     if (pendientes.length === 0) {
       setSocioCumple18EnfocadoId(null);
     }
-  }, [socios]);
+  }, [socios, cumple18Cerrados, cumple18CierresCargados]);
 
   useEffect(() => {
     if (!restorePendingRef.current) return;
@@ -1727,26 +1872,83 @@ const Socios = () => {
     });
   }, []);
 
-  const cerrarAlertaCumple18 = useCallback(() => {
-    if (!socioCumple18Alerta || !cumple18InfoAlerta) return;
+  const cerrarAlertaCumple18 = useCallback(async () => {
+    if (!socioCumple18Alerta || !cumple18InfoAlerta) {
+      return { exito: false, mensaje: "No hay una tarjeta válida para cerrar." };
+    }
 
-    const cerrados = readJsonLocalStorage(LS_CUMPLE_18_CERRADOS, {});
     const key = getCumple18DismissKey(socioCumple18Alerta, cumple18InfoAlerta);
-
-    cerrados[key] = {
-      id_socio: socioCumple18Alerta.id_socio,
+    const cerradoEn = new Date().toISOString();
+    const cierreLocal = {
+      id_socio: Number(socioCumple18Alerta.id_socio),
       nombre: socioCumple18Alerta.nombre || "",
-      cerrado_en: new Date().toISOString(),
+      cerrado_en: cerradoEn,
+      anio: Number(cumple18InfoAlerta.anio),
+      rango: cumple18InfoAlerta.rango || "18-23",
+      origen: "SISTEMA",
     };
 
-    writeJsonLocalStorage(LS_CUMPLE_18_CERRADOS, cerrados);
+    try {
+      const response = await fetch(
+        `${BASE_URL}/api.php?action=cumple18_cierres_guardar`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({
+            id_socio: cierreLocal.id_socio,
+            anio: cierreLocal.anio,
+            rango: cierreLocal.rango,
+            edad: Number(cumple18InfoAlerta.edad),
+            fecha_nacimiento: cumple18InfoAlerta.fechaNacimiento,
+            cerrado_en: cerradoEn,
+            origen: "SISTEMA",
+            id_usuario: usuario?.id || null,
+            usuario_nombre: usuario?.nombre || "",
+          }),
+        }
+      );
+      const data = await response.json();
 
-    setCumple18Pendientes((prev) => prev.slice(1));
+      if (!response.ok || !data?.exito) {
+        throw new Error(data?.mensaje || "No se pudo guardar el cierre de la tarjeta.");
+      }
 
-    if (String(socioCumple18EnfocadoId || "") === String(socioCumple18Alerta.id_socio || "")) {
-      setSocioCumple18EnfocadoId(null);
+      setCumple18Cerrados((prev) => {
+        const actualizados = { ...prev, [key]: cierreLocal };
+        writeJsonLocalStorage(LS_CUMPLE_18_CERRADOS, actualizados);
+        return actualizados;
+      });
+
+      setCumple18Pendientes((prev) =>
+        prev.filter(
+          (item) =>
+            String(item?.socio?.id_socio || "") !==
+            String(socioCumple18Alerta.id_socio || "")
+        )
+      );
+
+      if (
+        String(socioCumple18EnfocadoId || "") ===
+        String(socioCumple18Alerta.id_socio || "")
+      ) {
+        setSocioCumple18EnfocadoId(null);
+      }
+
+      return { exito: true, mensaje: data?.mensaje || "Tarjeta eliminada correctamente." };
+    } catch (error) {
+      console.error("Error cerrando tarjeta de cumpleaños", error);
+      return {
+        exito: false,
+        mensaje: error?.message || "No se pudo guardar el cierre de la tarjeta.",
+      };
     }
-  }, [socioCumple18Alerta, cumple18InfoAlerta, socioCumple18EnfocadoId]);
+  }, [
+    socioCumple18Alerta,
+    cumple18InfoAlerta,
+    socioCumple18EnfocadoId,
+    usuario,
+  ]);
 
   const eliminarSocio = useCallback(
     async (id) => {

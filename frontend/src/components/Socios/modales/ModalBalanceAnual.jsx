@@ -147,15 +147,6 @@ const obtenerTotalAdeudado = (obj) => {
   );
 };
 
-const obtenerMontoReferenciaPeriodo = (periodo) => {
-  return Number(
-    periodo?.monto_referencia ||
-      periodo?.monto_unitario ||
-      periodo?.monto_periodo ||
-      0
-  );
-};
-
 const obtenerTotalPagadoPeriodo = (periodo) => {
   return Number(
     periodo?.monto_pagado_total ||
@@ -163,10 +154,6 @@ const obtenerTotalPagadoPeriodo = (periodo) => {
       periodo?.monto_total ||
       0
   );
-};
-
-const obtenerTotalEsperadoPeriodo = (periodo) => {
-  return Number(periodo?.monto_esperado_total || 0);
 };
 
 /* ─── Celda de motivo (tabla / desktop) ─── */
@@ -293,12 +280,15 @@ const FilaBaja = ({ item, onVerMotivo }) => {
       <div className="mba-dcell">{quitarPalabraPeriodo(item.periodo_label || item.periodo || '-')}</div>
       <div className="mba-dcell mba-dcell--pagos">
         {pagos.length > 0 ? (
-          pagos.map((pago) => (
-            <div key={`${item.id_socio}-${pago.id_pago}`} className="mba-pago-item">
-              <strong>{obtenerPeriodoPagoTexto(pago)}</strong>
-              <span>{formatearDinero(pago.monto)}</span>
-            </div>
-          ))
+          pagos.map((pago) => {
+            const esCondonacion = String(pago.estado || '').toLowerCase() === 'condonado';
+            return (
+              <div key={`${item.id_socio}-${pago.id_pago}`} className="mba-pago-item">
+                <strong>{obtenerPeriodoPagoTexto(pago)}{esCondonacion ? ' · CONDONADO' : ''}</strong>
+                <span>{esCondonacion ? 'SIN COBRO' : formatearDinero(pago.monto)}</span>
+              </div>
+            );
+          })
         ) : (
           <span className="mba-dcell--vacio">-</span>
         )}
@@ -566,98 +556,218 @@ const ModalBalanceAnual = ({ onClose }) => {
   const obtenerFechasPago = (item) => {
     const pagos = item.pagos || [];
     const fechasPago = item.fechas_pago_inscripcion || [];
-    if (fechasPago.length > 0) return fechasPago.map(formatearFecha).join(' / ');
-    if (pagos.length > 0) return pagos.map((p) => formatearFecha(p.fecha_pago)).join(' / ');
-    return '-';
+    const fechasTexto = fechasPago.length > 0
+      ? fechasPago.map(formatearFecha).join(' / ')
+      : pagos.length > 0
+        ? pagos.map((p) => formatearFecha(p.fecha_pago)).join(' / ')
+        : '-';
+
+    if (item.registro_sin_importe) {
+      return fechasTexto === '-' ? 'REGISTRO SIN IMPORTE' : `${fechasTexto} · SIN IMPORTE`;
+    }
+
+    return fechasTexto;
   };
 
   /* ─── Excel ─── */
 
-  const armarFilasResumenInscripciones = (lista = []) => {
-    const filas = lista.map((periodo) => ({
+  const armarFilasResumenInscripciones = (periodosBase = [], detalle = []) => {
+    const mapa = new Map();
+
+    periodosBase.forEach((periodo) => {
+      mapa.set(periodo.key, {
+        key: periodo.key,
+        periodo_label: periodo.periodo_label || '',
+        periodo_meses: periodo.periodo_meses || periodo.meses_incluidos || '',
+        cantidad_total: 0,
+        activos_cantidad: 0,
+        pasivos_cantidad: 0,
+        sin_estado_cantidad: 0,
+        pagados_cantidad: 0,
+        sin_pago_cantidad: 0,
+        registros_sin_importe_cantidad: 0,
+        sin_registro_pago_cantidad: 0,
+        monto_pagado_total: 0,
+      });
+    });
+
+    detalle.forEach((item) => {
+      const key = item.periodo_key || `${item.anio || ''}-${item.id_periodo || ''}`;
+      if (!mapa.has(key)) {
+        mapa.set(key, {
+          key,
+          periodo_label: item.periodo_label || item.periodo_balance || '',
+          periodo_meses: item.periodo_meses || '',
+          cantidad_total: 0,
+          activos_cantidad: 0,
+          pasivos_cantidad: 0,
+          sin_estado_cantidad: 0,
+          pagados_cantidad: 0,
+          sin_pago_cantidad: 0,
+          registros_sin_importe_cantidad: 0,
+          sin_registro_pago_cantidad: 0,
+          monto_pagado_total: 0,
+        });
+      }
+
+      const fila = mapa.get(key);
+      fila.cantidad_total += 1;
+      if (item.grupo === 'activos') fila.activos_cantidad += 1;
+      else if (item.grupo === 'pasivos') fila.pasivos_cantidad += 1;
+      else fila.sin_estado_cantidad += 1;
+
+      if (item.pagado) fila.pagados_cantidad += 1;
+      else fila.sin_pago_cantidad += 1;
+      if (item.registro_sin_importe) fila.registros_sin_importe_cantidad += 1;
+      if (item.sin_registro_pago) fila.sin_registro_pago_cantidad += 1;
+
+      fila.monto_pagado_total += Number(item.monto_pagado_total || item.monto_inscripcion || item.monto_total || 0);
+    });
+
+    const resumenFiltrado = Array.from(mapa.values()).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+    const filas = resumenFiltrado.map((periodo) => ({
       Período: quitarPalabraPeriodo(periodo.periodo_label || ''),
-      'Meses incluidos': periodo.periodo_meses || periodo.meses_incluidos || '',
-      Total: periodo.cantidad_total || 0,
-      Activos: periodo.activos_cantidad || 0,
-      Pasivos: periodo.pasivos_cantidad || 0,
-      'Monto por inscripción': obtenerMontoReferenciaPeriodo(periodo),
-      'Total esperado': obtenerTotalEsperadoPeriodo(periodo),
-      'Total pagado': obtenerTotalPagadoPeriodo(periodo),
+      'Meses incluidos': periodo.periodo_meses || '',
+      Total: periodo.cantidad_total,
+      Activos: periodo.activos_cantidad,
+      Pasivos: periodo.pasivos_cantidad,
+      Pagadas: periodo.pagados_cantidad,
+      'Registros sin importe': periodo.registros_sin_importe_cantidad,
+      'Sin registro de pago': periodo.sin_registro_pago_cantidad,
+      'Total cobrado': Number(periodo.monto_pagado_total || 0),
     }));
 
     if (filas.length > 0) {
       filas.push({
         Período: 'TOTAL GENERAL',
         'Meses incluidos': '',
-        Total: inscTotales.total_inscripciones || 0,
-        Activos: inscTotales.activos || 0,
-        Pasivos: inscTotales.pasivos || 0,
-        'Monto por inscripción': inscTotales.monto_unitario_referencia || '',
-        'Total esperado': inscTotales.monto_esperado_total || inscTotales.monto_deberia_cobrar_total || 0,
-        'Total pagado': inscTotales.monto_pagado_total || inscTotales.monto_total || 0,
+        Total: detalle.length,
+        Activos: detalle.filter((item) => item.grupo === 'activos').length,
+        Pasivos: detalle.filter((item) => item.grupo === 'pasivos').length,
+        Pagadas: detalle.filter((item) => Boolean(item.pagado)).length,
+        'Registros sin importe': detalle.filter((item) => Boolean(item.registro_sin_importe)).length,
+        'Sin registro de pago': detalle.filter((item) => Boolean(item.sin_registro_pago)).length,
+        'Total cobrado': detalle.reduce(
+          (total, item) => total + Number(item.monto_pagado_total || item.monto_inscripcion || item.monto_total || 0),
+          0
+        ),
       });
     }
 
     return filas;
   };
 
-  const armarFilasResumenBajas = (grupos = []) => {
-    const filas = [];
+  const armarFilasResumenBajas = (_grupos = [], detalle = []) => {
+    const mapa = new Map();
 
-    grupos.forEach((grupo) => {
-      if (!grupo.periodos?.length) {
-        filas.push({
-          Grupo: grupo.titulo || '',
-          'Período baja / Año': '-',
-          Bajas: 0,
-          Pagos: 0,
-          'Monto pagado': 0,
+    detalle.forEach((item) => {
+      const grupo = item.grupo || 'sin_estado';
+      const periodo = item.periodo_label || item.periodo || '-';
+      const key = `${grupo}|${periodo}`;
+
+      if (!mapa.has(key)) {
+        mapa.set(key, {
+          grupo,
+          titulo: grupo === 'activos' ? 'Bajas activos' : grupo === 'pasivos' ? 'Bajas pasivos' : 'Bajas sin estado',
+          periodo,
+          cantidad: 0,
+          pagos_cantidad: 0,
+          condonaciones_cantidad: 0,
+          pagos_monto_total: 0,
         });
-        return;
       }
 
-      grupo.periodos.forEach((periodo) => {
-        filas.push({
-          Grupo: grupo.titulo || '',
-          'Período baja / Año': quitarPalabraPeriodo(periodo.periodo_label || periodo.periodo || ''),
-          Bajas: periodo.cantidad || 0,
-          Pagos: periodo.pagos_cantidad || 0,
-          'Monto pagado': Number(periodo.pagos_monto_total || 0),
-        });
-      });
+      const fila = mapa.get(key);
+      fila.cantidad += 1;
+      fila.pagos_cantidad += Number(item.pagos_cantidad || 0);
+      fila.condonaciones_cantidad += Number(item.condonaciones_cantidad || 0);
+      fila.pagos_monto_total += Number(item.pagos_monto_total || 0);
     });
+
+    const ordenGrupo = { pasivos: 1, activos: 2, sin_estado: 3 };
+    const resumenFiltrado = Array.from(mapa.values()).sort((a, b) => {
+      const cmpGrupo = (ordenGrupo[a.grupo] || 9) - (ordenGrupo[b.grupo] || 9);
+      return cmpGrupo !== 0 ? cmpGrupo : String(a.periodo).localeCompare(String(b.periodo));
+    });
+
+    const filas = resumenFiltrado.map((fila) => ({
+      Grupo: fila.titulo,
+      'Período baja / Año': quitarPalabraPeriodo(fila.periodo),
+      Bajas: fila.cantidad,
+      Pagos: fila.pagos_cantidad,
+      Condonaciones: fila.condonaciones_cantidad,
+      'Monto pagado': fila.pagos_monto_total,
+    }));
 
     if (filas.length > 0) {
       filas.push({
         Grupo: 'TOTAL GENERAL',
         'Período baja / Año': '',
-        Bajas: totales.total_bajas || 0,
-        Pagos: totales.pagos_detectados || 0,
-        'Monto pagado': Number(totales.pagos_monto_total || 0),
+        Bajas: detalle.length,
+        Pagos: detalle.reduce((total, item) => total + Number(item.pagos_cantidad || 0), 0),
+        Condonaciones: detalle.reduce((total, item) => total + Number(item.condonaciones_cantidad || 0), 0),
+        'Monto pagado': detalle.reduce((total, item) => total + Number(item.pagos_monto_total || 0), 0),
       });
     }
 
     return filas;
   };
 
-  const armarFilasResumenDeudores = (lista = []) => {
-    const filas = lista.map((periodo) => ({
+  const armarFilasResumenDeudores = (periodosBase = [], detalle = []) => {
+    const mapa = new Map();
+
+    periodosBase.forEach((periodo) => {
+      mapa.set(periodo.key, {
+        key: periodo.key,
+        periodo_label: periodo.periodo_label || '',
+        deudores_cantidad: 0,
+        activos_cantidad: 0,
+        pasivos_cantidad: 0,
+        sin_estado_cantidad: 0,
+        monto_total_adeudado: 0,
+      });
+    });
+
+    detalle.forEach((item) => {
+      const key = item.periodo_key || `${item.anio || ''}-${item.id_periodo || ''}`;
+      if (!mapa.has(key)) {
+        mapa.set(key, {
+          key,
+          periodo_label: item.periodo_label || '',
+          deudores_cantidad: 0,
+          activos_cantidad: 0,
+          pasivos_cantidad: 0,
+          sin_estado_cantidad: 0,
+          monto_total_adeudado: 0,
+        });
+      }
+
+      const fila = mapa.get(key);
+      fila.deudores_cantidad += 1;
+      if (item.grupo === 'activos') fila.activos_cantidad += 1;
+      else if (item.grupo === 'pasivos') fila.pasivos_cantidad += 1;
+      else fila.sin_estado_cantidad += 1;
+      fila.monto_total_adeudado += obtenerMontoAdeudado(item);
+    });
+
+    const resumenFiltrado = Array.from(mapa.values()).sort((a, b) => String(a.key).localeCompare(String(b.key)));
+    const filas = resumenFiltrado.map((periodo) => ({
       Período: quitarPalabraPeriodo(periodo.periodo_label || ''),
-      Deudores: periodo.deudores_cantidad || 0,
-      Activos: periodo.activos_cantidad || 0,
-      Pasivos: periodo.pasivos_cantidad || 0,
-      'Sin estado': periodo.sin_estado_cantidad || 0,
-      'Monto adeudado': obtenerTotalAdeudado(periodo),
+      Deudores: periodo.deudores_cantidad,
+      Activos: periodo.activos_cantidad,
+      Pasivos: periodo.pasivos_cantidad,
+      'Sin estado': periodo.sin_estado_cantidad,
+      'Monto adeudado': periodo.monto_total_adeudado,
     }));
 
     if (filas.length > 0) {
       filas.push({
         Período: 'TOTAL GENERAL',
-        Deudores: deudoresTotales.total_deudores || 0,
-        Activos: deudoresTotales.activos || 0,
-        Pasivos: deudoresTotales.pasivos || 0,
-        'Sin estado': deudoresTotales.sin_estado || 0,
-        'Monto adeudado': obtenerTotalAdeudado(deudoresTotales),
+        Deudores: detalle.length,
+        Activos: detalle.filter((item) => item.grupo === 'activos').length,
+        Pasivos: detalle.filter((item) => item.grupo === 'pasivos').length,
+        'Sin estado': detalle.filter((item) => item.grupo !== 'activos' && item.grupo !== 'pasivos').length,
+        'Monto adeudado': detalle.reduce((total, item) => total + obtenerMontoAdeudado(item), 0),
       });
     }
 
@@ -673,6 +783,7 @@ const ModalBalanceAnual = ({ onClose }) => {
       'Fecha alta': formatearFecha(item.fecha_alta || item.ingreso),
       'Período balance': quitarPalabraPeriodo(item.periodo_label || item.periodo_balance || ''),
       'Mes ingreso': item.mes_ingreso_nombre || '',
+      'Estado pago': item.estado_pago_inscripcion || (item.pagado ? 'PAGADA' : 'SIN PAGO REGISTRADO'),
       'Fecha pago': obtenerFechasPago(item),
       'Medio pago': obtenerMediosPago(item),
       'Monto inscripción pagado': Number(item.monto_inscripcion || item.monto_pagado_total || item.monto_total || 0),
@@ -682,7 +793,12 @@ const ModalBalanceAnual = ({ onClose }) => {
     lista.map((item) => {
       const pagos = item.pagos || [];
       const detallePagos = pagos.length
-        ? pagos.map((p) => `${obtenerPeriodoPagoTexto(p)}: ${formatearDinero(p.monto || 0)}`).join(' | ')
+        ? pagos.map((p) => {
+            const esCondonacion = String(p.estado || '').toLowerCase() === 'condonado';
+            return esCondonacion
+              ? `${obtenerPeriodoPagoTexto(p)}: CONDONADO`
+              : `${obtenerPeriodoPagoTexto(p)}: ${formatearDinero(p.monto || 0)}`;
+          }).join(' | ')
         : '-';
       return {
         ID: item.id_socio,
@@ -690,7 +806,9 @@ const ModalBalanceAnual = ({ onClose }) => {
         Estado: item.estado_descripcion || item.grupo_label || '',
         'Fecha baja': formatearFecha(item.fecha_baja),
         'Período baja': quitarPalabraPeriodo(item.periodo_label || item.periodo || ''),
-        'Períodos pagados': detallePagos,
+        'Períodos cubiertos': detallePagos,
+        Pagos: Number(item.pagos_cantidad || 0),
+        Condonaciones: Number(item.condonaciones_cantidad || 0),
         'Total pagado': Number(item.pagos_monto_total || 0),
         Motivo: item.motivo || '',
       };
@@ -769,21 +887,21 @@ const ModalBalanceAnual = ({ onClose }) => {
     const sufijoArchivo = limpiarNombreArchivo(rangoTexto);
 
     if (pestaniaActiva === 'inscripciones') {
-      agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos));
+      agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos, inscripcionesFiltradas));
       agregarHoja(wb, 'Detalle inscripciones', armarFilasInscripciones(inscripcionesFiltradas));
       XLSX.writeFile(wb, `Balance_Anual_Inscripciones_${sufijoArchivo}.xlsx`);
       return;
     }
 
     if (pestaniaActiva === 'deudores') {
-      agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos));
+      agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos, deudoresFiltrados));
       agregarHoja(wb, 'Detalle deudores', armarFilasDeudores(deudoresFiltrados));
       agregarHojasDeudores(wb, deudoresPeriodos, deudoresFiltrados);
       XLSX.writeFile(wb, `Balance_Anual_Deudores_${sufijoArchivo}.xlsx`);
       return;
     }
 
-    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen));
+    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen, itemsFiltrados));
     agregarHoja(wb, 'Detalle bajas', armarFilasBajas(itemsFiltrados));
     XLSX.writeFile(wb, `Balance_Anual_Bajas_${sufijoArchivo}.xlsx`);
   };
@@ -792,13 +910,13 @@ const ModalBalanceAnual = ({ onClose }) => {
     const wb = XLSX.utils.book_new();
     const sufijoArchivo = limpiarNombreArchivo(rangoTexto);
 
-    agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos));
+    agregarHoja(wb, 'Resumen inscripciones', armarFilasResumenInscripciones(inscPeriodos, inscItems));
     agregarHoja(wb, 'Detalle inscripciones', armarFilasInscripciones(inscItems));
 
-    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen));
+    agregarHoja(wb, 'Resumen bajas', armarFilasResumenBajas(gruposResumen, items));
     agregarHoja(wb, 'Detalle bajas', armarFilasBajas(items));
 
-    agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos));
+    agregarHoja(wb, 'Resumen deudores', armarFilasResumenDeudores(deudoresPeriodos, deudoresItems));
     agregarHoja(wb, 'Detalle deudores', armarFilasDeudores(deudoresItems));
     agregarHojasDeudores(wb, deudoresPeriodos, deudoresItems);
 
@@ -964,7 +1082,8 @@ const ModalBalanceAnual = ({ onClose }) => {
                       <div className="mba-grid">
                         <div className="mba-card"><span>Inscripciones</span><strong>{inscTotales.total_inscripciones || 0}</strong></div>
                         <div className="mba-card mba-card--ok"><span>Inscripciones pagadas</span><strong>{inscTotales.pagados_cantidad || 0}</strong></div>
-                        <div className="mba-card mba-card--warn"><span>Inscripciones sin pago</span><strong>{inscTotales.sin_pago_cantidad || 0}</strong></div>
+                        <div className="mba-card mba-card--warn"><span>Registros sin importe</span><strong>{inscTotales.registros_sin_importe_cantidad || 0}</strong></div>
+                        <div className="mba-card mba-card--warn"><span>Sin registro de pago</span><strong>{inscTotales.sin_registro_pago_cantidad || 0}</strong></div>
                         <div className="mba-card mba-card--ok"><span>Total inscripción</span><strong>{formatearDinero(inscTotales.monto_total || 0)}</strong></div>
                         <div className="mba-card mba-card--ok"><span>Activos inscriptos</span><strong>{inscTotales.activos || 0}</strong></div>
                         <div className="mba-card mba-card--warn"><span>Pasivos inscriptos</span><strong>{inscTotales.pasivos || 0}</strong></div>
@@ -976,7 +1095,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--periodos-insc">
-                            <span>Período</span><span>Meses incluidos</span><span className="is-center">Total</span><span className="is-center">Activos</span><span className="is-center">Pasivos</span><span>Monto</span><span>Total pagado</span>
+                            <span>Período</span><span>Meses incluidos</span><span className="is-center">Total</span><span className="is-center">Activos</span><span className="is-center">Pasivos</span><span className="is-center">Pagadas</span><span className="is-center">Sin importe</span><span className="is-center">Sin registro</span><span>Total cobrado</span>
                           </div>
                           <div className="mba-dlist-body">
                             {inscPeriodos.length > 0 ? inscPeriodos.map((p) => (
@@ -986,8 +1105,10 @@ const ModalBalanceAnual = ({ onClose }) => {
                                 <div className="is-center">{p.cantidad_total || 0}</div>
                                 <div className="is-center">{p.activos_cantidad || 0}</div>
                                 <div className="is-center">{p.pasivos_cantidad || 0}</div>
-                                <div className="mba-dcell mba-dcell--monto">{formatearDinero(obtenerMontoReferenciaPeriodo(p))}</div>
-                                <div className="mba-dcell mba-dcell--monto" title={`Total esperado: ${formatearDinero(obtenerTotalEsperadoPeriodo(p))}`}>{formatearDinero(obtenerTotalPagadoPeriodo(p))}</div>
+                                <div className="is-center">{p.pagados_cantidad || 0}</div>
+                                <div className="is-center">{p.registros_sin_importe_cantidad || 0}</div>
+                                <div className="is-center">{p.sin_registro_pago_cantidad || 0}</div>
+                                <div className="mba-dcell mba-dcell--monto">{formatearDinero(obtenerTotalPagadoPeriodo(p))}</div>
                               </div>
                             )) : (
                               <div className="mba-drow-empty">No hay períodos de inscripción para mostrar.</div>
@@ -1038,6 +1159,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                         <div className="mba-card mba-card--warn"><span>Bajas pasivos</span><strong>{totales.pasivos || 0}</strong></div>
                         <div className="mba-card mba-card--ok"><span>Bajas activos</span><strong>{totales.activos || 0}</strong></div>
                         <div className="mba-card"><span>Pagos bajas</span><strong>{totales.pagos_detectados || 0}</strong></div>
+                        <div className="mba-card mba-card--warn"><span>Condonaciones</span><strong>{totales.condonaciones_detectadas || 0}</strong></div>
                         <div className="mba-card mba-card--ok"><span>Total bajas pagado</span><strong>{formatearDinero(totales.pagos_monto_total || 0)}</strong></div>
                       </div>
 
@@ -1047,14 +1169,14 @@ const ModalBalanceAnual = ({ onClose }) => {
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--resumen-bajas">
-                            <span>Grupo</span><span>Período baja / Año</span><span className='is-center'>Bajas</span><span className='is-center'>Pagos</span><span>Monto pagado</span>
+                            <span>Grupo</span><span>Período baja / Año</span><span className='is-center'>Bajas</span><span className='is-center'>Pagos</span><span className='is-center'>Condonaciones</span><span>Monto pagado</span>
                           </div>
                           <div className="mba-dlist-body">
                             {gruposResumen.map((grupo) => {
                               if (!grupo.periodos.length) {
                                 return (
                                   <div key={`${grupo.key}-vacio`} className="mba-drow mba-drow--resumen-bajas">
-                                    <div>{grupo.titulo}</div><div>-</div><div>0</div><div>0</div><div>{formatearDinero(0)}</div>
+                                    <div>{grupo.titulo}</div><div>-</div><div>0</div><div>0</div><div>0</div><div>{formatearDinero(0)}</div>
                                   </div>
                                 );
                               }
@@ -1068,6 +1190,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                                   <div >{quitarPalabraPeriodo(periodo.periodo_label || periodo.periodo)}</div>
                                   <div className='is-center'>{periodo.cantidad}</div>
                                   <div className='is-center'>{periodo.pagos_cantidad || 0}</div>
+                                  <div className='is-center'>{periodo.condonaciones_cantidad || 0}</div>
                                   <div>{formatearDinero(periodo.pagos_monto_total || 0)}</div>
                                 </div>
                               ));
@@ -1086,7 +1209,7 @@ const ModalBalanceAnual = ({ onClose }) => {
                         </div>
                         <div className="mba-dlist">
                           <div className="mba-drow-head mba-drow--bajas">
-                            <span>ID</span><span>Socio</span><span>Estado</span><span>Fecha baja</span><span>Período baja</span><span>Períodos pagados</span><span>Total pagado</span><span>Motivo</span>
+                            <span>ID</span><span>Socio</span><span>Estado</span><span>Fecha baja</span><span>Período baja</span><span>Períodos cubiertos</span><span>Total pagado</span><span>Motivo</span>
                           </div>
                           <div className="mba-dlist-body">
                             {itemsFiltrados.length > 0 ? (

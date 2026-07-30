@@ -30,6 +30,16 @@ ChartJS.register(
   Filler
 );
 
+const isInscripcion = (pago) => {
+  const periodo = String(
+    pago?.Mes_Pagado || pago?.mes_pagado || ""
+  ).trim().toUpperCase();
+  const tipo = String(
+    pago?.Tipo_Precio || pago?.tipo_precio || ""
+  ).trim().toUpperCase();
+  return periodo === "INSCRIPCION" || tipo === "I";
+};
+
 /**
  * ✔️ Línea: misma lógica (por fecha de pago).
  * ✔️ Pie: ahora divide en Pagaron (verde), Condonados (amarillo) y No pagaron (rojo).
@@ -131,7 +141,12 @@ export default function ContableChartsModal({
   // Unificar pagos "pagados" de bloques (para la línea y también pie de "pagaron")
   const todosLosPagos = useMemo(() => {
     const out = [];
-    for (const b of datosMeses || []) if (Array.isArray(b?.pagos)) out.push(...b.pagos);
+    for (const bloque of datosMeses || []) {
+      if (!Array.isArray(bloque?.pagos)) continue;
+      // Los gráficos de cobranza comparan únicamente cuotas.
+      // Las inscripciones se muestran por separado en el resumen y la tabla.
+      out.push(...bloque.pagos.filter((pago) => !isInscripcion(pago)));
+    }
     return out;
   }, [datosMeses]);
 

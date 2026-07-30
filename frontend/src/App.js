@@ -157,13 +157,26 @@ function InactivityLogout() {
         return;
       }
 
-      if (isLoginRoute) {
+      /*
+        También limpiamos una sesión vencida estando en el login. Este es el
+        caso típico al volver a abrir el sistema después de apagar la PC:
+        localStorage conserva el usuario y los timestamps del día anterior.
+        Si no se limpian acá, el primer login nuevo puede ser invalidado por
+        esas marcas viejas apenas se intenta entrar al panel.
+      */
+      if (isSessionExpired()) {
         clearTimer();
+
+        if (isLoginRoute) {
+          clearAuthSession();
+        } else {
+          logoutAndRedirect();
+        }
         return;
       }
 
-      if (isSessionExpired()) {
-        logoutAndRedirect();
+      if (isLoginRoute) {
+        clearTimer();
         return;
       }
 
@@ -214,17 +227,23 @@ function InactivityLogout() {
       Así, si cerraste la pestaña y volvés después de 60 minutos,
       NO te renueva la sesión automáticamente: te manda al login.
     */
-    if (hasSession() && !isLoginRoute) {
+    if (hasSession()) {
       if (isSessionExpired()) {
-        logoutAndRedirect();
+        if (isLoginRoute) {
+          clearAuthSession();
+        } else {
+          logoutAndRedirect();
+        }
         return () => clearTimer();
       }
 
-      if (!getExpiresAt()) {
-        registerActivity();
-      }
+      if (!isLoginRoute) {
+        if (!getExpiresAt()) {
+          registerActivity();
+        }
 
-      scheduleLogout();
+        scheduleLogout();
+      }
     }
 
     const activityEvents = [

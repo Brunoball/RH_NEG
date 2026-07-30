@@ -137,346 +137,345 @@ export function exportCobranzaPDF({
   }
 
   /* ========= CONSTRUIR DATOS DE LA TABLA JERÁRQUICA ========= */
-  
-  // Helper para sumar montos
-  const sumMoneda = (arr) =>
-    arr.reduce((acc, p) => acc + (Number(p?._precioNum) || 0), 0);
-  
-  const upper = (s) => String(s || "").toUpperCase().trim();
-  
-  // Obtener todos los cobradores
-  const getAllCobradores = () => {
-    const cobradoresSet = new Set();
-    
-    if (esperadosPorMesPorCobrador) {
-      Object.keys(esperadosPorMesPorCobrador).forEach((cob) => {
-        cobradoresSet.add(cob);
-      });
+  const upper = (value) => String(value || "").toUpperCase().trim();
+
+  const isInscripcion = (pago) =>
+    upper(pago?.Mes_Pagado || pago?.mes_pagado) === "INSCRIPCION" ||
+    upper(pago?.Tipo_Precio || pago?.tipo_precio) === "I";
+
+  const getSocioKey = (pago) => {
+    const id = pago?.ID_Socio ?? pago?.id_socio ?? pago?.idSocio ?? null;
+    if (id !== null && id !== undefined && String(id).trim() !== "") {
+      return `id:${String(id).trim()}`;
     }
-    
-    const allMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    allMonths.forEach((m) => {
-      const pagosMes = getPagosByMonth(m) || [];
-      pagosMes.forEach((p) => {
-        if (p._cb) cobradoresSet.add(upper(p._cb));
-      });
-    });
-    
-    return Array.from(cobradoresSet).sort((a, b) => a.localeCompare(b, "es"));
+
+    const nombre = upper(
+      pago?._nombreCompleto || pago?.Socio || pago?.socio || pago?.Nombre_Completo
+    ).replace(/\s+/g, " ");
+    return nombre ? `nombre:${nombre}` : null;
   };
-  
+
+  const sumMoneda = (pagos) =>
+    (pagos || []).reduce(
+      (acc, pago) => acc + (Number(pago?._precioNum) || 0),
+      0
+    );
+
+  const countSociosUnicos = (pagos) => {
+    const socios = new Set();
+    (pagos || []).forEach((pago) => {
+      const key = getSocioKey(pago);
+      if (key) socios.add(key);
+    });
+    return socios.size;
+  };
+
   const selectedKey =
     cobradorSeleccionado && cobradorSeleccionado !== "todos"
       ? upper(cobradorSeleccionado)
       : null;
 
+  const getAllCobradores = () => {
+    const cobradores = new Set();
+
+    Object.keys(esperadosPorMesPorCobrador || {}).forEach((nombre) => {
+      const key = upper(nombre);
+      if (key) cobradores.add(key);
+    });
+
+    for (let mes = 1; mes <= 12; mes += 1) {
+      (getPagosByMonth(mes) || []).forEach((pago) => {
+        const key = upper(pago?._cb);
+        if (key) cobradores.add(key);
+      });
+    }
+
+    return Array.from(cobradores).sort((a, b) => a.localeCompare(b, "es"));
+  };
+
   const cobradoresAListar = selectedKey ? [selectedKey] : getAllCobradores();
-  
-  // Estados de socio
   const ESTADOS_SOCIO = ["ACTIVO", "PASIVO"];
-  
-  // Medios de pago para OFICINA
   const MEDIOS_OFICINA = ["TRANSFERENCIA", "EFECTIVO"];
-  
-  // Construir datos para cada período
-  const periodosData = (periodosVisibles || []).map((p) => {
-    const label = p.value;
-    const months = p.months && p.months.length
-      ? p.months
-      : (String(label).match(/\d{1,2}/g) || [])
-          .map((n) => parseInt(n, 10))
-          .filter((n) => n >= 1 && n <= 12);
-    
-    const monthsToUse =
+
+  const pagosParaMeses = (months) => {
+    const pagos = [];
+    months.forEach((mes) => {
+      (getPagosByMonth(mes) || []).forEach((pago) => {
+        if (!selectedKey || upper(pago?._cb) === selectedKey) pagos.push(pago);
+      });
+    });
+    return pagos;
+  };
+
+  const sociosEsperados = (key, months, estado = null) => {
+    const source = estado
+      ? sociosPorMesPorCobradorEstado?.[key]?.[estado]
+      : sociosPorMesPorCobrador?.[key];
+    const valores = months.map((mes) => Number(source?.[mes] || 0));
+    if (months.length <= 1) return valores.reduce((acc, n) => acc + n, 0);
+    return valores.length ? Math.max(...valores) : 0;
+  };
+
+  const periodosData = (periodosVisibles || []).map((periodoVisible) => {
+    const label = periodoVisible.value;
+    const periodMonths =
+      periodoVisible.months && periodoVisible.months.length
+        ? periodoVisible.months
+        : (String(label).match(/\d{1,2}/g) || [])
+            .map((n) => parseInt(n, 10))
+            .filter((n) => n >= 1 && n <= 12);
+
+    const months =
       mesSeleccionado && mesSeleccionado !== "Todos los meses"
         ? [parseInt(mesSeleccionado, 10)]
-        : months;
-    
-    // Totales por período
-    let recaudadoPeriodo = 0;
-    let esperadoPeriodo = 0;
-    
-    monthsToUse.forEach((m) => {
-      const pagosMes = (getPagosByMonth(m) || []).filter((pg) =>
-        !selectedKey
-          ? true
-          : upper(pg._cb) === selectedKey ||
-            upper(pg.id_cobrador ?? "") === selectedKey
-      );
-      recaudadoPeriodo += sumMoneda(pagosMes);
-      
+        : periodMonths;
+
+    const pagosPeriodo = pagosParaMeses(months);
+    const pagosCuotas = pagosPeriodo.filter((pago) => !isInscripcion(pago));
+    const pagosInscripciones = pagosPeriodo.filter(
+      (pago) => isInscripcion(pago) && Number(pago?._precioNum || 0) > 0
+    );
+
+    const esperadoPeriodo = months.reduce((acc, mes) => {
       if (selectedKey) {
-        esperadoPeriodo += Number(
-          esperadosPorMesPorCobrador?.[selectedKey]?.[m] || 0
-        );
-      } else {
-        esperadoPeriodo += Number(esperadosPorMes?.[m] || 0);
+        return acc + Number(esperadosPorMesPorCobrador?.[selectedKey]?.[mes] || 0);
       }
-    });
-    
-    // Cobradores dentro del período
+      return acc + Number(esperadosPorMes?.[mes] || 0);
+    }, 0);
+
     const cobradoresListado = cobradoresAListar
       .map((nombre) => {
         const key = upper(nombre);
-        let esperado = 0;
-        let recaudado = 0;
-        const sociosMeses = [];
-        
-        for (const m of monthsToUse) {
-          esperado += Number(esperadosPorMesPorCobrador?.[key]?.[m] || 0);
-          
-          const pagosMes = (getPagosByMonth(m) || []).filter(
-            (pg) => upper(pg._cb) === key
-          );
-          recaudado += sumMoneda(pagosMes);
-          
-          const sociosMes = Number(
-            sociosPorMesPorCobrador?.[key]?.[m] || 0
-          );
-          sociosMeses.push(sociosMes);
-        }
-        
-        let socios = 0;
-        if (monthsToUse.length <= 1) {
-          socios = sociosMeses.reduce((a, b) => a + b, 0);
-        } else {
-          socios = sociosMeses.length ? Math.max(...sociosMeses) : 0;
-        }
-        
-        // Datos por estado
+        const pagosCuotasCobrador = pagosCuotas.filter(
+          (pago) => upper(pago?._cb) === key
+        );
+
+        const esperado = months.reduce(
+          (acc, mes) =>
+            acc + Number(esperadosPorMesPorCobrador?.[key]?.[mes] || 0),
+          0
+        );
+        const recaudado = sumMoneda(pagosCuotasCobrador);
         const porEstado = {};
-        
-        for (const est of ESTADOS_SOCIO) {
-          let esperadoE = 0;
-          let recaudadoE = 0;
-          const sociosEArr = [];
+
+        ESTADOS_SOCIO.forEach((estado) => {
+          const pagosEstado = pagosCuotasCobrador.filter((pago) => {
+            const raw = upper(
+              pago?.Estado_Socio ||
+                pago?.estado_socio ||
+                pago?.estado_socio_desc ||
+                pago?.estado_socio_descripcion
+            );
+            const normalizado = raw === "PASIVO" ? "PASIVO" : "ACTIVO";
+            return normalizado === estado;
+          });
+
+          const esperadoEstado = months.reduce(
+            (acc, mes) =>
+              acc +
+              Number(
+                esperadosPorMesPorCobradorEstado?.[key]?.[estado]?.[mes] || 0
+              ),
+            0
+          );
+
+          const porMedioRaw = {};
+          pagosEstado.forEach((pago) => {
+            const medio = upper(
+              pago?.Medio_Pago || pago?.medio_pago_nombre || pago?.medio_pago
+            );
+            if (!medio) return;
+            if (!porMedioRaw[medio]) porMedioRaw[medio] = [];
+            porMedioRaw[medio].push(pago);
+          });
+
           const porMedio = {};
-          
-          for (const m of monthsToUse) {
-            if (esperadosPorMesPorCobradorEstado?.[key]?.[est]) {
-              esperadoE += Number(
-                esperadosPorMesPorCobradorEstado[key][est]?.[m] || 0
-              );
-            }
-            
-            const pagosMesEstado = (getPagosByMonth(m) || []).filter((pg) => {
-              const cbOk = upper(pg._cb) === key;
-              const estadoSocioRaw = upper(
-                pg.Estado_Socio ||
-                  pg.estado_socio ||
-                  pg.estado_socio_desc ||
-                  pg.estado_socio_descripcion ||
-                  ""
-              );
-              const estadoSocioNorm =
-                estadoSocioRaw === "PASIVO" ? "PASIVO" : "ACTIVO";
-              const estOk = estadoSocioNorm === est;
-              return cbOk && estOk;
-            });
-            
-            recaudadoE += sumMoneda(pagosMesEstado);
-            
-            // Medios de pago dentro del estado
-            pagosMesEstado.forEach((pg) => {
-              const medioRaw =
-                pg.Medio_Pago ||
-                pg.medio_pago_nombre ||
-                pg.medio_pago ||
-                "";
-              const medio = upper(medioRaw);
-              if (!medio) return;
-              
-              if (!porMedio[medio]) {
-                porMedio[medio] = { recaudado: 0, socios: 0 };
-              }
-              porMedio[medio].recaudado += Number(pg._precioNum) || 0;
-              porMedio[medio].socios += 1;
-            });
-            
-            let sociosMesE = 0;
-            if (sociosPorMesPorCobradorEstado?.[key]?.[est]) {
-              sociosMesE = Number(
-                sociosPorMesPorCobradorEstado[key][est]?.[m] || 0
-              );
-            } else {
-              const ids = new Set(
-                pagosMesEstado.map(
-                  (pg) => pg.ID_Socio || pg.id_socio
-                )
-              );
-              sociosMesE = ids.size;
-            }
-            
-            sociosEArr.push(sociosMesE);
-          }
-          
-          let sociosE = 0;
-          if (monthsToUse.length <= 1) {
-            sociosE = sociosEArr.reduce((a, b) => a + b, 0);
-          } else {
-            sociosE = sociosEArr.length ? Math.max(...sociosEArr) : 0;
-          }
-          
-          porEstado[est] = {
-            esperado: esperadoE,
-            recaudado: recaudadoE,
-            socios: sociosE,
+          Object.entries(porMedioRaw).forEach(([medio, pagos]) => {
+            porMedio[medio] = {
+              recaudado: sumMoneda(pagos),
+              socios: countSociosUnicos(pagos),
+            };
+          });
+
+          porEstado[estado] = {
+            esperado: esperadoEstado,
+            recaudado: sumMoneda(pagosEstado),
+            socios: sociosEsperados(key, months, estado),
             porMedio,
           };
-        }
-        
-        return { nombre: key, esperado, recaudado, socios, porEstado };
+        });
+
+        return {
+          nombre: key,
+          esperado,
+          recaudado,
+          socios: sociosEsperados(key, months),
+          porEstado,
+        };
       })
-      .filter((c) => c.esperado > 0 || c.recaudado > 0 || c.socios > 0);
-    
-    const sociosPeriodo = cobradoresListado.reduce(
-      (acc, c) => acc + (c.socios || 0),
-      0
-    );
-    const diferenciaPeriodo = esperadoPeriodo - recaudadoPeriodo;
-    
+      .filter(
+        (item) => item.esperado > 0 || item.recaudado > 0 || item.socios > 0
+      );
+
+    const recaudadoPeriodo = sumMoneda(pagosCuotas);
+
     return {
       label,
       esperado: esperadoPeriodo,
       recaudado: recaudadoPeriodo,
-      diferencia: diferenciaPeriodo,
-      sociosPeriodo,
+      diferencia: esperadoPeriodo - recaudadoPeriodo,
+      sociosPeriodo: cobradoresListado.reduce(
+        (acc, item) => acc + Number(item.socios || 0),
+        0
+      ),
       cobradoresListado,
+      inscripciones: {
+        pagos: pagosInscripciones,
+        recaudado: sumMoneda(pagosInscripciones),
+        socios: countSociosUnicos(pagosInscripciones),
+      },
     };
   });
-  
-  // Totales generales
-  const totales = periodosData.reduce(
-    (acc, r) => {
-      acc.esperado += r.esperado;
-      acc.recaudado += r.recaudado;
-      acc.socios = Math.max(acc.socios, r.sociosPeriodo || 0);
+
+  const totalesCuotas = periodosData.reduce(
+    (acc, item) => {
+      acc.esperado += item.esperado;
+      acc.recaudado += item.recaudado;
+      acc.socios = Math.max(acc.socios, item.sociosPeriodo || 0);
       return acc;
     },
     { esperado: 0, recaudado: 0, socios: 0 }
   );
-  
-  const totalDif = totales.esperado - totales.recaudado;
-  
-  // Helper para formato
+
+  const pagosInscripcionesTotal = periodosData.flatMap(
+    (item) => item.inscripciones?.pagos || []
+  );
+  const totalesInscripciones = {
+    recaudado: sumMoneda(pagosInscripcionesTotal),
+    socios: countSociosUnicos(pagosInscripcionesTotal),
+  };
+
+  const totalDif = totalesCuotas.esperado - totalesCuotas.recaudado;
+  const totalIngresado =
+    totalesCuotas.recaudado + totalesInscripciones.recaudado;
+
   const fmtMoney = (num) =>
-    nfPesos ? `$${nfPesos.format(num || 0)}` : String(num ?? 0);
+    nfPesos ? `$${nfPesos.format(Number(num || 0))}` : String(num ?? 0);
   const fmtInt = (num) =>
-    nfPesos ? nfPesos.format(num || 0) : String(num ?? 0);
-  
+    nfPesos ? nfPesos.format(Number(num || 0)) : String(num ?? 0);
+
   /* ========= PREPARAR FILAS PARA PDF ========= */
   const head = [
     ["Período / Detalle", "Esperado", "Recaudado", "Socios", "Dif. (ESP-REC)"],
   ];
   const body = [];
-  
-  // Agregar cada período y su jerarquía
+
   periodosData.forEach((periodoData) => {
-    // Fila del período principal
     body.push([
       periodoData.label,
       fmtMoney(periodoData.esperado),
       fmtMoney(periodoData.recaudado),
       fmtInt(periodoData.sociosPeriodo),
       fmtMoney(Math.abs(periodoData.diferencia)),
-      periodoData.diferencia <= 0 ? [40, 167, 69] : [220, 53, 69], // Color para diferencia
-      0, // Nivel 0 = período
+      periodoData.diferencia <= 0 ? [40, 167, 69] : [220, 53, 69],
+      0,
     ]);
-    
-    // Subfilas por cobrador
-    periodoData.cobradoresListado.forEach((cobrador) => {
-      const difCobrador = cobrador.esperado - cobrador.recaudado;
+
+    periodoData.cobradoresListado.forEach((cobradorData) => {
+      const difCobrador = cobradorData.esperado - cobradorData.recaudado;
       body.push([
-        `  • ${cobrador.nombre}`,
-        fmtMoney(cobrador.esperado),
-        fmtMoney(cobrador.recaudado),
-        fmtInt(cobrador.socios),
+        `  • ${cobradorData.nombre}`,
+        fmtMoney(cobradorData.esperado),
+        fmtMoney(cobradorData.recaudado),
+        fmtInt(cobradorData.socios),
         fmtMoney(Math.abs(difCobrador)),
         difCobrador <= 0 ? [40, 167, 69] : [220, 53, 69],
-        1, // Nivel 1 = cobrador
+        1,
       ]);
-      
-      // Subsubfilas por estado (ACTIVO)
-      const activo = cobrador.porEstado?.ACTIVO;
-      if (activo && (activo.esperado > 0 || activo.recaudado > 0)) {
-        const difActivo = activo.esperado - activo.recaudado;
+
+      ESTADOS_SOCIO.forEach((estado) => {
+        const detalle = cobradorData.porEstado?.[estado];
+        if (!detalle || (!detalle.esperado && !detalle.recaudado && !detalle.socios)) {
+          return;
+        }
+
+        const difEstado = detalle.esperado - detalle.recaudado;
         body.push([
-          `      - ACTIVO`,
-          fmtMoney(activo.esperado),
-          fmtMoney(activo.recaudado),
-          fmtInt(activo.socios),
-          fmtMoney(Math.abs(difActivo)),
-          difActivo <= 0 ? [40, 167, 69] : [220, 53, 69],
-          2, // Nivel 2 = estado
+          `      - ${estado}`,
+          fmtMoney(detalle.esperado),
+          fmtMoney(detalle.recaudado),
+          fmtInt(detalle.socios),
+          fmtMoney(Math.abs(difEstado)),
+          difEstado <= 0 ? [40, 167, 69] : [220, 53, 69],
+          2,
         ]);
-        
-        // Medios de pago para OFICINA - ACTIVO
-        if (cobrador.nombre === "OFICINA" && activo.porMedio) {
+
+        if (cobradorData.nombre === "OFICINA") {
           MEDIOS_OFICINA.forEach((medio) => {
-            const info = activo.porMedio[medio];
-            if (info && (info.recaudado > 0 || info.socios > 0)) {
-              body.push([
-                `        └ ${medio}`,
-                "—",
-                fmtMoney(info.recaudado),
-                fmtInt(info.socios),
-                "—",
-                [107, 114, 128], // Gris
-                3, // Nivel 3 = medio
-              ]);
-            }
+            const info = detalle.porMedio?.[medio];
+            if (!info || (!info.recaudado && !info.socios)) return;
+            body.push([
+              `        └ ${medio}`,
+              "—",
+              fmtMoney(info.recaudado),
+              fmtInt(info.socios),
+              "—",
+              [107, 114, 128],
+              3,
+            ]);
           });
         }
-      }
-      
-      // Subsubfilas por estado (PASIVO)
-      const pasivo = cobrador.porEstado?.PASIVO;
-      if (pasivo && (pasivo.esperado > 0 || pasivo.recaudado > 0)) {
-        const difPasivo = pasivo.esperado - pasivo.recaudado;
-        body.push([
-          `      - PASIVO`,
-          fmtMoney(pasivo.esperado),
-          fmtMoney(pasivo.recaudado),
-          fmtInt(pasivo.socios),
-          fmtMoney(Math.abs(difPasivo)),
-          difPasivo <= 0 ? [40, 167, 69] : [220, 53, 69],
-          2, // Nivel 2 = estado
-        ]);
-        
-        // Medios de pago para OFICINA - PASIVO
-        if (cobrador.nombre === "OFICINA" && pasivo.porMedio) {
-          MEDIOS_OFICINA.forEach((medio) => {
-            const info = pasivo.porMedio[medio];
-            if (info && (info.recaudado > 0 || info.socios > 0)) {
-              body.push([
-                `        └ ${medio}`,
-                "—",
-                fmtMoney(info.recaudado),
-                fmtInt(info.socios),
-                "—",
-                [107, 114, 128], // Gris
-                3, // Nivel 3 = medio
-              ]);
-            }
-          });
-        }
-      }
+      });
     });
-    
-    // Espacio entre períodos
-    body.push(["", "", "", "", "", null, 0]);
+
+    if (
+      periodoData.inscripciones.recaudado > 0 ||
+      periodoData.inscripciones.socios > 0
+    ) {
+      body.push([
+        "  ↳ INSCRIPCIONES",
+        "—",
+        fmtMoney(periodoData.inscripciones.recaudado),
+        fmtInt(periodoData.inscripciones.socios),
+        "—",
+        [107, 114, 128],
+        4,
+      ]);
+    }
+
+    body.push(["", "", "", "", "", null, 8]);
   });
-  
-  // Agregar fila de TOTAL
+
   body.push([
-    "TOTAL GENERAL",
-    fmtMoney(totales.esperado),
-    fmtMoney(totales.recaudado),
-    fmtInt(totales.socios),
+    "TOTAL CUOTAS",
+    fmtMoney(totalesCuotas.esperado),
+    fmtMoney(totalesCuotas.recaudado),
+    fmtInt(totalesCuotas.socios),
     fmtMoney(Math.abs(totalDif)),
     totalDif <= 0 ? [40, 167, 69] : [220, 53, 69],
-    0,
+    5,
   ]);
+
+  if (totalesInscripciones.recaudado > 0 || totalesInscripciones.socios > 0) {
+    body.push([
+      "TOTAL INSCRIPCIONES",
+      "—",
+      fmtMoney(totalesInscripciones.recaudado),
+      fmtInt(totalesInscripciones.socios),
+      "—",
+      [107, 114, 128],
+      6,
+    ]);
+    body.push([
+      "TOTAL INGRESADO",
+      "—",
+      fmtMoney(totalIngresado),
+      "—",
+      "—",
+      [37, 99, 235],
+      7,
+    ]);
+  }
 
   /* ========= TABLA PRINCIPAL ========= */
   const colWidths = [220, 90, 90, 70, 90];
@@ -534,6 +533,15 @@ export function exportCobranzaPDF({
             case 3: // Medio
               data.cell.styles.fontSize = 8.5;
               break;
+            case 4: // Inscripción del período
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.textColor = [124, 58, 237];
+              break;
+            case 5: // Total cuotas
+            case 6: // Total inscripciones
+            case 7: // Total ingresado
+              data.cell.styles.fontStyle = "bold";
+              break;
           }
         }
         
@@ -546,8 +554,18 @@ export function exportCobranzaPDF({
           }
         }
         
-        // Estilo para fila TOTAL
-        if (body[data.row.index]?.[0] === "TOTAL GENERAL") {
+        const rowLabel = body[data.row.index]?.[0];
+        if (rowLabel === "TOTAL CUOTAS") {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [219, 234, 254];
+          data.cell.styles.textColor = [30, 64, 175];
+        }
+        if (rowLabel === "TOTAL INSCRIPCIONES") {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [237, 233, 254];
+          data.cell.styles.textColor = [109, 40, 217];
+        }
+        if (rowLabel === "TOTAL INGRESADO") {
           data.cell.styles.fontStyle = "bold";
           data.cell.styles.fillColor = [37, 99, 235];
           data.cell.styles.textColor = 255;

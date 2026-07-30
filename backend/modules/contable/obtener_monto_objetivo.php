@@ -19,6 +19,113 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
+/**
+ * Devuelve la fecha de referencia usada por Cuotas/Registrar pago para un
+ * bimestre. El precio de todo el período se define al cierre del bimestre.
+ */
+function fecha_referencia_por_periodo(int $anio, int $idPeriodo): string
+{
+    if ($idPeriodo < 1 || $idPeriodo > 6) {
+        return sprintf('%04d-12-31', $anio);
+    }
+
+    $mesFin = $idPeriodo * 2;
+    $dt = DateTime::createFromFormat('Y-m-d', sprintf('%04d-%02d-01', $anio, $mesFin));
+    if (!$dt) {
+        return sprintf('%04d-12-31', $anio);
+    }
+
+    $dt->modify('last day of this month');
+    return $dt->format('Y-m-d');
+}
+
+/**
+ * Carga una sola vez todos los cambios mensuales de las categorías presentes.
+ * Evita hacer una consulta por socio/período (problema N+1).
+ */
+function cargar_historial_mensual(PDO $pdo, array $idsCategorias): array
+{
+    $idsCategorias = array_values(array_unique(array_filter(array_map('intval', $idsCategorias))));
+    if (!$idsCategorias) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($idsCategorias), '?'));
+    $sql = "
+        SELECT id_historial, id_cat_monto, precio_viejo, precio_nuevo, fecha_cambio
+        FROM precios_historicos
+        WHERE tipo = 'mensual'
+          AND id_cat_monto IN ($placeholders)
+        ORDER BY id_cat_monto ASC, fecha_cambio ASC, id_historial ASC
+    ";
+
+    $st = $pdo->prepare($sql);
+    foreach ($idsCategorias as $i => $idCategoria) {
+        $st->bindValue($i + 1, $idCategoria, PDO::PARAM_INT);
+    }
+    $st->execute();
+
+    $map = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+        $id = (int)$row['id_cat_monto'];
+        $map[$id][] = [
+            'fecha' => (string)$row['fecha_cambio'],
+            'viejo' => (int)$row['precio_viejo'],
+            'nuevo' => (int)$row['precio_nuevo'],
+        ];
+    }
+
+    return $map;
+}
+
+/**
+ * Misma regla histórica usada por Cuotas:
+ * - antes del primer cambio: precio_viejo del primer registro;
+ * - desde cada cambio: precio_nuevo del último cambio vigente;
+ * - sin historial: valor actual de categoria_monto.
+ */
+function precio_mensual_vigente(
+    ?int $idCategoria,
+    string $fechaReferencia,
+    int $precioActual,
+    array $historialMap
+): int {
+    if (!$idCategoria) {
+        return $precioActual;
+    }
+
+    $cambios = $historialMap[$idCategoria] ?? [];
+    if (!$cambios) {
+        return $precioActual;
+    }
+
+    if ($fechaReferencia < $cambios[0]['fecha']) {
+        return (int)$cambios[0]['viejo'];
+    }
+
+    $vigente = null;
+    foreach ($cambios as $cambio) {
+        if ($cambio['fecha'] <= $fechaReferencia) {
+            $vigente = (int)$cambio['nuevo'];
+        } else {
+            break;
+        }
+    }
+
+    return $vigente ?? $precioActual;
+}
+
+/**
+ * Reparte un monto bimestral entre sus dos meses sin alterar el total cuando
+ * el importe es impar. El primer mes recibe piso(monto/2) y el segundo, el resto.
+ */
+function importe_del_mes(int $montoPeriodo, int $mes): int
+{
+    $primeraMitad = intdiv(max($montoPeriodo, 0), 2);
+    $segundaMitad = max($montoPeriodo, 0) - $primeraMitad;
+    return ($mes % 2 === 1) ? $primeraMitad : $segundaMitad;
+}
+
 try {
     require_once __DIR__ . '/../../config/db.php'; // Debe exponer $pdo (PDO)
 
@@ -141,7 +248,7 @@ try {
             s.id_cobrador,
             cb.nombre                     AS cobrador_nombre,
             s.id_cat_monto,
-            COALESCE(cm.monto_mensual,0)  AS monto_por_periodo,
+            COALESCE(cm.monto_mensual,0)  AS monto_por_periodo_actual,
             s.activo,
             s.id_estado                   AS socio_estado_id,
             e.descripcion                 AS socio_estado_desc
@@ -158,6 +265,15 @@ try {
     }
     $st->execute();
     $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Cargar el historial una sola vez para todas las categorías involucradas.
+    $idsCategorias = [];
+    foreach ($rows as $row) {
+        if (!empty($row['id_cat_monto'])) {
+            $idsCategorias[] = (int)$row['id_cat_monto'];
+        }
+    }
+    $historialMensual = cargar_historial_mensual($pdo, $idsCategorias);
 
     /* ====== Inicializar agregadores ====== */
     $esperadoPorCobrador       = [];
@@ -219,7 +335,8 @@ try {
             continue;
         }
 
-        $impPeriodo = (int)$r['monto_por_periodo'];
+        $montoActualCategoria = (int)$r['monto_por_periodo_actual'];
+        $idCategoriaMonto = !empty($r['id_cat_monto']) ? (int)$r['id_cat_monto'] : null;
 
         $idCobrador     = $r['id_cobrador'] !== null ? (int)$r['id_cobrador'] : 0;
         $cobradorNombre = $cobrId2Nombre[$idCobrador] ?? ($r['cobrador_nombre'] ?? 'SIN COBRADOR');
@@ -269,7 +386,7 @@ try {
                     'id_socio'      => (int)$r['id_socio'],
                     'socio_nombre'  => $r['socio_nombre'],
                     'ingreso'       => $r['ingreso'],
-                    'monto_periodo' => $impPeriodo,
+                    'monto_periodo_actual' => $montoActualCategoria,
                     'factor'        => 0.0,
                     'parcial'       => 0,
                     'razon'         => 'sin meses válidos por ingreso',
@@ -284,17 +401,29 @@ try {
             $mesesPorPeriodo[$p][] = $m;
         }
 
-        $parcialTotalSocio = 0;
-        $mesesParciales    = [];
+        $parcialTotalSocio   = 0;
+        $mesesParciales      = [];
+        $montosPorPeriodo    = [];
+        $fechasReferencia    = [];
 
         foreach ($mesesPorPeriodo as $p => $mesesDelP) {
-            sort($mesesDelP);
-            $asignables = array_slice($mesesDelP, 0, 2);
+            $idPeriodo = (int)$p;
+            $fechaReferencia = fecha_referencia_por_periodo($anio, $idPeriodo);
+            $montoHistorico = precio_mensual_vigente(
+                $idCategoriaMonto,
+                $fechaReferencia,
+                $montoActualCategoria,
+                $historialMensual
+            );
 
-            foreach ($asignables as $m) {
-                $parcialMes = (int)round($impPeriodo / 2);
+            $montosPorPeriodo[$idPeriodo] = $montoHistorico;
+            $fechasReferencia[$idPeriodo] = $fechaReferencia;
+
+            sort($mesesDelP);
+            foreach (array_slice($mesesDelP, 0, 2) as $m) {
+                $parcialMes = importe_del_mes($montoHistorico, (int)$m);
                 $parcialTotalSocio += $parcialMes;
-                $mesesParciales[$m] = ($mesesParciales[$m] ?? 0) + $parcialMes;
+                $mesesParciales[(int)$m] = ($mesesParciales[(int)$m] ?? 0) + $parcialMes;
             }
         }
 
@@ -304,7 +433,7 @@ try {
                     'id_socio'      => (int)$r['id_socio'],
                     'socio_nombre'  => $r['socio_nombre'],
                     'ingreso'       => $r['ingreso'],
-                    'monto_periodo' => $impPeriodo,
+                    'monto_periodo_actual' => $montoActualCategoria,
                     'factor'        => 0.0,
                     'parcial'       => 0,
                     'razon'         => 'factor=0',
@@ -363,9 +492,12 @@ try {
                 'cobrador'        => $cobradorNombre,
                 'estado_socio'    => $estadoSocioNorm,
                 'ingreso'         => $r['ingreso'],
-                'monto_periodo'   => $impPeriodo,
-                'parcial_total'   => $parcialTotalSocio,
-                'meses_parciales' => $mesesParciales,
+                'id_cat_monto'       => $idCategoriaMonto,
+                'monto_actual'       => $montoActualCategoria,
+                'montos_periodo'     => $montosPorPeriodo,
+                'fechas_referencia'  => $fechasReferencia,
+                'parcial_total'      => $parcialTotalSocio,
+                'meses_parciales'    => $mesesParciales,
             ];
         }
     }

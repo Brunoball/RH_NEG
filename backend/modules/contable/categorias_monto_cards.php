@@ -53,7 +53,10 @@ try {
   $targetDate = sprintf('%04d-12-31', $anio);
 
   if ($mes >= 1 && $mes <= 12) {
-    $targetDate = last_day_of_month($anio, $mes);
+    // El monto es bimestral: aun filtrando un solo mes, usar el cierre del
+    // período que lo contiene para coincidir con Cuotas y Detalle de Cobranza.
+    $mesFinPeriodo = ($mes % 2 === 1) ? min($mes + 1, 12) : $mes;
+    $targetDate = last_day_of_month($anio, $mesFinPeriodo);
   } else if ($periodo !== '' && mb_strtolower($periodo, 'UTF-8') !== 'selecciona un periodo') {
     $months = parse_months_from_periodo($periodo);
     if (count($months) > 0) {
@@ -114,7 +117,8 @@ try {
             AND pa2.fecha_cambio > :targetDate
           ORDER BY pa2.fecha_cambio ASC, pa2.id_historial ASC
           LIMIT 1
-        )
+        ),
+        cm.monto_anual
       ) AS monto_anual_vigente
 
     FROM categoria_monto cm

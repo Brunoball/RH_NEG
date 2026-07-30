@@ -261,6 +261,199 @@ function balance_deudores_formatear_monto($valor): float
     return round((float) $valor, 2);
 }
 
+/**
+ * Carga el historial mensual de todas las categorías utilizadas por los socios.
+ * Se hace en una sola consulta para evitar una consulta por socio y período.
+ */
+function balance_deudores_cargar_historial_mensual(PDO $pdo, array $idsCategorias): array
+{
+    $idsCategorias = array_values(array_unique(array_filter(array_map('intval', $idsCategorias))));
+
+    if (empty($idsCategorias)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($idsCategorias), '?'));
+    $sql = "
+        SELECT
+            id_historial,
+            id_cat_monto,
+            precio_viejo,
+            precio_nuevo,
+            fecha_cambio
+        FROM precios_historicos
+        WHERE tipo = 'mensual'
+          AND id_cat_monto IN ($placeholders)
+        ORDER BY id_cat_monto ASC, fecha_cambio ASC, id_historial ASC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+
+    foreach ($idsCategorias as $index => $idCategoria) {
+        $stmt->bindValue($index + 1, $idCategoria, PDO::PARAM_INT);
+    }
+
+    $stmt->execute();
+
+    $historial = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $fila) {
+        $idCategoria = (int) ($fila['id_cat_monto'] ?? 0);
+
+        if ($idCategoria <= 0) {
+            continue;
+        }
+
+        $historial[$idCategoria][] = [
+            'id_historial' => (int) ($fila['id_historial'] ?? 0),
+            'fecha' => (string) ($fila['fecha_cambio'] ?? ''),
+            'precio_viejo' => balance_deudores_formatear_monto($fila['precio_viejo'] ?? 0),
+            'precio_nuevo' => balance_deudores_formatear_monto($fila['precio_nuevo'] ?? 0),
+        ];
+    }
+
+    return $historial;
+}
+
+/**
+ * Resuelve el monto vigente al cierre del período y devuelve trazabilidad.
+ * Aplica exactamente la misma regla histórica usada por Cuotas y Detalle de Cobranza:
+ * - antes del primer cambio, usa precio_viejo del primer registro;
+ * - desde cada cambio, usa precio_nuevo del último cambio vigente;
+ * - sin historial, usa el monto actual como fallback defensivo.
+ */
+function balance_deudores_resolver_monto_mensual_historico(
+    ?int $idCategoria,
+    string $fechaReferencia,
+    $montoActual,
+    array $historialPorCategoria
+): array {
+    $fallback = balance_deudores_formatear_monto($montoActual);
+
+    $resultadoFallback = [
+        'monto' => $fallback,
+        'fuente' => 'CATEGORIA_MONTO_ACTUAL_SIN_HISTORIAL',
+        'id_historial' => null,
+        'fecha_cambio' => null,
+        'precio_viejo' => null,
+        'precio_nuevo' => null,
+    ];
+
+    if (!$idCategoria) {
+        $resultadoFallback['fuente'] = 'CATEGORIA_MONTO_ACTUAL_SIN_CATEGORIA';
+        return $resultadoFallback;
+    }
+
+    $cambios = $historialPorCategoria[$idCategoria] ?? [];
+
+    if (empty($cambios)) {
+        return $resultadoFallback;
+    }
+
+    $primerCambio = $cambios[0];
+
+    if ($fechaReferencia < (string) $primerCambio['fecha']) {
+        return [
+            'monto' => balance_deudores_formatear_monto($primerCambio['precio_viejo'] ?? $fallback),
+            'fuente' => 'PRECIO_VIEJO_ANTES_PRIMER_CAMBIO',
+            'id_historial' => (int) ($primerCambio['id_historial'] ?? 0) ?: null,
+            'fecha_cambio' => $primerCambio['fecha'] ?? null,
+            'precio_viejo' => balance_deudores_formatear_monto($primerCambio['precio_viejo'] ?? 0),
+            'precio_nuevo' => balance_deudores_formatear_monto($primerCambio['precio_nuevo'] ?? 0),
+        ];
+    }
+
+    $cambioVigente = null;
+
+    foreach ($cambios as $cambio) {
+        if ((string) $cambio['fecha'] <= $fechaReferencia) {
+            $cambioVigente = $cambio;
+            continue;
+        }
+
+        break;
+    }
+
+    if ($cambioVigente === null) {
+        return $resultadoFallback;
+    }
+
+    return [
+        'monto' => balance_deudores_formatear_monto($cambioVigente['precio_nuevo'] ?? $fallback),
+        'fuente' => 'PRECIO_NUEVO_ULTIMO_CAMBIO_VIGENTE',
+        'id_historial' => (int) ($cambioVigente['id_historial'] ?? 0) ?: null,
+        'fecha_cambio' => $cambioVigente['fecha'] ?? null,
+        'precio_viejo' => balance_deudores_formatear_monto($cambioVigente['precio_viejo'] ?? 0),
+        'precio_nuevo' => balance_deudores_formatear_monto($cambioVigente['precio_nuevo'] ?? 0),
+    ];
+}
+
+/**
+ * Wrapper numérico mantenido para compatibilidad y pruebas unitarias.
+ */
+function balance_deudores_monto_mensual_historico(
+    ?int $idCategoria,
+    string $fechaReferencia,
+    $montoActual,
+    array $historialPorCategoria
+): float {
+    $resolucion = balance_deudores_resolver_monto_mensual_historico(
+        $idCategoria,
+        $fechaReferencia,
+        $montoActual,
+        $historialPorCategoria
+    );
+
+    return balance_deudores_formatear_monto($resolucion['monto'] ?? 0);
+}
+
+/**
+ * Detecta inconsistencias del historial sin alterar el cálculo.
+ * Sirve para auditar cadenas manualmente modificadas en la base.
+ */
+function balance_deudores_auditar_historial(array $historialPorCategoria): array
+{
+    $advertencias = [];
+
+    foreach ($historialPorCategoria as $idCategoria => $cambios) {
+        $anterior = null;
+
+        foreach ($cambios as $cambio) {
+            $fecha = (string) ($cambio['fecha'] ?? '');
+            $dt = DateTime::createFromFormat('Y-m-d', $fecha);
+
+            if (!$dt || $dt->format('Y-m-d') !== $fecha) {
+                $advertencias[] = [
+                    'codigo' => 'FECHA_HISTORIAL_INVALIDA',
+                    'id_cat_monto' => (int) $idCategoria,
+                    'id_historial' => (int) ($cambio['id_historial'] ?? 0) ?: null,
+                    'fecha_cambio' => $fecha,
+                ];
+            }
+
+            if ($anterior !== null) {
+                $precioAnterior = balance_deudores_formatear_monto($anterior['precio_nuevo'] ?? 0);
+                $precioViejoActual = balance_deudores_formatear_monto($cambio['precio_viejo'] ?? 0);
+
+                if (abs($precioAnterior - $precioViejoActual) > 0.009) {
+                    $advertencias[] = [
+                        'codigo' => 'CADENA_HISTORIAL_INCONSISTENTE',
+                        'id_cat_monto' => (int) $idCategoria,
+                        'id_historial_anterior' => (int) ($anterior['id_historial'] ?? 0) ?: null,
+                        'id_historial_actual' => (int) ($cambio['id_historial'] ?? 0) ?: null,
+                        'precio_nuevo_anterior' => $precioAnterior,
+                        'precio_viejo_actual' => $precioViejoActual,
+                    ];
+                }
+            }
+
+            $anterior = $cambio;
+        }
+    }
+
+    return $advertencias;
+}
+
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         balance_deudores_responder([
@@ -340,8 +533,10 @@ try {
         SOCIOS:
         - s.activo = 1 por defecto para no meter bajas en deudores.
         - id_estado separa ACTIVO / PASIVO.
-        - id_cat_monto se usa para traer el monto exacto desde categoria_monto.
-        - monto_mensual representa el valor del período completo.
+        - id_cat_monto identifica la categoría cuyo historial debe consultarse.
+        - categoria_monto.monto_mensual queda únicamente como fallback si la
+          categoría nunca tuvo registros en precios_historicos.
+        - el monto mensual representa el valor completo del período bimestral.
           Ejemplo: PERÍODO 1 Y 2 = $5000, NO $10000.
     */
     $sqlSocios = "
@@ -350,6 +545,7 @@ try {
             s.nombre,
             s.dni,
             s.ingreso,
+            s.fecha_baja,
             s.activo,
             s.id_estado,
             e.descripcion AS estado_descripcion,
@@ -380,15 +576,44 @@ try {
             ON c.id_cobrador = s.id_cobrador
     ";
 
+    $paramsSocios = [];
+
     if (!$incluirInactivos) {
-        $sqlSocios .= " WHERE s.activo = 1 ";
+        // El balance debe usar el estado del socio a la fecha de cierre, no su
+        // estado actual. Si fue dado de baja después de fecha_hasta, al cierre
+        // todavía estaba activo y debe seguir formando parte de Deudores.
+        $sqlSocios .= "
+            WHERE s.activo = 1
+               OR (
+                    s.activo = 0
+                    AND s.fecha_baja IS NOT NULL
+                    AND s.fecha_baja > :fecha_cierre_balance
+               )
+        ";
+        $paramsSocios[':fecha_cierre_balance'] = $hasta;
     }
 
     $sqlSocios .= " ORDER BY s.nombre ASC, s.id_socio ASC ";
 
     $stmtSocios = $pdo->prepare($sqlSocios);
-    $stmtSocios->execute();
+    $stmtSocios->execute($paramsSocios);
     $socios = $stmtSocios->fetchAll(PDO::FETCH_ASSOC);
+
+    // Historial mensual de las categorías involucradas, cargado una sola vez.
+    $idsCategoriasMonto = [];
+
+    foreach ($socios as $socio) {
+        if (!empty($socio['id_cat_monto'])) {
+            $idsCategoriasMonto[] = (int) $socio['id_cat_monto'];
+        }
+    }
+
+    $historialMensual = balance_deudores_cargar_historial_mensual(
+        $pdo,
+        $idsCategoriasMonto
+    );
+
+    $advertenciasAuditoria = balance_deudores_auditar_historial($historialMensual);
 
     /*
         PAGOS:
@@ -398,6 +623,8 @@ try {
     */
     $pagosDirectos = [];
     $pagosAnuales = [];
+    $clavesPagoVistas = [];
+    $pagosDuplicados = [];
 
     if (!empty($socios) && !empty($aniosBalance)) {
         $placeholdersAnios = implode(',', array_fill(0, count($aniosBalance), '?'));
@@ -413,6 +640,7 @@ try {
                 monto
             FROM pagos
             WHERE estado IN ('pagado', 'condonado')
+              AND fecha_pago <= ?
               AND (
                     anio_aplicado IN ($placeholdersAnios)
                     OR (
@@ -429,7 +657,11 @@ try {
                 id_pago DESC
         ";
 
-        $paramsPagos = array_merge($aniosBalance, $aniosBalance);
+        // El balance es una foto al cierre indicado: los pagos posteriores a
+        // fecha_hasta no pueden modificar retroactivamente la deuda. Se conservan
+        // pagos anteriores a fecha_desde porque pueden ser anticipos válidos de
+        // períodos incluidos en el informe.
+        $paramsPagos = array_merge([$hasta], $aniosBalance, $aniosBalance);
         $stmtPagos = $pdo->prepare($sqlPagos);
         $stmtPagos->execute($paramsPagos);
 
@@ -458,6 +690,23 @@ try {
                 'estado' => $estadoPago,
                 'monto' => balance_deudores_formatear_monto($pago['monto'] ?? 0),
             ];
+
+            $clavePago = $idSocio . '-' . $anioAplicado . '-' . $idPeriodo;
+
+            if (isset($clavesPagoVistas[$clavePago])) {
+                if (!isset($pagosDuplicados[$clavePago])) {
+                    $pagosDuplicados[$clavePago] = [
+                        'id_socio' => $idSocio,
+                        'anio_aplicado' => $anioAplicado,
+                        'id_periodo' => $idPeriodo,
+                        'ids_pago' => [$clavesPagoVistas[$clavePago]],
+                    ];
+                }
+
+                $pagosDuplicados[$clavePago]['ids_pago'][] = (int) $pago['id_pago'];
+            } else {
+                $clavesPagoVistas[$clavePago] = (int) $pago['id_pago'];
+            }
 
             if ($idPeriodo === BALANCE_ID_CONTADO_ANUAL) {
                 if (!isset($pagosAnuales[$idSocio][$anioAplicado])) {
@@ -523,12 +772,21 @@ try {
                 : null;
 
             /*
-                MONTO EXACTO:
-                Se obtiene directo desde categoria_monto.monto_mensual.
-                Ese monto representa el valor completo del período bimestral.
-                NO se multiplica por 2.
+                MONTO HISTÓRICO EXACTO:
+                Se toma el valor vigente al cierre del bimestre analizado,
+                igual que en Cuotas y Detalle de Cobranza. El monto representa
+                el período completo y NO se multiplica por dos.
             */
-            $montoPeriodo = balance_deudores_formatear_monto($socio['monto_mensual'] ?? 0);
+            $montoActualCategoria = balance_deudores_formatear_monto(
+                $socio['monto_mensual'] ?? 0
+            );
+            $resolucionMonto = balance_deudores_resolver_monto_mensual_historico(
+                $idCatMonto,
+                $fechaFinPeriodo,
+                $montoActualCategoria,
+                $historialMensual
+            );
+            $montoPeriodo = balance_deudores_formatear_monto($resolucionMonto['monto'] ?? 0);
             $montoAdeudado = $montoPeriodo;
 
             $domicilio = trim(
@@ -549,6 +807,7 @@ try {
                 'nombre' => $socio['nombre'] ?? '',
                 'dni' => $socio['dni'] ?? null,
                 'ingreso' => $socio['ingreso'] ?? null,
+                'fecha_baja' => $socio['fecha_baja'] ?? null,
                 'activo' => isset($socio['activo']) ? (int) $socio['activo'] : null,
 
                 'id_estado' => isset($socio['id_estado']) ? (int) $socio['id_estado'] : null,
@@ -562,9 +821,17 @@ try {
                 'id_cat_monto' => $idCatMonto,
                 'cat_monto_nombre' => $socio['cat_monto_nombre'] ?? null,
 
-                // Campos correctos nuevos
+                // Monto histórico vigente para este período.
                 'monto_periodo' => $montoPeriodo,
                 'monto_adeudado' => $montoAdeudado,
+                'monto_historico' => $montoPeriodo,
+                'monto_actual_categoria' => $montoActualCategoria,
+                'fecha_referencia_monto' => $fechaFinPeriodo,
+                'monto_fuente' => $resolucionMonto['fuente'] ?? null,
+                'monto_historial_id' => $resolucionMonto['id_historial'] ?? null,
+                'monto_fecha_cambio' => $resolucionMonto['fecha_cambio'] ?? null,
+                'monto_precio_viejo' => $resolucionMonto['precio_viejo'] ?? null,
+                'monto_precio_nuevo' => $resolucionMonto['precio_nuevo'] ?? null,
 
                 // Alias viejos para no romper el frontend si quedó alguna referencia anterior
                 'monto_estimado' => $montoAdeudado,
@@ -575,7 +842,7 @@ try {
                 'telefono_fijo' => $socio['telefono_fijo'] ?? null,
                 'cobrador' => $socio['cobrador'] ?? null,
 
-                'motivo_deuda' => 'Sin pago registrado para el período ni contado anual del año.',
+                'motivo_deuda' => 'Sin pago registrado hasta la fecha de cierre del informe para el período ni contado anual del año.',
             ];
 
             $periodoBalance['deudores'][] = $item;
@@ -621,6 +888,74 @@ try {
         );
     }
 
+    // Controles contables: todas las vistas del mismo balance deben cerrar exactamente.
+    $montoControlItems = balance_deudores_formatear_monto(array_sum(array_map(
+        static fn (array $item): float => balance_deudores_formatear_monto($item['monto_adeudado'] ?? 0),
+        $items
+    )));
+
+    $montoControlPeriodos = balance_deudores_formatear_monto(array_sum(array_map(
+        static fn (array $periodo): float => balance_deudores_formatear_monto($periodo['monto_total_adeudado'] ?? 0),
+        $periodosBalance
+    )));
+
+    $montoControlResumen = balance_deudores_formatear_monto(
+        (float) $resumen['activos']['monto_total_adeudado']
+        + (float) $resumen['pasivos']['monto_total_adeudado']
+        + (float) $resumen['sin_estado']['monto_total_adeudado']
+    );
+
+    $cantidadControlPeriodos = array_sum(array_map(
+        static fn (array $periodo): int => (int) ($periodo['deudores_cantidad'] ?? 0),
+        $periodosBalance
+    ));
+
+    $cantidadControlResumen =
+        (int) $resumen['activos']['cantidad']
+        + (int) $resumen['pasivos']['cantidad']
+        + (int) $resumen['sin_estado']['cantidad'];
+
+    $totalMontoAdeudado = balance_deudores_formatear_monto($totalMontoAdeudado);
+
+    $controlMontosOk =
+        abs($montoControlItems - $montoControlPeriodos) <= 0.009
+        && abs($montoControlItems - $montoControlResumen) <= 0.009
+        && abs($montoControlItems - $totalMontoAdeudado) <= 0.009;
+
+    $controlCantidadesOk =
+        count($items) === $cantidadControlPeriodos
+        && count($items) === $cantidadControlResumen;
+
+    if (!$controlMontosOk || !$controlCantidadesOk) {
+        throw new RuntimeException('El balance no cerró sus controles internos de sumas y cantidades.');
+    }
+
+    $auditoriaCalculo = [
+        'control_ok' => true,
+        'monto_detalle' => $montoControlItems,
+        'monto_periodos' => $montoControlPeriodos,
+        'monto_resumen_estados' => $montoControlResumen,
+        'monto_total_general' => $totalMontoAdeudado,
+        'cantidad_detalle' => count($items),
+        'cantidad_periodos' => $cantidadControlPeriodos,
+        'cantidad_resumen_estados' => $cantidadControlResumen,
+        'pagos_duplicados_detectados' => count($pagosDuplicados),
+        'fecha_corte_pagos' => $hasta,
+        'regla_fecha_pagos' => 'SE CONSIDERAN PAGOS CON fecha_pago MENOR O IGUAL A fecha_hasta. LOS PAGOS POSTERIORES NO REDUCEN RETROACTIVAMENTE LA DEUDA.',
+        'regla_anticipos' => 'LOS PAGOS ANTERIORES A fecha_desde SE CONSERVAN SI CUBREN UN PERÍODO INCLUIDO EN EL BALANCE.',
+        'regla_vigencia_socios' => 'SE USA EL ESTADO DEL SOCIO A fecha_hasta: UNA BAJA POSTERIOR AL CIERRE NO LO EXCLUYE RETROACTIVAMENTE.',
+        'regla_historica' => 'PRECIO VIGENTE AL ÚLTIMO DÍA DEL BIMESTRE',
+    ];
+
+    if (!empty($pagosDuplicados)) {
+        $advertenciasAuditoria[] = [
+            'codigo' => 'PAGOS_DUPLICADOS_MISMO_SOCIO_ANIO_PERIODO',
+            'cantidad_claves' => count($pagosDuplicados),
+            'detalle' => array_values($pagosDuplicados),
+            'impacto_calculo' => 'SIN DOBLE IMPACTO: se toma un único estado de pago por socio, año y período.',
+        ];
+    }
+
     balance_deudores_responder([
         'ok' => true,
         'exito' => true,
@@ -628,7 +963,9 @@ try {
         'desde' => $desde,
         'hasta' => $hasta,
         'incluye_contado_anual' => true,
-        'criterio_monto' => 'El monto adeudado sale de categoria_monto.monto_mensual según socios.id_cat_monto. No se multiplica por cantidad de meses.',
+        'criterio_fecha_pagos' => 'Se consideran pagos registrados hasta la fecha hasta inclusive. Los pagos posteriores quedan fuera; los anticipos anteriores a fecha desde siguen cubriendo el período que corresponda.',
+        'criterio_vigencia_socios' => 'Se incluyen socios activos al cierre del informe. Una baja registrada después de fecha hasta no los excluye retroactivamente.',
+        'criterio_monto' => 'El monto adeudado usa precios_historicos según la fecha de cierre de cada período. categoria_monto.monto_mensual se usa sólo si la categoría no tiene historial. No se multiplica por cantidad de meses.',
         'totales' => [
             'total_deudores' => count($items),
             'periodos_cantidad' => count($periodosBalance),
@@ -637,11 +974,13 @@ try {
             'sin_estado' => (int) $resumen['sin_estado']['cantidad'],
 
             // Campo correcto nuevo
-            'monto_total_adeudado' => balance_deudores_formatear_monto($totalMontoAdeudado),
+            'monto_total_adeudado' => $totalMontoAdeudado,
 
             // Alias viejo para compatibilidad
-            'monto_total_estimado' => balance_deudores_formatear_monto($totalMontoAdeudado),
+            'monto_total_estimado' => $totalMontoAdeudado,
         ],
+        'auditoria_calculo' => $auditoriaCalculo,
+        'advertencias_auditoria' => $advertenciasAuditoria,
         'resumen' => $resumen,
         'periodos' => array_values($periodosBalance),
         'items' => $items,
