@@ -345,7 +345,7 @@ html, body {
 @media (min-width: 921px) {
   .detalle-section .detalle-header,
   .detalle-section .detalle-body .gridtable-row {
-    grid-template-columns: 1.8fr .8fr .8fr .8fr .8fr;
+    grid-template-columns: 2fr .7fr .7fr .7fr 1.2fr;
   }
 }
 .detalle-section .detalle-body{
@@ -360,14 +360,31 @@ html, body {
 @keyframes detalle-row-appear { from { opacity:0; transform: translateY(4px);} to {opacity:1; transform:none;} }
 
 /* ================= CobMesTable (scope) ================= */
-.cobmes-section { width: 100%; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+.cobmes-section {
+  --cobmes-columns: 1.2fr 1fr 1.2fr 1.2fr 1.2fr;
+  width: 100%;
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+.cobmes-section .contable-tablewrap {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
 .cobmes-section .cobmes-header {
   position: sticky; top:0; z-index:3; background:#f1f5f9;
 }
+.cobmes-section .cobmes-header,
+.cobmes-section .cobmes-body .gridtable-row {
+  display: grid;
+  grid-template-columns: var(--cobmes-columns);
+  align-items: center;
+}
 .cobmes-section .cobmes-body{
-  flex: 1 1 auto; min-height: 0;
-  overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;
-  scrollbar-gutter: stable both-edges;
+  flex: 1 0 auto; min-height: 0;
+  overflow: visible; display: flex; flex-direction: column;
 }
 .cobmes-section .cobmes-empty { flex: 1 1 auto; display: grid; place-items: center; padding: 12px; }
 .cobmes-section .gridtable-empty-inner { text-align: center; opacity: 0.85; font-size: 0.95rem; }
@@ -398,15 +415,6 @@ html, body {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-/* Detalle de Cobranza por medio: 4 columnas alineadas */
-.cobmes-header,
-.cobmes-total,
-.cobmestable-row,
-.subrow {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
 }
 
 /* Altura fija de los botones de acción */
