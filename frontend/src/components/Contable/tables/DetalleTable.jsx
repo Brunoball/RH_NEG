@@ -23,9 +23,12 @@ const GridRow = memo(function GridRow({ r, i, nfPesos }) {
   const anioAplicado =
     Number.isFinite(anioAplicadoNum) && anioAplicadoNum > 0 ? String(anioAplicadoNum) : "";
 
-  // ✅ Periodo pago: "PERIODO (nombre) / anio_aplicado"
+  // ✅ Periodo pago compacto: "1/2 / 2026"
   // (para anual pagado en 2025 pero aplicado 2026, va a mostrar 2026)
-  const periodoCell = `${periodoRaw || "-"}${anioAplicado ? ` / ${anioAplicado}` : ""}`;
+  const periodoCompacto = periodoRaw
+    .replace(/^PER[IÍ]ODO\s*/i, "")
+    .replace(/\s+Y\s+/gi, "/");
+  const periodoCell = `${periodoCompacto || "-"}${anioAplicado ? ` / ${anioAplicado}` : ""}`;
 
   return (
     <div

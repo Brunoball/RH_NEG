@@ -313,7 +313,7 @@ html, body {
 
 .resumen-wrap .contable-tablewrap{ border-radius:12px; background:#fff; }
 .resumen-wrap .gridtable-header{ grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1.2fr; }
-.resumen-wrap .gridtable-body .gridtable-row{ grid-template-columns: 1.2fr 1fr 1.2fr 1.2fr 1.2fr; }
+.resumen-wrap .gridtable-body .gridtable-row{ grid-template-columns: 1.2fr .8fr 1.2fr 1.2fr 1.2fr; }
 
 /* =======================
    Responsive layout
@@ -342,6 +342,12 @@ html, body {
 /* ================= DetalleTable (scope) ================= */
 .detalle-section { width: 100%; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
 .detalle-section .detalle-header { position: relative; z-index: 3; }
+@media (min-width: 921px) {
+  .detalle-section .detalle-header,
+  .detalle-section .detalle-body .gridtable-row {
+    grid-template-columns: 1.8fr .8fr .8fr .8fr .8fr;
+  }
+}
 .detalle-section .detalle-body{
   flex: 1 1 auto; min-height:0;
   overflow-y: auto; overflow-x: hidden; display:flex; flex-direction:column;
